@@ -1161,6 +1161,30 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
   </div>
 </div>
 
+<!-- ═══ My Data Export — all roles ═══ -->
+<div id="myExportCard" style="margin:0 0 16px;padding:0 0 4px;">
+  <div class="card" style="border:1.5px solid #e2e8f0;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span style="font-size:18px;">&#x1F4BE;</span>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:#1e293b;">Save &amp; Backup My Data</div>
+        <div style="font-size:12px;color:#64748b;margin-top:1px;">Download your records as CSV or JSON for safekeeping.</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <button onclick="exportCSV('records')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">
+        &#x2B07; Records CSV
+      </button>
+      <button onclick="exportJSON('records')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">
+        &#x2B07; Records JSON
+      </button>
+      <button onclick="exportMyPersonalBackup()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:8px;font-size:12px;font-weight:700;color:#166534;cursor:pointer;">
+        &#x1F4E6; Full Backup (JSON)
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ TL TEAM VIEW ═══════════ -->
 <div class="screen" id="screen-tlteam">
   <div class="page-header">
@@ -1329,6 +1353,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         </button>
       </div>
       <button class="btn btn-gray" onclick="exportCSV('records')">⬇ Export CSV</button>
+<button class="btn btn-gray" onclick="exportJSON('records')" title="Download all records as JSON">⬇ Export JSON</button>
     </div>
   </div>
   <div class="card">
@@ -3172,7 +3197,8 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <input type="text" id="ndModalSearch" placeholder="Search…" oninput="renderNdModalList()" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;width:130px;transition:.15s;" onfocus="this.style.borderColor='#FF7900'" onblur="this.style.borderColor='#e2e8f0'">
-            <button onclick="npsExportSubmittedCSV()" style="padding:5px 12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;color:#374151;display:flex;align-items:center;gap:4px;">
+            <button onclick="npsExportSubmittedJSON()" style="padding:5px 12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;" title="Export as JSON">&#x2B07; JSON</button>
+<button onclick="npsExportSubmittedCSV()" style="padding:5px 12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;color:#374151;display:flex;align-items:center;gap:4px;">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Export
             </button>
@@ -3256,7 +3282,8 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         </button>
         <input type="file" id="npsImportFile" accept=".csv" style="display:none;" onchange="importNpsData(this)">
       </div>
-      <button class="btn btn-outline btn-sm" onclick="exportNpsData()">⬇ Export CSV</button>
+      <button class="btn btn-outline btn-sm" onclick="npsExportRecordsJSON()">&#x2B07; Export JSON</button>
+<button class="btn btn-outline btn-sm" onclick="exportNpsData()">⬇ Export CSV</button>
     </div>
   </div>
 
@@ -14880,7 +14907,71 @@ function printQrCode() {
     <p style="font-size:13px;color:#555;margin-bottom:16px;">Scan the QR code to share your feedback</p>
     <img src="${img.src}" style="width:220px;height:220px;border-radius:12px;" />
     <p style="font-size:9px;color:#999;margin-top:12px;word-break:break-all;">${link}</p>
-    <script>window.onload=()=>window.print();<\/script>
+    <script>window.onload=()=>window.print();
+// ═══════════════════════════════════════════════════
+// SELF-SERVICE EXPORT — available to all roles
+// ═══════════════════════════════════════════════════
+function exportJSON(type){
+  const data = type === 'records' ? getRecords() : getAgents();
+  if(!data.length){ toast('Nothing to export.','info'); return; }
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'QMS_' + type + '_' + today() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Exported ' + data.length + ' ' + type + ' as JSON.', 'success');
+}
+
+function exportMyPersonalBackup(){
+  const user = getCurrentUser();
+  const allRecords = getRecords();
+  const myRecords = (user && user.role === 'viewer')
+    ? allRecords.filter(function(r){ return r.agentId === user.id || r.agentName === (user.displayName || user.username); })
+    : allRecords;
+  const snap = {
+    exportedAt:  new Date().toISOString(),
+    exportedBy:  user ? (user.displayName || user.username) : 'Unknown',
+    role:        user ? user.role : 'unknown',
+    records:     myRecords,
+    agents:      getAgents(),
+    npsData:     DB.get('npsInputData') || [],
+    npsRecords:  DB.get('npsRecords') || []
+  };
+  const blob = new Blob([JSON.stringify(snap, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'QMS_MyBackup_' + today() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Backup downloaded — ' + myRecords.length + ' records included.', 'success');
+}
+
+function npsExportSubmittedJSON(){
+  const all = DB.get('npsInputData') || [];
+  if(!all.length){ toast('No NPS data to export.','error'); return; }
+  const blob = new Blob([JSON.stringify(all, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nps_data_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Exported ' + all.length + ' NPS entries as JSON.', 'success');
+}
+
+function npsExportRecordsJSON(){
+  const all = DB.get('npsRecords') || [];
+  if(!all.length){ toast('No NPS records to export.','error'); return; }
+  const blob = new Blob([JSON.stringify(all, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nps_records_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Exported ' + all.length + ' NPS records as JSON.', 'success');
+}
+
+<\/script>
   </body></html>`);
   win.document.close();
 }
