@@ -1957,6 +1957,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     <button class="settings-tab" data-stab="user-monitoring" onclick="switchSettingsTab('user-monitoring',this)" id="userMonitoringTab" style="display:none;">👁 User Monitoring</button>
     <button class="settings-tab" data-stab="change-history" onclick="switchSettingsTab('change-history',this)" id="changeHistoryTab" style="display:none;">📜 Change History</button>
 <button class="settings-tab" data-stab="integrations" onclick="switchSettingsTab('integrations',this)" id="integrationsTab" style="display:none;">🔌 Integrations</button>
+<button class="settings-tab" data-stab="db-health" onclick="switchSettingsTab('db-health',this)" id="dbHealthTab" style="display:none;">🗄️ DB Health</button>
   </div>
 
   <!-- TAB: QA Settings -->
@@ -2429,6 +2430,42 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 <div id="stab-integrations" class="stab-panel" style="display:none;">
   <div id="integrationHubPanel"></div>
 </div><!-- /stab-integrations -->
+
+<div id="stab-db-health" class="stab-panel" style="display:none;">
+  <div class="card" style="border:1.5px solid #e2e8f0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <div>
+        <div style="font-weight:700;font-size:15px;color:#1e293b;">🗄️ Database Health &amp; Reconciliation</div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px;">Compares Netlify DB vs Supabase bucket-by-bucket. Neither database can directly query the other — this endpoint brokers the check.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="dbHealthCheck(false)" id="dbHealthCheckBtn" style="padding:7px 16px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🔍 Check Now</button>
+        <button onclick="dbHealthCheck(true)"  id="dbHealthFixBtn"   style="padding:7px 16px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1.5px solid #f59e0b;border-radius:8px;font-size:12px;font-weight:700;color:#92400e;cursor:pointer;">🔧 Check &amp; Fix Drift</button>
+      </div>
+    </div>
+    <!-- Summary KPI strip -->
+    <div id="dbHealthKpis" style="display:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px;"></div>
+    <!-- Status message -->
+    <div id="dbHealthMsg" style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Click <strong>Check Now</strong> to compare both databases.</div>
+    <!-- Bucket table -->
+    <div id="dbHealthTable" style="display:none;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+            <th style="padding:8px 12px;text-align:left;font-weight:700;color:#475569;">Bucket</th>
+            <th style="padding:8px 12px;text-align:center;font-weight:700;color:#475569;">Status</th>
+            <th style="padding:8px 12px;text-align:center;font-weight:700;color:#2563eb;">Netlify Rows</th>
+            <th style="padding:8px 12px;text-align:center;font-weight:700;color:#7c3aed;">Supabase Rows</th>
+            <th style="padding:8px 12px;text-align:center;font-weight:700;color:#475569;">Netlify Updated</th>
+            <th style="padding:8px 12px;text-align:center;font-weight:700;color:#475569;">Supabase Updated</th>
+          </tr>
+        </thead>
+        <tbody id="dbHealthBody"></tbody>
+      </table>
+    </div>
+    <div id="dbHealthFooter" style="display:none;margin-top:10px;font-size:11px;color:#94a3b8;text-align:right;"></div>
+  </div>
+</div><!-- /stab-db-health -->
 
 </div><!-- /screen-settings -->
 
@@ -19241,6 +19278,7 @@ function switchSettingsTab(tab, btn){
   if(tab==='user-monitoring') renderUserMonitoring();
   if(tab==='change-history'){ _chPage=1; renderChangeHistory(); }
   if(tab==='integrations') renderIntegrationHub('qms');
+  if(tab==='db-health') dbHealthCheck(false);
 }
 
 // ══════════════════════════════════════════════
@@ -22026,6 +22064,8 @@ function initDangerZoneVisibility(){
   var nitTab=document.getElementById('npsStab_integrations');
   if(itTab) itTab.style.display=show?'':'none';
   if(nitTab) nitTab.style.display=show?'':'none';
+  var dhTab=document.getElementById('dbHealthTab');
+  if(dhTab) dhTab.style.display=show?'':'none';
 }
 
 
@@ -22462,6 +22502,105 @@ async function ilFireTest(ctx){
 function ilClearLog(ctx){
   DB.set('integrationLog',[]); toast('Log cleared.','success'); renderIntegrationHub(ctx);
 }
+
+
+// ═══════════════════════════════════════════════════
+// DB HEALTH — Netlify DB vs Supabase reconciliation
+// ═══════════════════════════════════════════════════
+function dbHealthCheck(autoFix){
+  var checkBtn = document.getElementById('dbHealthCheckBtn');
+  var fixBtn   = document.getElementById('dbHealthFixBtn');
+  var msg      = document.getElementById('dbHealthMsg');
+  var kpis     = document.getElementById('dbHealthKpis');
+  var table    = document.getElementById('dbHealthTable');
+  var footer   = document.getElementById('dbHealthFooter');
+  if(checkBtn) checkBtn.disabled = true;
+  if(fixBtn)   fixBtn.disabled   = true;
+  if(msg)  { msg.style.display='block'; msg.innerHTML='<span style="color:#f59e0b;">⏳ Querying both databases…</span>'; }
+  if(kpis)   kpis.style.display='none';
+  if(table)  table.style.display='none';
+  if(footer) footer.style.display='none';
+
+  var method = autoFix ? 'POST' : 'GET';
+  fetch('/api/reconcile',{method:method,headers:{'Cache-Control':'no-cache'}})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(checkBtn) checkBtn.disabled=false;
+      if(fixBtn)   fixBtn.disabled=false;
+      if(!d.ok){
+        if(msg) msg.innerHTML='<span style="color:#ef4444;">⚠️ '+_he(d.error||'Error')+'</span>'
+          + (d.hint ? '<br><small style="color:#94a3b8;">'+_he(d.hint)+'</small>' : '');
+        return;
+      }
+      _renderDbHealthKpis(d);
+      _renderDbHealthTable(d);
+      if(msg) msg.style.display='none';
+      if(kpis)  kpis.style.display='grid';
+      if(table) table.style.display='block';
+      if(footer){ footer.style.display='block'; footer.textContent='Last checked: '+new Date(d.checkedAt).toLocaleString()+(d.autoFixed?' — drift auto-fixed':''); }
+    })
+    .catch(function(e){
+      if(checkBtn) checkBtn.disabled=false;
+      if(fixBtn)   fixBtn.disabled=false;
+      if(msg) msg.innerHTML='<span style="color:#ef4444;">❌ Could not reach /api/reconcile. Is the Netlify deployment live?</span>';
+    });
+}
+
+function _renderDbHealthKpis(d){
+  var s = d.summary;
+  var healthy = s.healthy;
+  var kpis = [
+    {label:'Total Buckets', val:s.totalBuckets, color:'#1e293b'},
+    {label:'In Sync',       val:s.inSync,       color:'#16a34a'},
+    {label:'Drifted',       val:s.drifted,      color: s.drifted>0?'#dc2626':'#16a34a'},
+    {label:'Netlify Only',  val:s.netlifyOnly,  color: s.netlifyOnly>0?'#d97706':'#16a34a'},
+    {label:'Supabase Only', val:s.supabaseOnly, color: s.supabaseOnly>0?'#d97706':'#16a34a'},
+    {label:'Netlify Rows',  val:s.netlifyTotalRows,  color:'#2563eb'},
+    {label:'Supabase Rows', val:s.supabaseTotalRows, color:'#7c3aed'},
+  ];
+  var el = document.getElementById('dbHealthKpis');
+  if(!el) return;
+  el.innerHTML = kpis.map(function(k){
+    return '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;text-align:center;">'
+      +'<div style="font-size:20px;font-weight:800;color:'+k.color+';">'+k.val+'</div>'
+      +'<div style="font-size:11px;color:#64748b;margin-top:2px;">'+k.label+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function _renderDbHealthTable(d){
+  var statusStyle = {
+    in_sync:       {bg:'#f0fdf4',color:'#16a34a',label:'✅ In Sync'},
+    drifted:       {bg:'#fff7ed',color:'#ea580c',label:'⚠️ Drifted'},
+    netlify_only:  {bg:'#eff6ff',color:'#2563eb',label:'🔵 Netlify Only'},
+    supabase_only: {bg:'#faf5ff',color:'#7c3aed',label:'🟣 Supabase Only'},
+  };
+  var tbody = document.getElementById('dbHealthBody');
+  if(!tbody) return;
+  var rows = d.buckets||[];
+  if(!rows.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8;">No buckets found.</td></tr>'; return; }
+  tbody.innerHTML = rows.map(function(r,i){
+    var ss = statusStyle[r.status]||{bg:'#f8fafc',color:'#64748b',label:r.status};
+    var bg = i%2===0?'#fff':'#fafafa';
+    var nRows = r.netlify  ? (r.netlify.rows  !== null ? r.netlify.rows  : '—') : '—';
+    var sRows = r.supabase ? (r.supabase.rows !== null ? r.supabase.rows : '—') : '—';
+    var nTs   = r.netlify  && r.netlify.updatedAt  ? new Date(r.netlify.updatedAt).toLocaleString()  : '—';
+    var sTs   = r.supabase && r.supabase.updatedAt ? new Date(r.supabase.updatedAt).toLocaleString() : '—';
+    var fixedBadge = r.fixed === true  ? ' <span style="background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;">FIXED</span>'
+                   : r.fixed === false ? ' <span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;">FIX FAILED</span>'
+                   : '';
+    return '<tr style="background:'+bg+';border-bottom:1px solid #f1f5f9;">'
+      +'<td style="padding:8px 12px;font-weight:600;color:#334155;">'+_he(r.bucket)+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;"><span style="background:'+ss.bg+';color:'+ss.color+';padding:3px 8px;border-radius:8px;font-size:11px;font-weight:700;white-space:nowrap;">'+ss.label+'</span>'+fixedBadge+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;color:#2563eb;font-weight:700;">'+nRows+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;color:#7c3aed;font-weight:700;">'+sRows+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;color:#64748b;font-size:11px;">'+nTs+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;color:#64748b;font-size:11px;">'+sTs+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function _he(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 </script>
 
