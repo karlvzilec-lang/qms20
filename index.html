@@ -368,13 +368,6 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .form-group{display:flex;flex-direction:column;gap:5px;}
 .form-group.full{grid-column:1/-1;}
 .form-group.half{grid-column:span 1;}
-.agent-search-results{position:absolute;top:100%;left:0;right:0;z-index:50;background:#fff;border:1.5px solid var(--primary);border-radius:9px;margin-top:4px;max-height:240px;overflow-y:auto;box-shadow:var(--shadow-md);}
-.agent-search-item{padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;}
-.agent-search-item:last-child{border-bottom:none;}
-.agent-search-item:hover,.agent-search-item.active{background:var(--primary-light);}
-.agent-search-item .asr-name{font-weight:600;color:#1e293b;}
-.agent-search-item .asr-meta{font-size:11px;color:var(--gray);white-space:nowrap;}
-.agent-search-empty{padding:12px 14px;font-size:13px;color:var(--gray);text-align:center;}
 label{font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;}
 .req{color:#dc2626;}
 input,select,textarea{padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:var(--radius-sm);font-size:13px;font-family:inherit;transition:border-color var(--transition),box-shadow var(--transition);background:#fff;width:100%;color:#0f172a;}
@@ -1223,14 +1216,11 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
           </div>
         </div>
         <div class="form-grid">
-          <div class="form-group" style="position:relative;">
+          <div class="form-group">
             <label>Agent Name <span class="req">*</span></label>
-            <input type="text" id="evalAgentSearch" placeholder="Type agent name or staff ID…" autocomplete="off"
-                   oninput="filterAgentSearch()" onfocus="filterAgentSearch()" onblur="setTimeout(()=>{hideAgentSearchResults();syncEvalAgentSearchLabel();},150)">
-            <select id="evalAgent" onchange="onAgentSelect()" style="display:none;">
+            <select id="evalAgent" onchange="onAgentSelect()">
               <option value="">— Select Agent —</option>
             </select>
-            <div id="evalAgentResults" class="agent-search-results" style="display:none;"></div>
           </div>
           <div class="form-group">
             <label>Evaluator Name <span class="req">*</span></label>
@@ -1270,13 +1260,6 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
             <select id="evalCampaign">
               <option value="">— Select Campaign —</option>
             </select>
-          </div>
-          <div class="form-group" style="position:relative;">
-            <label>Product</label>
-            <input type="text" id="evalProductSearch" placeholder="Type to search product…" autocomplete="off"
-                   oninput="filterProductSearch()" onfocus="filterProductSearch()" onblur="setTimeout(()=>{hideProductSearchResults();syncEvalProductSearchLabel();},150)">
-            <input type="hidden" id="evalProduct">
-            <div id="evalProductResults" class="agent-search-results" style="display:none;"></div>
           </div>
           <div class="form-group full" id="evalReasonForCallingGroup">
             <label>Reason for Calling <span style="font-size:10px;font-weight:600;color:#FF7900;background:#fff3e0;padding:1px 7px;border-radius:10px;margin-left:6px;">Inbound Only</span></label>
@@ -1399,7 +1382,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         <div style="font-size:28px;">📄</div>
         <div style="flex:1;">
           <div style="font-weight:700;font-size:14px;color:var(--primary);">Batch Upload via CSV</div>
-          <div style="font-size:13px;color:#555;margin-top:2px;">Download the template, fill it in, then upload. Required columns: <strong>Name, StaffID, Team, Supervisor, Campaign, Status, Email</strong> (optional: <strong>DateHired</strong>)</div>
+          <div style="font-size:13px;color:#555;margin-top:2px;">Download the template, fill it in, then upload. Required columns: <strong>Name, StaffID, Team, Supervisor, Campaign, Status, Email</strong></div>
         </div>
         <button class="btn btn-outline btn-sm" onclick="downloadRosterTemplate()">⬇ Download Template</button>
       </div>
@@ -2018,16 +2001,6 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <div class="form-group" style="max-width:500px;">
         <label>Campaigns (one per line)</label>
         <textarea id="settingCampaigns" style="min-height:160px;font-size:13px;" placeholder="FTTH Chat&#10;FTTH Hotline&#10;AO 5G Chat&#10;..."></textarea>
-      </div>
-    </div>
-
-    <!-- PRODUCT LIST -->
-    <div class="settings-section">
-      <h3>📦 Product List</h3>
-      <p style="font-size:13px;color:var(--gray);margin-bottom:14px;">Define available Product options shown in the evaluation form. One per line.</p>
-      <div class="form-group" style="max-width:500px;">
-        <label>Products (one per line)</label>
-        <textarea id="settingProducts" style="min-height:120px;font-size:13px;" placeholder="AO Mobile 5G&#10;TTR&#10;Serey&#10;..."></textarea>
       </div>
     </div>
   </div><!-- /card -->
@@ -4333,11 +4306,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         </div>
         <div class="form-group">
           <label>Date Hired</label>
-          <input type="date" id="agentHired" oninput="updateAgentTenureDisplay()">
-        </div>
-        <div class="form-group">
-          <label>Tenure (Auto)</label>
-          <input type="text" id="agentTenureDisplay" readonly placeholder="—" style="background:#f8fafc;color:var(--gray);cursor:default;">
+          <input type="date" id="agentHired">
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -4366,7 +4335,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFile').click()" ondragover="e=>e.preventDefault()" ondrop="handleDrop(event)">
         <div class="drop-zone-icon">📂</div>
         <p><strong>Click to browse</strong> or drag &amp; drop your CSV file here</p>
-        <p style="font-size:12px;margin-top:6px;color:#aaa;">Required columns: Name, StaffID, Team, Supervisor, Campaign, Status, Email (optional: DateHired)</p>
+        <p style="font-size:12px;margin-top:6px;color:#aaa;">Required columns: Name, StaffID, Team, Supervisor, Campaign, Status, Email</p>
         <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleCSVFile(this)">
       </div>
       <div id="csvPreview" style="margin-top:14px;"></div>
@@ -4835,211 +4804,11 @@ const DEFAULT_FORM = [
 ];
 
 // ═══════════════════════════════════════════════════
-// DATA STORE  (localStorage = instant local cache, Netlify Database = shared online copy)
+// DATA STORE
 // ═══════════════════════════════════════════════════
-// All shared data lives in a fully-managed Netlify (Postgres) database, reached
-// through the /api/data serverless function. Each "bucket" is one JSON document.
-// Local edits are pushed within ~1s and other users' changes are pulled on a
-// short interval, so everyone sees the same live data.
-const DATA_API = '/api/data';
-
-// Queue of buckets that changed locally and need pushing to the database
-let _dbSyncQueue = new Set();
-let _dbSyncTimer = null;
-let _dbPullTimer = null;
-let _dbRetryTimer = null;
-let _dbOnline = navigator.onLine;
-let _dbHasRenderedOnce = false;
-
-// High-churn collections stored as arrays of {id} rows that many people edit at
-// the same time. These sync as row-level deltas (merge) instead of whole-array
-// replaces, so two users saving at once can't overwrite each other's rows.
-const MERGE_BUCKETS = new Set(['records','npsInputData','npsRecords','npsResponses']);
-// Last server-confirmed copy of each merge bucket, used to compute deltas.
-const _dbSnapshots = {};
-
-function _rowId(r){ return r && r.id != null ? String(r.id) : null; }
-
-// Compute the {upserts, deletes} delta between a merge bucket's current array
-// and the last server-confirmed snapshot. Returns null if any row lacks an id
-// (those can't be merged safely) so the caller can fall back to a full replace.
-function _dbComputeDelta(bucket, current){
-  const arr = Array.isArray(current) ? current : [];
-  const base = Array.isArray(_dbSnapshots[bucket]) ? _dbSnapshots[bucket] : [];
-  const baseById = new Map();
-  for(const r of base){ const id=_rowId(r); if(id!=null) baseById.set(id, JSON.stringify(r)); }
-  const upserts = [];
-  const seen = new Set();
-  for(const r of arr){
-    const id = _rowId(r);
-    if(id==null) return null; // legacy row without id -> use full-document replace
-    seen.add(id);
-    const prev = baseById.get(id);
-    if(prev === undefined || prev !== JSON.stringify(r)) upserts.push(r);
-  }
-  const deletes = [];
-  baseById.forEach((_v,id)=>{ if(!seen.has(id)) deletes.push(id); });
-  return { upserts, deletes };
-}
-
-function _dbScheduleSync(){
-  if(_dbSyncTimer) return;
-  _dbSyncTimer = setTimeout(_dbFlushSync, 800); // small delay so rapid edits batch together
-}
-
-async function _dbFlushSync(){
-  _dbSyncTimer = null;
-  const keys = [..._dbSyncQueue];
-  _dbSyncQueue.clear();
-  let pushed = false;
-  await Promise.all(keys.map(async k=>{
-    try{
-      const value = JSON.parse(localStorage.getItem('qms2_'+k)||'null');
-      let resp;
-      if(MERGE_BUCKETS.has(k) && Array.isArray(value)){
-        // Row-level delta sync: only changed/removed rows go to the server, so
-        // a concurrent save by another user can't wipe out our rows (or theirs).
-        const delta = _dbComputeDelta(k, value);
-        if(delta){
-          if(delta.upserts.length===0 && delta.deletes.length===0){
-            _dbSnapshots[k] = value; // already in sync; nothing to send
-            _dbOnline = true;
-            return;
-          }
-          resp = await fetch(DATA_API, {
-            method:'POST',
-            headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({ bucket:k, op:'merge', upserts:delta.upserts, deletes:delta.deletes })
-          });
-          if(resp.ok) _dbSnapshots[k] = value; // this copy is now confirmed
-        } else {
-          // Legacy rows without ids -> fall back to whole-document replace.
-          resp = await fetch(DATA_API, {
-            method:'POST',
-            headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({ bucket:k, data:value })
-          });
-        }
-      } else {
-        resp = await fetch(DATA_API, {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ bucket:k, data:value })
-        });
-      }
-      if(!resp.ok){ console.error('DB sync push failed for', k, resp.status, await resp.text()); _dbSyncQueue.add(k); }
-      else { _dbOnline = true; pushed = true; }
-    }catch(e){
-      console.error('DB sync push error', k, e);
-      _dbSyncQueue.add(k); // retry later
-      _dbOnline = false;
-    }
-  }));
-  // Pull straight after a successful push so the local view reflects the
-  // freshly-saved server state (and any concurrent changes) right away.
-  if(pushed){ _dbPullAll(); }
-}
-
-// Pull all buckets from the database and overwrite local cache (skips buckets with pending unsynced local changes)
-async function _dbPullAll(){
-  try{
-    const resp = await fetch(DATA_API, { headers:{ 'Accept':'application/json' } });
-    if(!resp.ok){ _dbOnline=false; return; }
-    const rows = await resp.json();
-    _dbOnline = true;
-    let changed = false;
-    rows.forEach(row=>{
-      if(_dbSyncQueue.has(row.bucket)) return; // don't clobber unsaved local edits
-      if(row.data === null || row.data === undefined) return; // don't wipe local data with empty remote
-      // Server is authoritative for merge buckets: refresh the delta baseline so
-      // the next local save sends a minimal, correct delta.
-      if(MERGE_BUCKETS.has(row.bucket) && Array.isArray(row.data)){
-        _dbSnapshots[row.bucket] = row.data;
-      }
-      const localStr = localStorage.getItem('qms2_'+row.bucket);
-      const remoteStr = JSON.stringify(row.data);
-      if(localStr !== remoteStr){
-        localStorage.setItem('qms2_'+row.bucket, remoteStr);
-        changed = true;
-      }
-    });
-    if(changed && typeof window._onDbRemoteUpdate === 'function'){
-      window._onDbRemoteUpdate();
-    }
-    if(changed && _dbHasRenderedOnce && typeof toast === 'function'){
-      toast('New data available from other users. Refresh to see updates.', 'info');
-    }
-    _dbHasRenderedOnce = true;
-  }catch(e){
-    _dbOnline = false;
-    console.error('DB pull error', e);
-  }
-}
-
-// On first load, push any local buckets that don't exist on the server yet
-// (so existing local data from before the shared-database upgrade gets shared)
-async function _dbSeedPush(){
-  try{
-    const resp = await fetch(DATA_API, { headers:{ 'Accept':'application/json' } });
-    if(!resp.ok) return;
-    const remoteRows = await resp.json();
-    const remoteBuckets = new Set(remoteRows.map(r=>r.bucket));
-    // Seed the delta baseline from whatever the server already has, so the first
-    // local edit to a merge bucket computes against server truth (not an empty base).
-    remoteRows.forEach(r=>{ if(MERGE_BUCKETS.has(r.bucket) && Array.isArray(r.data)) _dbSnapshots[r.bucket]=r.data; });
-    for(let i=0;i<localStorage.length;i++){
-      const lsKey = localStorage.key(i);
-      if(!lsKey || !lsKey.startsWith('qms2_')) continue;
-      if(lsKey === 'qms2_claudeKey') continue; // never sync API keys
-      const bucket = lsKey.slice('qms2_'.length);
-      if(!remoteBuckets.has(bucket)){
-        _dbSyncQueue.add(bucket);
-      }
-    }
-    if(_dbSyncQueue.size) _dbFlushSync();
-  }catch(e){ console.error('DB seed push error', e); }
-}
-
-if(typeof window!=='undefined'){
-  window.addEventListener('online', ()=>{ _dbOnline=true; _dbFlushSync(); _dbPullAll(); });
-  window.addEventListener('offline', ()=>{ _dbOnline=false; });
-  // Background retry: re-send anything still queued (e.g. after a failed push)
-  // even if the user makes no further edits.
-  _dbRetryTimer = setInterval(()=>{ if(_dbSyncQueue.size && !_dbSyncTimer) _dbFlushSync(); }, 15000);
-  // Last-ditch flush when the tab is hidden/closed so queued writes aren't lost.
-  // sendBeacon survives page unload where fetch would be cancelled.
-  const _dbBeaconFlush = ()=>{
-    if(!_dbSyncQueue.size || !navigator.sendBeacon) return;
-    for(const k of _dbSyncQueue){
-      try{
-        const value = JSON.parse(localStorage.getItem('qms2_'+k)||'null');
-        let payload;
-        if(MERGE_BUCKETS.has(k) && Array.isArray(value)){
-          const delta = _dbComputeDelta(k, value);
-          payload = delta
-            ? { bucket:k, op:'merge', upserts:delta.upserts, deletes:delta.deletes }
-            : { bucket:k, data:value };
-          if(payload.op==='merge' && !payload.upserts.length && !payload.deletes.length) continue;
-        } else {
-          payload = { bucket:k, data:value };
-        }
-        navigator.sendBeacon(DATA_API, new Blob([JSON.stringify(payload)], { type:'application/json' }));
-      }catch(e){ /* best-effort on unload */ }
-    }
-  };
-  window.addEventListener('pagehide', _dbBeaconFlush);
-  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') _dbBeaconFlush(); });
-}
-
 const DB = {
   get: k => { try { return JSON.parse(localStorage.getItem('qms2_'+k)||'null'); } catch(e){ console.error('DB.get error',k,e); return null; } },
-  set: (k,v) => {
-    try {
-      localStorage.setItem('qms2_'+k, JSON.stringify(v));
-      _dbSyncQueue.add(k);
-      _dbScheduleSync();
-    } catch(e){ console.error('DB.set error',k,e); toast('Storage quota exceeded. Some data could not be saved.','error'); }
-  },
+  set: (k,v) => { try { localStorage.setItem('qms2_'+k, JSON.stringify(v)); } catch(e){ console.error('DB.set error',k,e); toast('Storage quota exceeded. Some data could not be saved.','error'); } },
 };
 
 // ── HTML escaper (prevents XSS in innerHTML injections) ──────────────────────
@@ -7013,92 +6782,6 @@ function populateAgentDropdown(){
   const cur=sel.value;
   sel.innerHTML='<option value="">— Select Agent —</option>'+
     getAgents().filter(a=>a.status==='Active').map(a=>`<option value="${esc(a.id)}" ${cur===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
-  syncEvalAgentSearchLabel();
-}
-
-// Reflect the hidden select's current value into the visible search box
-function syncEvalAgentSearchLabel(){
-  const sel=document.getElementById('evalAgent');
-  const searchEl=document.getElementById('evalAgentSearch');
-  if(!sel || !searchEl) return;
-  const agent=getAgents().find(a=>a.id===sel.value);
-  searchEl.value = agent ? agent.name : '';
-}
-
-// Show matching agents as the user types
-function filterAgentSearch(){
-  const q=(document.getElementById('evalAgentSearch').value||'').trim().toLowerCase();
-  const results=document.getElementById('evalAgentResults');
-  const agents=getAgents().filter(a=>a.status==='Active');
-  const matches = q
-    ? agents.filter(a=>(a.name||'').toLowerCase().includes(q) || (a.staffId||'').toLowerCase().includes(q))
-    : agents;
-  if(!matches.length){
-    results.innerHTML='<div class="agent-search-empty">No agents found</div>';
-  } else {
-    results.innerHTML = matches.slice(0,50).map(a=>
-      `<div class="agent-search-item" data-agent-id="${esc(a.id)}" onmousedown="selectAgentFromSearch(this.dataset.agentId)">
-        <span class="asr-name">${esc(a.name)}</span>
-        <span class="asr-meta">${esc(a.staffId||'')}${a.team?' · '+esc(a.team):''}</span>
-      </div>`
-    ).join('');
-  }
-  results.style.display='block';
-}
-
-function hideAgentSearchResults(){
-  const results=document.getElementById('evalAgentResults');
-  if(results) results.style.display='none';
-}
-
-// User picked an agent from the dropdown
-function selectAgentFromSearch(agentId){
-  const sel=document.getElementById('evalAgent');
-  sel.value=agentId;
-  syncEvalAgentSearchLabel();
-  hideAgentSearchResults();
-  const searchEl=document.getElementById('evalAgentSearch');
-  if(searchEl){ searchEl.style.borderColor=''; searchEl.style.boxShadow=''; }
-  onAgentSelect();
-}
-
-// ── Product search (eval form) ──
-function filterProductSearch(){
-  const q=(document.getElementById('evalProductSearch').value||'').trim().toLowerCase();
-  const results=document.getElementById('evalProductResults');
-  const products=getProducts();
-  const matches = q
-    ? products.filter(p=>p.toLowerCase().includes(q))
-    : products;
-  if(!matches.length){
-    results.innerHTML='<div class="agent-search-empty">No products found</div>';
-  } else {
-    results.innerHTML = matches.slice(0,50).map(p=>
-      `<div class="agent-search-item" data-product="${esc(p)}" onmousedown="selectProductFromSearch(this.dataset.product)">
-        <span class="asr-name">${esc(p)}</span>
-      </div>`
-    ).join('');
-  }
-  results.style.display='block';
-}
-
-function hideProductSearchResults(){
-  const results=document.getElementById('evalProductResults');
-  if(results) results.style.display='none';
-}
-
-function selectProductFromSearch(product){
-  document.getElementById('evalProduct').value=product;
-  document.getElementById('evalProductSearch').value=product;
-  hideProductSearchResults();
-}
-
-// Reconcile visible search text with the hidden selected value (discards unmatched typed text)
-function syncEvalProductSearchLabel(){
-  const hidden=document.getElementById('evalProduct');
-  const searchEl=document.getElementById('evalProductSearch');
-  if(!hidden || !searchEl) return;
-  searchEl.value = hidden.value || '';
 }
 
 // Launch evaluation screen with a specific agent pre-selected
@@ -7110,7 +6793,6 @@ function startEvaluateAgent(agentId){
     const sel = document.getElementById('evalAgent');
     if(sel){
       sel.value = agentId;
-      syncEvalAgentSearchLabel();
       onAgentSelect();
     }
     // Auto-fill Evaluator Name from session (always overwrite — locked field)
@@ -7140,8 +6822,6 @@ function evalToggleReasonField(){
 function clearEvalForm(){
   buildEvalForm();
   document.getElementById('evalAgent').value='';
-  const agSearchEl=document.getElementById('evalAgentSearch'); if(agSearchEl) agSearchEl.value='';
-  hideAgentSearchResults();
   // Re-auto-fill evaluator name from session on clear
   const _cu = getCurrentUser();
   document.getElementById('evalQAO').value = _cu ? (_cu.displayName||_cu.username) : '';
@@ -7152,9 +6832,6 @@ function clearEvalForm(){
   const mobEl=document.getElementById('evalMobile'); if(mobEl) mobEl.value='';
   document.getElementById('evalCallType').value='Inbound';
   document.getElementById('evalCampaign').value='';
-  const prodEl=document.getElementById('evalProduct'); if(prodEl) prodEl.value='';
-  const prodSearchEl=document.getElementById('evalProductSearch'); if(prodSearchEl) prodSearchEl.value='';
-  hideProductSearchResults();
   const rfcEl=document.getElementById('evalReasonForCalling'); if(rfcEl) rfcEl.value='';
   evalToggleReasonField();
   document.getElementById('evalRemarks').value='';
@@ -7173,7 +6850,7 @@ function submitEval(){
     }
     toast(msg,'error');
   };
-  if(!agentId){ _markErr('evalAgentSearch','Please select an agent.'); return; }
+  if(!agentId){ _markErr('evalAgent','Please select an agent.'); return; }
   if(!qao){ _markErr('evalQAO','Evaluator name is missing — please log in again.'); return; }
   if(!date){ _markErr('evalDate','Please select an evaluation date.'); return; }
   const campaign = document.getElementById('evalCampaign')?.value;
@@ -7252,7 +6929,6 @@ function _doSubmitEval(){
     reasonForCalling: document.getElementById('evalCallType').value==='Inbound' ? (document.getElementById('evalReasonForCalling')?.value?.trim()||'') : '',
     callType: document.getElementById('evalCallType').value,
     campaign: document.getElementById('evalCampaign').value,
-    product: document.getElementById('evalProduct')?.value?.trim()||'',
     remarks: document.getElementById('evalRemarks').value,
     answers: {...evalAnswers},
     comments: {...evalComments},
@@ -8400,11 +8076,6 @@ function dihClearLog(){
 // ═══════════════════════════════════════════════════
 // ROSTER
 // ═══════════════════════════════════════════════════
-function updateAgentTenureDisplay(){
-  const hired=document.getElementById('agentHired').value;
-  document.getElementById('agentTenureDisplay').value = hired ? formatTenure(hired) : '';
-}
-
 function openAgentModal(id){
   document.getElementById('agentDeleteBtn').style.display='none';
   document.getElementById('agentId').value='';
@@ -8426,7 +8097,6 @@ function openAgentModal(id){
     document.getElementById('agentModalTitle').textContent='Edit Agent';
     document.getElementById('agentDeleteBtn').style.display='inline-flex';
   }
-  updateAgentTenureDisplay();
   openModal('agentModal');
 }
 
@@ -8674,7 +8344,6 @@ function renderRoster(){
         <div class="agent-name">${esc(a.name)}</div>
         <div class="agent-meta">${esc(a.staffId)} · ${esc(a.team)||'No Team'}</div>
         ${a.campaign?`<div style="font-size:11px;color:var(--gray);">${esc(a.campaign)}</div>`:''}
-        ${a.hired?`<div style="font-size:11px;color:var(--gray);">📅 Tenure: ${formatTenure(a.hired)}</div>`:''}
         ${avg?`<div style="font-size:11px;font-weight:700;color:${+avg>=80?'var(--success)':+avg>=60?'var(--warning)':'var(--danger)'};margin-top:3px;">Avg: ${avg}% (${agRecs.length} eval${agRecs.length!==1?'s':''})</div>`:'<div style="font-size:11px;color:var(--gray);margin-top:3px;">No evaluations yet</div>'}
       </div>
       <span class="badge badge-${a.status==='Active'?'active':'inactive'}">${esc(a.status)}</span>
@@ -8692,7 +8361,7 @@ function populateTeamFilter(){
 // ── CSV Upload ──
 let csvParsed=[];
 function downloadRosterTemplate(){
-  const csv='Name,StaffID,Team,Supervisor,Campaign,Status,Email,DateHired\nMs. Sample Agent,CC-001,FTTH Team A,Mr. Supervisor,FTTH,Active,agent@cellcard.com.kh,2024-01-15';
+  const csv='Name,StaffID,Team,Supervisor,Campaign,Status,Email\nMs. Sample Agent,CC-001,FTTH Team A,Mr. Supervisor,FTTH,Active,agent@cellcard.com.kh';
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='Agent_Roster_Template.csv';a.click();
 }
 function handleDrop(e){ e.preventDefault(); e.stopPropagation(); const f=e.dataTransfer.files[0]; if(f) readCSV(f); }
@@ -8706,7 +8375,7 @@ function readCSV(file){
       const vals=l.split(',').map(v=>v.trim().replace(/"/g,''));
       const obj={};
       headers.forEach((h,i)=>obj[h.toLowerCase()]=vals[i]||'');
-      return { name:obj.name||'', staffId:obj.staffid||obj['staff id']||'', team:obj.team||'', supervisor:obj.supervisor||'', campaign:obj.campaign||'', status:obj.status||'Active', email:obj.email||'', hired:obj.datehired||obj['date hired']||obj.hired||'' };
+      return { name:obj.name||'', staffId:obj.staffid||obj['staff id']||'', team:obj.team||'', supervisor:obj.supervisor||'', campaign:obj.campaign||'', status:obj.status||'Active', email:obj.email||'' };
     }).filter(a=>a.name);
     const preview=`<div style="font-weight:700;color:var(--success);margin-bottom:8px;">✅ ${csvParsed.length} agents ready to import</div>
     <div class="table-wrap" style="max-height:200px;overflow-y:auto;"><table>
@@ -9615,18 +9284,6 @@ function getTenureMonths(hiredDate){
   return Math.floor((new Date()-new Date(hiredDate))/(1000*60*60*24*30.44));
 }
 const TENURE_ORDER=['0–3 Months','3–6 Months','6–12 Months','1–2 Years','2–3 Years','3+ Years','Unknown'];
-
-// Human-readable tenure string e.g. "2 yrs 3 mo" / "5 mo" / "—"
-function formatTenure(hiredDate){
-  if(!hiredDate) return '—';
-  const months = getTenureMonths(hiredDate);
-  if(months===null || months<0) return '—';
-  const yrs = Math.floor(months/12);
-  const mo  = months%12;
-  if(yrs===0) return `${mo} mo`;
-  if(mo===0)  return `${yrs} yr${yrs!==1?'s':''}`;
-  return `${yrs} yr${yrs!==1?'s':''} ${mo} mo`;
-}
 
 function renderTenureReport(){
   const data=getFilteredRecords();
@@ -10673,8 +10330,6 @@ function saveSettings(){
   };
   const taCamp = document.getElementById('settingCampaigns');
   if(taCamp){ const lines=taCamp.value.split('\n').map(l=>l.trim()).filter(Boolean); settings.campaigns=lines; }
-  const taProd = document.getElementById('settingProducts');
-  if(taProd){ const lines=taProd.value.split('\n').map(l=>l.trim()).filter(Boolean); settings.products=lines; }
   DB.set('settings', settings);
   populateCampaignDropdown();
   logChange('settings','Saved',`Updated system settings (scoring: ${globalScoringMode})`,'QMS');
@@ -19835,8 +19490,6 @@ renderSettings = function(){
   // Populate campaigns textarea
   const taCamp = document.getElementById('settingCampaigns');
   if(taCamp){ const s=getSettings(); taCamp.value=(s.campaigns||DEFAULT_CAMPAIGNS).join('\n'); }
-  const taProd = document.getElementById('settingProducts');
-  if(taProd){ const s=getSettings(); taProd.value=(s.products||DEFAULT_PRODUCTS).join('\n'); }
 };
 
 // ── Patch delete buttons with admin-only class ───
@@ -20365,10 +20018,6 @@ function _pse_showError(title, msg){
 function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 async function init(){
-  // ── Pull latest shared data from the database before rendering anything ──────
-  try{ await _dbSeedPush(); await _dbPullAll(); }catch(e){ console.error('Initial DB sync error', e); }
-  if(!_dbPullTimer) _dbPullTimer = setInterval(_dbPullAll, 5000);
-
   // ── Public survey respondent mode ──────────────────────────────
   const _urlParams = new URLSearchParams(window.location.search);
   const _publicSurveyId = _urlParams.get('survey');
@@ -20462,13 +20111,6 @@ function getCampaigns(){
   const s = getSettings();
   if(s.campaigns && s.campaigns.length) return s.campaigns;
   return DEFAULT_CAMPAIGNS;
-}
-
-const DEFAULT_PRODUCTS = ['AO Mobile 5G','TTR','Serey'];
-function getProducts(){
-  const s = getSettings();
-  if(s.products && s.products.length) return s.products;
-  return DEFAULT_PRODUCTS;
 }
 
 function isManager(){ return ['manager','superadmin'].includes(currentRole()); }
