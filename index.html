@@ -4833,10 +4833,163 @@ const DEFAULT_FORM = [
 // ═══════════════════════════════════════════════════
 // DATA STORE
 // ═══════════════════════════════════════════════════
+// ─── DB: localStorage + real-time sync to /api/data (Netlify DB + Supabase) ───
+// Keys in LOCAL_ONLY are never sent to the API (credentials, preferences).
+const _DB_LOCAL_ONLY = new Set([
+  'claudeKey','notifRead','integrationConfig','integrationLog',
+  'userSessions','passwordResets'
+]);
+
 const DB = {
-  get: k => { try { return JSON.parse(localStorage.getItem('qms2_'+k)||'null'); } catch(e){ console.error('DB.get error',k,e); return null; } },
-  set: (k,v) => { try { localStorage.setItem('qms2_'+k, JSON.stringify(v)); } catch(e){ console.error('DB.set error',k,e); toast('Storage quota exceeded. Some data could not be saved.','error'); } },
+  get: function(k){
+    try{ return JSON.parse(localStorage.getItem('qms2_'+k)||'null'); }
+    catch(e){ console.error('DB.get error',k,e); return null; }
+  },
+  set: function(k,v){
+    try{ localStorage.setItem('qms2_'+k, JSON.stringify(v)); }
+    catch(e){ console.error('DB.set error',k,e); toast('Storage quota exceeded. Some data could not be saved.','error'); }
+    if(!_DB_LOCAL_ONLY.has(k)) _DbSync.schedule(k);
+  }
 };
+
+// ─── _DbSync: debounced push + periodic pull from /api/data ─────────────────
+const _DbSync = (function(){
+  var API      = '/api/data';
+  var POLL_MS  = 30000;   // pull remote changes every 30s
+  var DEB_MS   = 800;     // batch rapid DB.set calls before pushing
+  var _queue   = [];
+  var _timer   = null;
+  var _busy    = false;
+
+  function _dot(){ return document.getElementById('_dbSyncDot'); }
+
+  function _status(s){
+    var el = _dot(); if(!el) return;
+    var c = {syncing:'#f59e0b', ok:'#22c55e', error:'#ef4444', offline:'#94a3b8'};
+    var t = {syncing:'Syncing to cloud…', ok:'Synced ✓', error:'Sync error — retrying', offline:'Offline (local only)'};
+    el.style.background = c[s]||'#94a3b8';
+    el.title = t[s]||'';
+  }
+
+  function schedule(k){
+    if(_queue.indexOf(k) === -1) _queue.push(k);
+    clearTimeout(_timer);
+    _timer = setTimeout(_flush, DEB_MS);
+  }
+
+  function _flush(){
+    var buckets = _queue.slice(); _queue = [];
+    if(!buckets.length) return;
+    _status('syncing');
+    var sends = buckets.map(function(k){
+      var v = DB.get(k);
+      return fetch(API,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({bucket:k, data:v})
+      }).then(function(r){ if(!r.ok) throw r.status; });
+    });
+    Promise.allSettled(sends).then(function(results){
+      var anyFail = results.some(function(r){ return r.status==='rejected'; });
+      _status(anyFail ? 'error' : 'ok');
+    });
+  }
+
+  function pull(){
+    if(_busy) return;
+    _busy = true;
+    fetch(API,{headers:{'Cache-Control':'no-cache'}})
+      .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(rows){
+        var changed = false;
+        rows.forEach(function(row){
+          if(!row.bucket || _DB_LOCAL_ONLY.has(row.bucket)) return;
+          var remote = JSON.stringify(row.data);
+          var local  = localStorage.getItem('qms2_'+row.bucket);
+          if(remote !== local && row.data !== null){
+            localStorage.setItem('qms2_'+row.bucket, remote);
+            changed = true;
+          }
+        });
+        _status('ok');
+        if(changed) _rerender();
+      })
+      .catch(function(){ _status('offline'); })
+      .finally(function(){ _busy = false; });
+  }
+
+  function _rerender(){
+    try{
+      var a = document.querySelector('.screen.active');
+      if(a){
+        var id = a.id;
+        if(id==='screen-dashboard') renderDashboard && renderDashboard();
+        else if(id==='screen-records') renderRecords && renderRecords();
+        else if(id==='screen-roster') renderRoster && renderRoster();
+        else if(id==='screen-reports') renderReports && renderReports();
+      }
+      var na = document.querySelector('.nps-screen.active');
+      if(na){
+        var nid = na.id;
+        if(nid==='nps-screen-exec') renderNpsExecDashboard && renderNpsExecDashboard();
+        else if(nid==='nps-screen-records') renderNpsRecords && renderNpsRecords();
+      }
+    }catch(e){}
+  }
+
+  // Buckets to eagerly push on first boot so remote is always up-to-date
+  var SYNC_BUCKETS = [
+    'records','agents','users','settings','forms','disputes','coachings',
+    'roster','surveys','campaigns','editRequests','accessRequests',
+    'npsInputData','npsRecords','npsUsers','npsSurveys','npsSettings',
+    'npsRoleMatrix','rolePerms','changeLog','tlAgents','tlCoaching'
+  ];
+
+  function boot(){
+    // Inject sync indicator dot into the user bar
+    var bar = document.getElementById('userBar');
+    if(bar && !document.getElementById('_dbSyncDot')){
+      var dot = document.createElement('span');
+      dot.id = '_dbSyncDot';
+      dot.style.cssText = [
+        'width:8px','height:8px','border-radius:50%','background:#94a3b8',
+        'display:inline-block','margin-left:8px','flex-shrink:0',
+        'transition:background .4s','cursor:help','align-self:center'
+      ].join(';');
+      dot.title = 'Database sync status';
+      bar.appendChild(dot);
+    }
+    // Pull remote first, then push any local data that remote doesn't have yet
+    fetch(API,{headers:{'Cache-Control':'no-cache'}})
+      .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(rows){
+        // Hydrate from remote
+        var remoteBuckets = new Set();
+        rows.forEach(function(row){
+          if(!row.bucket || _DB_LOCAL_ONLY.has(row.bucket)) return;
+          remoteBuckets.add(row.bucket);
+          var remote = JSON.stringify(row.data);
+          var local  = localStorage.getItem('qms2_'+row.bucket);
+          if(remote !== local && row.data !== null){
+            localStorage.setItem('qms2_'+row.bucket, remote);
+          }
+        });
+        // Push any local buckets that remote doesn't have yet
+        SYNC_BUCKETS.forEach(function(k){
+          if(!remoteBuckets.has(k)){
+            var local = localStorage.getItem('qms2_'+k);
+            if(local && local !== 'null') schedule(k);
+          }
+        });
+        _status('ok');
+      })
+      .catch(function(){ _status('offline'); });
+    // Continuous poll
+    setInterval(pull, POLL_MS);
+  }
+
+  return { schedule:schedule, pull:pull, boot:boot, flush:_flush };
+})();
 
 // ── HTML escaper (prevents XSS in innerHTML injections) ──────────────────────
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
@@ -20437,6 +20590,8 @@ const _origApplyRoleUI = applyRoleUI;
 applyRoleUI = function(){
   _origApplyRoleUI();
   const user = getCurrentUser(); if(!user) return;
+  // Boot the real-time DB sync after every login / role re-apply
+  try{ _DbSync.boot(); }catch(_e){}
   if(user.role==='tl'){
     const roleEl = document.getElementById('userBarRole');
     roleEl.textContent = '👥 Team Lead';
