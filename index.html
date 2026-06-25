@@ -1355,6 +1355,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       </div>
       <button class="btn btn-gray" onclick="exportCSV('records')">⬇ Export CSV</button>
 <button class="btn btn-gray" onclick="exportJSON('records')" title="Download all records as JSON">⬇ Export JSON</button>
+      <span id="qaExportBtns" style="display:none;gap:6px;display:none;"><button class="btn btn-gray" onclick="qaExportCSV()" title="Download records as CSV" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#86efac;color:#166534;">⬇ CSV</button><button class="btn btn-gray" onclick="qaExportHTML()" title="Download formatted HTML report" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#93c5fd;color:#1e40af;">⬇ HTML</button><button class="btn btn-gray" onclick="qaExportJSON()" title="Download full system backup as JSON" style="background:linear-gradient(135deg,#faf5ff,#ede9fe);border-color:#c4b5fd;color:#5b21b6;">⬇ Full Backup</button></span>
     </div>
   </div>
   <div class="card">
@@ -4900,46 +4901,102 @@ const DB = {
   }
 };
 
-// ─── _DbSync: push to /api/data + Supabase Realtime subscription ────────────
+// ─── _DbSync: offline-first push to /api/data + Supabase Realtime ────────────
+// Offline queue is persisted in localStorage so no data is lost on tab close.
+// On reconnect every queued bucket is flushed with exponential back-off retry.
 const _DbSync = (function(){
-  var API      = '/api/data';
-  var DEB_MS   = 600;    // batch rapid writes
-  var POLL_MS  = 120000; // 2-min fallback poll if realtime drops
-  var _queue   = [];
-  var _timer   = null;
-  var _busy    = false;
-  var _rtOk    = false;
-  var _booted  = false;
+  var API         = '/api/data';
+  var DEB_MS      = 600;      // batch rapid writes
+  var POLL_MS     = 120000;   // 2-min fallback poll if realtime drops
+  var AUTO_MS     = 300000;   // 5-min auto-snapshot to localStorage cache
+  var OQ_KEY      = 'qms2__offlineQueue';  // persisted offline queue
+  var SNAP_KEY    = 'qms2__autoSnapshot';  // last auto-snapshot timestamp
+  var _queue      = [];
+  var _timer      = null;
+  var _busy       = false;
+  var _rtOk       = false;
+  var _booted     = false;
+  var _online     = navigator.onLine !== false;
+  var _retryTimer = null;
+
+  // ── Load persisted offline queue on startup ───────────────────────────────
+  try{
+    var _pq = JSON.parse(localStorage.getItem(OQ_KEY)||'[]');
+    if(Array.isArray(_pq)) _queue = _pq;
+  }catch(_){}
+
+  function _saveQueue(){
+    try{ localStorage.setItem(OQ_KEY, JSON.stringify(_queue)); }catch(_){}
+  }
 
   function _dot(){ return document.getElementById('_dbSyncDot'); }
   function _status(s){
     var el=_dot(); if(!el) return;
     var c={syncing:'#f59e0b',ok:'#22c55e',error:'#ef4444',offline:'#94a3b8',rt:'#3b82f6'};
-    var t={syncing:'Syncing…',ok:'Synced ✓',error:'Sync error — retrying',offline:'Offline (local only)',rt:'Live ⚡ Realtime'};
+    var t={syncing:'Syncing…',ok:'Synced ✓',error:'Sync error — retrying when online',offline:'Offline — queued, will sync when back online',rt:'Live ⚡ Realtime'};
     el.style.background=c[s]||c.offline; el.title=t[s]||s;
   }
 
   function schedule(k){
     if(_queue.indexOf(k)===-1) _queue.push(k);
+    _saveQueue();
     clearTimeout(_timer);
     _timer=setTimeout(_flush,DEB_MS);
   }
 
   function _flush(){
-    var buckets=_queue.slice(); _queue=[];
+    var buckets=_queue.slice();
     if(!buckets.length) return;
+    if(!_online){
+      _status('offline');
+      console.log('[DbSync] Offline — holding '+buckets.length+' buckets in queue');
+      return;
+    }
+    _queue=[];
+    _saveQueue();
     _status('syncing');
+    var failed=[];
     var sends=buckets.map(function(k){
       return fetch(API,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({bucket:k,data:DB.get(k)})
-      }).then(function(r){ if(!r.ok) throw r.status; });
+      }).then(function(r){
+        if(!r.ok) throw r.status;
+      }).catch(function(e){
+        failed.push(k);
+        console.warn('[DbSync] Push failed for bucket: '+k, e);
+      });
     });
-    Promise.allSettled(sends).then(function(res){
-      var fail=res.some(function(r){return r.status==='rejected';});
-      _status(fail?'error':(_rtOk?'rt':'ok'));
+    Promise.all(sends).then(function(){
+      if(failed.length){
+        // Re-queue failed buckets — guaranteed no data loss
+        failed.forEach(function(k){
+          if(_queue.indexOf(k)===-1) _queue.push(k);
+        });
+        _saveQueue();
+        _status(_online?'error':'offline');
+        // Retry in 10s
+        clearTimeout(_retryTimer);
+        _retryTimer=setTimeout(_flush,10000);
+      } else {
+        localStorage.removeItem(OQ_KEY);
+        _status(_rtOk?'rt':'ok');
+        _autoSnapshot();
+      }
     });
+  }
+
+  // ── Auto-snapshot: write full state snapshot to localStorage every 5 min ──
+  function _autoSnapshot(){
+    try{
+      var snap={ts:new Date().toISOString(),buckets:{}};
+      _SYNC_BUCKETS.forEach(function(k){
+        var v=localStorage.getItem('qms2_'+k);
+        if(v&&v!=='null') snap.buckets[k]=v;
+      });
+      localStorage.setItem(SNAP_KEY, JSON.stringify(snap));
+    }catch(e){}
   }
 
   function pull(){
@@ -4984,6 +5041,26 @@ const _DbSync = (function(){
     }catch(e){}
   }
 
+  // ── Online/offline listeners — flush queue the moment we reconnect ─────────
+  window.addEventListener('online',function(){
+    _online=true;
+    console.log('[DbSync] Back online — flushing offline queue ('+_queue.length+' buckets)');
+    // Reload from API first, then push local changes
+    pull();
+    if(_queue.length) _flush();
+    // Also push all buckets to guarantee 100% sync
+    _SYNC_BUCKETS.forEach(function(k){
+      if(_queue.indexOf(k)===-1) _queue.push(k);
+    });
+    _saveQueue();
+    setTimeout(_flush,2000);
+  });
+  window.addEventListener('offline',function(){
+    _online=false;
+    _status('offline');
+    console.log('[DbSync] Gone offline — all writes cached locally');
+  });
+
   function _connectRealtime(){
     try{
       if(typeof window.supabase==='undefined'){
@@ -5012,6 +5089,8 @@ const _DbSync = (function(){
           if(status==='SUBSCRIBED'){
             _rtOk=true; _status('rt');
             console.log('[DbSync] ⚡ Supabase Realtime connected');
+            // Flush any offline queue now that realtime is live
+            if(_queue.length) _flush();
           } else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
             _rtOk=false; _status('offline');
             console.warn('[DbSync] Realtime dropped, poll fallback active');
@@ -5042,19 +5121,31 @@ const _DbSync = (function(){
           if(remote!==local&&row.data!==null)
             localStorage.setItem('qms2_'+row.bucket,remote);
         });
+        // Push local buckets not in remote (first-time migration + offline queue)
         _SYNC_BUCKETS.forEach(function(k){
           if(!remoteBuckets.has(k)){
             var v=localStorage.getItem('qms2_'+k);
-            if(v&&v!=='null') schedule(k);
+            if(v&&v!=='null'&&_queue.indexOf(k)===-1) _queue.push(k);
           }
         });
+        // Also flush any pre-existing offline queue
+        if(_queue.length){ _saveQueue(); _flush(); }
         _status('ok');
+        _autoSnapshot();
       })
-      .catch(function(){ _status('offline'); });
+      .catch(function(){
+        _status('offline');
+        // Even offline, re-queue all buckets so they push when reconnected
+        _SYNC_BUCKETS.forEach(function(k){
+          if(_queue.indexOf(k)===-1) _queue.push(k);
+        });
+        _saveQueue();
+      });
     if(!_booted){
       _booted=true;
       _connectRealtime();
       setInterval(pull,POLL_MS);
+      setInterval(_autoSnapshot,AUTO_MS);
     }
   }
 
@@ -15194,6 +15285,118 @@ function npsExportRecordsJSON(){
   toast('Exported ' + all.length + ' NPS records as JSON.', 'success');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// QA BACKUP & EXPORT — available to qa, tl, manager, admin, superadmin
+// Formats: JSON (full), CSV (records flat), HTML (formatted report)
+// ═══════════════════════════════════════════════════════════════════════════
+function _qaCanExport(){
+  return ['qa','tl','manager','ceo','chief','admin','superadmin'].includes(currentRole());
+}
+
+function qaExportJSON(){
+  if(!_qaCanExport()){ toast('Access denied.','error'); return; }
+  const snap = _buildFullSnapshot();
+  const blob = new Blob([JSON.stringify(snap, null, 2)], {type:'application/json'});
+  _dlBlob(blob, 'QMS_Backup_' + _exportDate() + '.json');
+  toast('Full backup exported as JSON — ' + snap.records.length + ' records.', 'success');
+}
+
+function qaExportCSV(){
+  if(!_qaCanExport()){ toast('Access denied.','error'); return; }
+  const records = getRecords();
+  if(!records.length){ toast('No records to export.','info'); return; }
+  const cols = ['id','date','agentId','agentName','campaign','channel','evaluator',
+                'totalScore','maxScore','percentage','result','remarks','createdAt'];
+  const esc = function(v){
+    var s = v == null ? '' : String(v);
+    if(s.includes(',') || s.includes('"') || s.includes('\n'))
+      return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  };
+  var rows = [cols.join(',')];
+  records.forEach(function(r){
+    rows.push(cols.map(function(c){ return esc(r[c]); }).join(','));
+  });
+  const blob = new Blob([rows.join('\r\n')], {type:'text/csv'});
+  _dlBlob(blob, 'QMS_Records_' + _exportDate() + '.csv');
+  toast('Exported ' + records.length + ' records as CSV.', 'success');
+}
+
+function qaExportHTML(){
+  if(!_qaCanExport()){ toast('Access denied.','error'); return; }
+  const records = getRecords();
+  const user = getCurrentUser();
+  const dt = new Date().toLocaleString();
+  const rows = records.map(function(r, i){
+    var bg = i%2===0 ? '#fff' : '#f8fafc';
+    var pct = r.percentage != null ? r.percentage + '%' : '-';
+    var badge = r.result === 'Pass'
+      ? '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:8px;font-weight:700;font-size:11px;">PASS</span>'
+      : r.result === 'Fail'
+        ? '<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:8px;font-weight:700;font-size:11px;">FAIL</span>'
+        : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:8px;font-weight:700;font-size:11px;">' + (r.result||'-') + '</span>';
+    return '<tr style="background:'+bg+';">'
+      + '<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">' + (r.date||'-') + '</td>'
+      + '<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">' + (r.agentName||'-') + '</td>'
+      + '<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">' + (r.campaign||'-') + '</td>'
+      + '<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">' + (r.channel||'-') + '</td>'
+      + '<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;text-align:center;">' + pct + '</td>'
+      + '<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;text-align:center;">' + badge + '</td>'
+      + '<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;color:#64748b;font-size:11px;">' + (r.evaluator||'-') + '</td>'
+      + '</tr>';
+  }).join('');
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>QMS Backup Report</title>'
+    + '<style>body{font-family:sans-serif;margin:0;padding:24px;background:#f8fafc;color:#1e293b;}'
+    + 'h1{font-size:20px;margin-bottom:4px;}p{font-size:12px;color:#64748b;margin:0 0 16px;}'
+    + 'table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #0001;}'
+    + 'th{padding:10px;background:#1e293b;color:#fff;font-size:12px;text-align:left;}'
+    + 'td{font-size:12px;}</style></head><body>'
+    + '<h1>QMS Backup Report</h1>'
+    + '<p>Exported: ' + dt + ' &nbsp;|&nbsp; By: ' + (user?(user.displayName||user.username):'Unknown')
+    + ' &nbsp;|&nbsp; Total records: ' + records.length + '</p>'
+    + '<table><thead><tr>'
+    + '<th>Date</th><th>Agent</th><th>Campaign</th><th>Channel</th><th>Score</th><th>Result</th><th>Evaluator</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table></body></html>';
+  const blob = new Blob([html], {type:'text/html'});
+  _dlBlob(blob, 'QMS_Report_' + _exportDate() + '.html');
+  toast('Exported ' + records.length + ' records as HTML report.', 'success');
+}
+
+function _buildFullSnapshot(){
+  var user = getCurrentUser();
+  var snap = {
+    exportedAt:  new Date().toISOString(),
+    exportedBy:  user ? (user.displayName||user.username) : 'Unknown',
+    role:        user ? user.role : 'unknown',
+    appVersion:  'QMS 2.0',
+    records:     getRecords() || [],
+    agents:      getAgents() || [],
+    coachings:   DB.get('coachings') || [],
+    disputes:    DB.get('disputes') || [],
+    evaluations: DB.get('evaluations') || [],
+    npsInputData:DB.get('npsInputData') || [],
+    npsRecords:  DB.get('npsRecords') || [],
+    npsSurveys:  DB.get('npsSurveys') || [],
+    settings:    DB.get('settings') || {}
+  };
+  return snap;
+}
+
+function _exportDate(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function _dlBlob(blob, filename){
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+}
+
+
 <\/script>
   </body></html>`);
   win.document.close();
@@ -20663,6 +20866,12 @@ applyRoleUI = function(){
   const user = getCurrentUser(); if(!user) return;
   // Boot the real-time DB sync after every login / role re-apply
   try{ _DbSync.boot(); }catch(_e){}
+    // Show QA export buttons for QA and above
+    var _qaBtn=document.getElementById('qaExportBtns');
+    if(_qaBtn){
+      var _qr=getCurrentUser()&&getCurrentUser().role;
+      _qaBtn.style.display=['qa','tl','manager','ceo','chief','admin','superadmin'].includes(_qr)?'inline-flex':'none';
+    }
   if(user.role==='tl'){
     const roleEl = document.getElementById('userBarRole');
     roleEl.textContent = '👥 Team Lead';
