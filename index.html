@@ -1375,8 +1375,8 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>#</th><th>Agent</th><th>QA Officer</th><th>Date</th>
-          <th>Ref No.</th><th>Score</th><th>Result</th><th>Actions</th>
+          <th style="width:36px">#</th><th>Agent</th><th>QA Officer</th><th style="width:88px">Date</th>
+          <th style="width:160px;max-width:160px">Ref No.</th><th style="width:72px">Score</th><th style="width:80px">Result</th><th style="width:110px">Actions</th>
         </tr></thead>
         <tbody id="recordsBody"></tbody>
       </table>
@@ -4558,25 +4558,31 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 
 <!-- QA Edit Request Modal -->
 <div class="modal-overlay" id="editRequestModal">
-  <div class="modal" style="max-width:520px;">
+  <div class="modal" style="max-width:640px;">
     <div class="modal-header" style="background:var(--info);">
       <h3>✏️ Request Score/Detail Edit</h3>
       <button class="modal-close" onclick="closeModal('editRequestModal')">✕</button>
     </div>
-    <div class="modal-body">
-      <p style="font-size:13px;color:#555;margin-bottom:16px;">Changes to submitted evaluations require Admin approval. Submit your edit request below.</p>
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1e40af;">
+        ℹ️ Edit requests are sent to Admin for approval before any score is changed. Your current answers are pre-filled — adjust what needs correcting.
+      </div>
       <input type="hidden" id="editReqRecordId">
       <div class="form-group" style="margin-bottom:12px;">
-        <label>What needs to be changed? <span class="req">*</span></label>
-        <textarea id="editReqReason" placeholder="Describe what needs to be changed and why..." style="min-height:80px;"></textarea>
+        <label>Reason for Edit <span class="req">*</span></label>
+        <textarea id="editReqReason" placeholder="Describe what needs to be changed and why..." style="min-height:60px;"></textarea>
       </div>
-      <div class="form-group" style="margin-bottom:12px;">
-        <label>Proposed New Score (if score change)</label>
-        <input type="number" id="editReqScore" min="0" max="100" placeholder="Leave blank if only details changing">
+      <!-- Per-item answer editor — populated by openEditRequest() -->
+      <div id="editReqItemsWrap" style="display:none;margin-bottom:12px;">
+        <label style="font-weight:700;font-size:13px;display:block;margin-bottom:8px;">Proposed Answer Changes</label>
+        <div id="editReqItemsBody"></div>
       </div>
       <div class="form-group">
-        <label>New Remarks (optional)</label>
-        <textarea id="editReqRemarks" placeholder="Updated remarks..." style="min-height:60px;"></textarea>
+        <label>Updated Remarks (optional)</label>
+        <textarea id="editReqRemarks" placeholder="Updated remarks..." style="min-height:50px;"></textarea>
+      </div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;">
+        <strong>Proposed Score Preview: </strong><span id="editReqScorePreview" style="font-weight:800;color:var(--primary);">—</span>
       </div>
     </div>
     <div class="modal-footer">
@@ -7441,9 +7447,9 @@ function renderRecords(){
     <td><strong>${esc(r.agentName)}</strong>${r.agentTeam?`<br><small style="color:var(--gray)">${esc(r.agentTeam)}</small>`:''}</td>
     <td>${esc(r.qaOfficer)}</td>
     <td>${fmtDate(r.evalDate)}</td>
-    <td>${esc(r.refNo)||'—'}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.refNo)||''}">${r.refNo&&r.refNo.startsWith('http')?`<a href="${esc(r.refNo)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;font-size:12px;" title="${esc(r.refNo)}">${esc(r.refNo.length>22?r.refNo.slice(0,22)+'…':r.refNo)}</a>`:esc(r.refNo)||'—'}</td>
     <td style="font-weight:800;color:${r.finalScore>=80?'var(--success)':r.finalScore>=60?'var(--warning)':'var(--danger)'}">${r.finalScore.toFixed(1)}%</td>
-    <td>${resultBadge(r.result)}</td>
+    <td>${resultBadge(r.result)}${r.editApproved?'<span title="Score edited by QA, approved by Admin" style="margin-left:4px;background:#fef9c3;color:#92400e;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:700;vertical-align:middle;">EDITED</span>":''}</td>
     <td style="white-space:nowrap">
       <button class="btn btn-sm btn-outline" onclick="viewRecord('${r.id}')" style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View</button>
       ${isAdmin()?`<button class="btn btn-sm btn-danger" style="margin-left:4px;display:inline-flex;align-items:center;gap:4px;" onclick="confirmDelete('records','${r.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>`:''}
@@ -21815,23 +21821,98 @@ let _currentViewRecordId = null;
 
 function openEditRequest(){
   if(!_currentViewRecordId) return;
+  const rec = getRecords().find(r=>r.id===_currentViewRecordId);
+  if(!rec){ toast('Record not found.','error'); return; }
+  const form = getForm();
   document.getElementById('editReqRecordId').value = _currentViewRecordId;
   document.getElementById('editReqReason').value='';
-  document.getElementById('editReqScore').value='';
-  document.getElementById('editReqRemarks').value='';
+  document.getElementById('editReqRemarks').value = rec.remarks||'';
+
+  // Build per-item answer editor
+  const wrap = document.getElementById('editReqItemsWrap');
+  const body = document.getElementById('editReqItemsBody');
+  if(wrap && body && form && form.length){
+    let html='';
+    form.forEach(function(sec){
+      html += '<div style="margin-bottom:10px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">'
+        + '<div style="background:#f1f5f9;padding:7px 12px;font-weight:700;font-size:12px;color:#334155;">'+sec.title+'</div>';
+      sec.items.forEach(function(item){
+        const cur = (rec.answers&&rec.answers[item.id])||'';
+        html += '<div style="padding:8px 12px;border-top:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;">'
+          + '<div style="flex:1;font-size:12px;color:#334155;"><strong>'+item.id+'</strong> — '+item.title
+          + ' <span style="color:#94a3b8;font-size:11px;">('+item.points+'pt'+(item.autoFail?' ⚡AF':'')+')</span></div>'
+          + '<select class="edit-req-ans" data-item="'+item.id+'" data-pts="'+item.points+'" data-af="'+(item.autoFail?1:0)+'" onchange="_erRecalc()" '
+          + 'style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff;">'
+          + '<option value="Y"'+(cur==='Y'?' selected':'')+'>YES</option>'
+          + '<option value="N"'+(cur==='N'?' selected':'')+'>NO</option>'
+          + '<option value="NA"'+(cur==='NA'?' selected':'')+'>N/A</option>'
+          + '</select></div>';
+      });
+      html += '</div>';
+    });
+    body.innerHTML = html;
+    wrap.style.display = '';
+    _erRecalc();
+  }
   openModal('editRequestModal');
+}
+
+function _erRecalc(){
+  // Recalculate proposed score from current select values
+  const form = getForm(); if(!form) return;
+  const selects = document.querySelectorAll('.edit-req-ans');
+  let earned=0, possible=0, autoFail=false;
+  selects.forEach(function(sel){
+    const pts = +sel.getAttribute('data-pts')||0;
+    const af  = sel.getAttribute('data-af')==='1';
+    const val = sel.value;
+    possible += pts;
+    if(val==='Y') earned += pts;
+    if(val==='N' && af) autoFail=true;
+  });
+  const pct = possible>0 ? (earned/possible*100).toFixed(1) : '0.0';
+  const preview = document.getElementById('editReqScorePreview');
+  if(preview){
+    preview.textContent = autoFail ? 'AUTO FAIL (0%)' : pct + '%';
+    preview.style.color = autoFail ? 'var(--danger)' : (+pct>=80?'var(--success)':+pct>=60?'var(--warning)':'var(--danger)');
+  }
 }
 
 function submitEditRequest(){
   const recordId=document.getElementById('editReqRecordId').value;
   const reason=document.getElementById('editReqReason').value.trim();
   if(!reason){ toast('Please describe what needs to be changed.','error'); return; }
+
+  // Capture proposed answers from item editor
+  var proposedAnswers = null;
+  var proposedScore   = null;
+  var autoFail        = false;
+  const selects = document.querySelectorAll('.edit-req-ans');
+  if(selects.length){
+    proposedAnswers = {};
+    let earned=0, possible=0;
+    selects.forEach(function(sel){
+      const itemId = sel.getAttribute('data-item');
+      const pts    = +sel.getAttribute('data-pts')||0;
+      const af     = sel.getAttribute('data-af')==='1';
+      const val    = sel.value;
+      proposedAnswers[itemId] = val;
+      possible += pts;
+      if(val==='Y') earned += pts;
+      if(val==='N' && af) autoFail=true;
+    });
+    proposedScore = autoFail ? '0' : possible>0 ? (earned/possible*100).toFixed(1) : '0';
+  }
+
   const reqs=getEditRequests();
   const user=getCurrentUser();
   reqs.unshift({
     id:uuid(), recordId, requestedBy:user?user.username:'',
-    reason, proposedScore:document.getElementById('editReqScore').value||null,
-    proposedRemarks:document.getElementById('editReqRemarks').value.trim()||null,
+    reason,
+    proposedAnswers: proposedAnswers,
+    proposedScore:   proposedScore,
+    proposedAutoFail: autoFail,
+    proposedRemarks: document.getElementById('editReqRemarks').value.trim()||null,
     status:'pending', submittedAt:new Date().toISOString(), resolvedAt:null, adminNote:null
   });
   saveEditRequests(reqs);
@@ -21858,9 +21939,10 @@ function openEditReview(reqId){
     </div>
     <div style="background:#fff3cd;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:12px;">
       <strong>Change Requested:</strong><br>${req.reason}
-      ${req.proposedScore?'<br><strong>Proposed Score:</strong> '+req.proposedScore+'%':''}
+      ${req.proposedScore!=null?'<br><strong>Proposed Score:</strong> '+(req.proposedAutoFail?'AUTO FAIL (0%)':req.proposedScore+'%'):''}
       ${req.proposedRemarks?'<br><strong>Proposed Remarks:</strong> '+req.proposedRemarks:''}
     </div>
+    ${req.proposedAnswers?'<div style="margin-bottom:12px;"><strong style="font-size:12px;">Answer Changes (vs current):</strong><div style="max-height:200px;overflow-y:auto;margin-top:6px;border:1px solid #e2e8f0;border-radius:6px;">'+Object.keys(req.proposedAnswers).map(function(k){var cur=(rec&&rec.answers&&rec.answers[k])||'—';var nw=req.proposedAnswers[k];var changed=cur!==nw;return '<div style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-size:11px;display:flex;gap:10px;background:'+(changed?'#fef9c3':'#fff')+'"><span style="flex:1;color:#334155;font-weight:'+(changed?'700':'400')+';">'+k+'</span><span style="color:#64748b;">'+cur+'</span><span>→</span><span style="color:'+(changed?'#16a34a':'#64748b')+';';font-weight:700;">'+nw+'</span></div>';}).join('')+'</div></div>':''} 
     <div class="form-group">
       <label>Admin Note</label>
       <textarea id="adminEditNote" placeholder="Reason for approving/rejecting..." style="min-height:60px;"></textarea>
@@ -21879,9 +21961,38 @@ function resolveEditRequest(status){
     const ri=records.findIndex(r=>r.id===reqs[idx].recordId);
     if(ri>=0){
       const settings=getSettings();
-      if(reqs[idx].proposedScore) { records[ri].finalScore=+reqs[idx].proposedScore; records[ri].result=records[ri].finalScore>=settings.passScore?'PASS':'FAIL'; }
+      const passScore=+(settings.passScore||80);
+      // Apply item-level answer changes if provided
+      if(reqs[idx].proposedAnswers){
+        records[ri].answers = Object.assign({}, records[ri].answers||{}, reqs[idx].proposedAnswers);
+        // Recalculate section scores + final score from new answers
+        const form = getForm();
+        let totalEarned=0, totalPossible=0, autoFail=reqs[idx].proposedAutoFail||false;
+        const sectionScores={};
+        form.forEach(function(sec){
+          let secEarned=0, secPossible=0;
+          sec.items.forEach(function(item){
+            const ans = records[ri].answers[item.id];
+            secPossible += item.points;
+            if(ans==='Y') secEarned += item.points;
+            if(ans==='N' && item.autoFail) autoFail=true;
+          });
+          sectionScores[sec.id]={earned:secEarned,possible:secPossible};
+          totalEarned   += secEarned;
+          totalPossible += secPossible;
+        });
+        records[ri].sectionScores = sectionScores;
+        const pct = autoFail ? 0 : (totalPossible>0 ? totalEarned/totalPossible*100 : 0);
+        records[ri].finalScore = +pct.toFixed(1);
+        records[ri].result = autoFail ? 'AUTO FAIL' : (records[ri].finalScore>=passScore?'PASS':'FAIL');
+      } else if(reqs[idx].proposedScore){
+        records[ri].finalScore=+reqs[idx].proposedScore;
+        records[ri].result=records[ri].finalScore>=passScore?'PASS':'FAIL';
+      }
       if(reqs[idx].proposedRemarks) records[ri].remarks=reqs[idx].proposedRemarks;
-      records[ri].editApproved=true; records[ri].editApprovedAt=new Date().toISOString();
+      records[ri].editApproved=true;
+      records[ri].editApprovedAt=new Date().toISOString();
+      records[ri].editApprovedBy=(getCurrentUser()||{}).username||'admin';
       DB.set('records',records);
     }
   }
