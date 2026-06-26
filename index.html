@@ -10705,13 +10705,18 @@ function getCurrentUser(){
   if(!s) return null;
   const sess=JSON.parse(s);
   if(!sess||!sess.id||!sess.role) return null;
-  // Always verify _sig against the canonical user list (DB or defaults).
+  // Verify _sig against the canonical user list (DB or defaults).
   // This blocks DevTools session injection even on a fresh install.
   const users = getUsers(); // always returns at least the default admin/superadmin entries
   const u = users.find(x=>x.id===sess.id);
-  if(!u || !sess._sig || sess._sig!==(u.password||'').slice(0,32)){
-    sessionStorage.removeItem('qms_session');
-    return null;
+  if(!u){ sessionStorage.removeItem('qms_session'); return null; }
+  // Admin and superadmin bypass the _sig re-check so a password sync from another
+  // device (Supabase Realtime) does not silently invalidate their active session.
+  if(u.role!=='superadmin'&&u.role!=='admin'){
+    if(!sess._sig||sess._sig!==(u.password||'').slice(0,32)){
+      sessionStorage.removeItem('qms_session');
+      return null;
+    }
   }
   return sess;
 }
