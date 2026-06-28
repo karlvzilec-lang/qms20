@@ -33,10 +33,12 @@ export function supabaseEnabled(): boolean {
 
 function getPool(): pg.Pool {
   if (!pool) {
+    // Strip ?sslmode=... from the connection string so the pg driver uses
+    // only the ssl option below (avoids "self-signed certificate" errors from
+    // Supabase's Supavisor pooler which pg cannot verify with its default store).
+    const connStr = (connectionString ?? "").replace(/([?&])sslmode=[^&]*/g, "$1").replace(/[?&]$/, "");
     pool = new Pool({
-      connectionString,
-      // Supabase requires TLS; the pooler presents a cert that node's default
-      // store doesn't always validate, so don't reject on that alone.
+      connectionString: connStr,
       ssl: { rejectUnauthorized: false },
       max: 3,
       idleTimeoutMillis: 10_000,
