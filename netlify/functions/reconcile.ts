@@ -7,6 +7,7 @@ import {
   readAllFromSupabase,
   upsertToSupabase,
 } from "../../db/supabase.js";
+import { tokenFromRequest } from "../../db/token.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // /api/reconcile
@@ -45,12 +46,20 @@ function rowCount(data: unknown): number | null {
 }
 
 export default async (req: Request) => {
+  // Reconcile is an admin-only operation — require a valid token when configured.
+  if (process.env.QMS_SESSION_SECRET) {
+    const claims = tokenFromRequest(req);
+    if (!claims || !["admin", "superadmin"].includes(claims.role)) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   if (!supabaseEnabled()) {
     return Response.json(
       {
         ok: false,
-        error: "SUPABASE_DATABASE_URL is not configured — Supabase mirror is disabled.",
-        hint: "Set SUPABASE_DATABASE_URL in Netlify → Site → Environment variables.",
+        error: "Supabase mirror is disabled — SUPABASE_URL and SUPABASE_ANON_KEY are not configured.",
+        hint: "Set SUPABASE_URL and SUPABASE_ANON_KEY in Netlify → Site configuration → Environment variables.",
       },
       { status: 503 },
     );

@@ -2403,7 +2403,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
           <option value="">All Users</option>
         </select>
         <button class="btn btn-outline btn-sm" onclick="exportChangeHistory()">⬇ Export</button>
-        <button class="btn btn-gray btn-sm" onclick="if(confirm('Clear all change history?')){DB.set(\'changeLog\',[]);renderChangeHistory();toast(\'History cleared.\',\'info\');}">🗑 Clear</button>
+        <button class="btn btn-gray btn-sm" onclick="if(!isSuperAdmin()){toast('Only Super Admin can clear the audit log.','error');return;}if(confirm('Clear all change history? This cannot be undone.')){DB.set(\'changeLog\',[]);renderChangeHistory();toast(\'History cleared.\',\'info\');}">🗑 Clear</button>
       </div>
     </div>
 
@@ -4907,6 +4907,12 @@ const DB = {
   }
 };
 
+// Returns Authorization header if a server token is stored, otherwise empty object.
+function _authHeaders(){
+  var t=sessionStorage.getItem('qms_token');
+  return t?{'Authorization':'Bearer '+t}:{};
+}
+
 // ─── _DbSync: offline-first push to /api/data + Supabase Realtime ────────────
 // Offline queue is persisted in localStorage so no data is lost on tab close.
 // On reconnect every queued bucket is flushed with exponential back-off retry.
@@ -4965,7 +4971,7 @@ const _DbSync = (function(){
     var sends=buckets.map(function(k){
       return fetch(API,{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:Object.assign({'Content-Type':'application/json'},_authHeaders()),
         body:JSON.stringify({bucket:k,data:DB.get(k)})
       }).then(function(r){
         if(!r.ok) throw r.status;
@@ -5007,7 +5013,7 @@ const _DbSync = (function(){
 
   function pull(){
     if(_busy) return; _busy=true;
-    fetch(API,{headers:{'Cache-Control':'no-cache'}})
+    fetch(API,{headers:Object.assign({'Cache-Control':'no-cache'},_authHeaders())})
       .then(function(r){ return r.ok?r.json():Promise.reject(r.status); })
       .then(function(rows){
         var changed=false;
@@ -5115,7 +5121,7 @@ const _DbSync = (function(){
       dot.title='DB sync'; bar.appendChild(dot);
     }
     // Hydrate from remote, then push any local-only buckets
-    fetch(API,{headers:{'Cache-Control':'no-cache'}})
+    fetch(API,{headers:Object.assign({'Cache-Control':'no-cache'},_authHeaders())})
       .then(function(r){ return r.ok?r.json():Promise.reject(r.status); })
       .then(function(rows){
         var remoteBuckets=new Set();
@@ -5190,19 +5196,19 @@ async function verifyPw(plain, stored){
   }
   return plain===stored; // plaintext legacy
 }
-// ── Login brute-force protection ─────────────────────────────────────────────
+// ── Login brute-force protection (localStorage — persists across tabs) ────────
 const _MAX_LOGIN_FAILS=5, _LOGIN_LOCK_MS=5*60*1000;
 function _checkLoginLock(u){
-  try{ const d=JSON.parse(sessionStorage.getItem('_lf_'+u)||'{}');
+  try{ const d=JSON.parse(localStorage.getItem('_lf_'+u)||'{}');
     if(d.until&&Date.now()<d.until) return Math.ceil((d.until-Date.now())/60000); }catch(e){}
   return 0;
 }
 function _recordLoginFail(u){
-  try{ const d=JSON.parse(sessionStorage.getItem('_lf_'+u)||'{"c":0,"until":0}');
+  try{ const d=JSON.parse(localStorage.getItem('_lf_'+u)||'{"c":0,"until":0}');
     d.c=(d.c||0)+1; if(d.c>=_MAX_LOGIN_FAILS) d.until=Date.now()+_LOGIN_LOCK_MS;
-    sessionStorage.setItem('_lf_'+u,JSON.stringify(d)); }catch(e){}
+    localStorage.setItem('_lf_'+u,JSON.stringify(d)); }catch(e){}
 }
-function _clearLoginFail(u){ try{ sessionStorage.removeItem('_lf_'+u); }catch(e){} }
+function _clearLoginFail(u){ try{ localStorage.removeItem('_lf_'+u); }catch(e){} }
 function getForm()    { return DB.get('form')    || DEFAULT_FORM; }
 function getAgents()  { return DB.get('agents')  || []; }
 function getRecords() {
@@ -7447,7 +7453,7 @@ function renderRecords(){
     <td><strong>${esc(r.agentName)}</strong>${r.agentTeam?`<br><small style="color:var(--gray)">${esc(r.agentTeam)}</small>`:''}</td>
     <td>${esc(r.qaOfficer)}</td>
     <td>${fmtDate(r.evalDate)}</td>
-    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.refNo)||''}">${r.refNo&&r.refNo.startsWith('http')?`<a href="${esc(r.refNo)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;font-size:12px;" title="${esc(r.refNo)}">${esc(r.refNo.length>22?r.refNo.slice(0,22)+'…':r.refNo)}</a>`:esc(r.refNo)||'—'}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.refNo)||''}">${r.refNo&&/^https?:\/\//i.test(r.refNo)?`<a href="${esc(r.refNo)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;font-size:12px;" title="${esc(r.refNo)}">${esc(r.refNo.length>22?r.refNo.slice(0,22)+'…':r.refNo)}</a>`:esc(r.refNo)||'—'}</td>
     <td style="font-weight:800;color:${r.finalScore>=80?'var(--success)':r.finalScore>=60?'var(--warning)':'var(--danger)'}">${r.finalScore.toFixed(1)}%</td>
     <td>${resultBadge(r.result)}${r.editApproved?'<span title="Score edited by QA, approved by Admin" style="margin-left:4px;background:#fef9c3;color:#92400e;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:700;vertical-align:middle;">EDITED</span>':''}</td>
     <td style="white-space:nowrap">
@@ -8320,8 +8326,10 @@ function dihDownloadTemplate(){
 
 // ── Export users CSV ─────────────────────────────
 function dihExportUsersCSV(){
+  if(!isAdmin()){ toast('Admin access required to export users.','error'); return; }
   const users = getUsers ? getUsers() : [];
   if(!users.length){ toast('No users to export.','info'); return; }
+  // Password hashes are never exported
   const cols = ['username','displayName','role','status','email','team'];
   const csv = [cols.join(','), ...users.map(u=>cols.map(k=>`"${(u[k]||'').toString().replace(/"/g,'""')}"`).join(','))].join('\n');
   const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv); a.download=`QMS_users_${today()}.csv`; a.click();
@@ -8330,12 +8338,17 @@ function dihExportUsersCSV(){
 
 // ── Full JSON backup ─────────────────────────────
 function dihExportFullBackup(){
+  if(!isAdmin()){ toast('Admin access required to export backup.','error'); return; }
+  // Strip password hashes — credential data must never leave the system via export
+  const usersClean = (getUsers ? getUsers() : []).map(function(u){
+    const c=Object.assign({},u); delete c.password; return c;
+  });
   const snap = {
     exportedAt:  new Date().toISOString(),
     exportedBy:  (getCurrentUser()||{}).displayName || 'Admin',
     records:     getRecords(),
     agents:      getAgents(),
-    users:       getUsers ? getUsers() : [],
+    users:       usersClean,
     settings:    getSettings(),
     forms:       getForms ? getForms() : [],
     disputes:    getDisputes ? getDisputes() : [],
@@ -10704,16 +10717,21 @@ function getCurrentUser(){
   const s=sessionStorage.getItem('qms_session');
   if(!s) return null;
   const sess=JSON.parse(s);
-  if(!sess||!sess.id||!sess.role) return null;
-  // Always verify _sig against the canonical user list (DB or defaults).
-  // This blocks DevTools session injection even on a fresh install.
-  const users = getUsers(); // always returns at least the default admin/superadmin entries
+  if(!sess||!sess.id) return null;
+  const users = getUsers();
   const u = users.find(x=>x.id===sess.id);
-  if(!u || !sess._sig || sess._sig!==(u.password||'').slice(0,32)){
+  if(!u) { sessionStorage.removeItem('qms_session'); return null; }
+  // Compute expected _sig from the stored password.
+  // For PBKDF2 format ("pbkdf2:{iters}:{salt}:{hash}") extract the hash part;
+  // for legacy SHA-256 / plaintext use the full value directly.
+  const stored = u.password||'';
+  const sigSource = stored.startsWith('pbkdf2:') ? (stored.split(':')[3]||stored) : stored;
+  if(!sess._sig || sess._sig!==sigSource.slice(0,32)){
     sessionStorage.removeItem('qms_session');
     return null;
   }
-  return sess;
+  // Always return role from the canonical DB record — not from client-supplied session data.
+  return Object.assign({}, sess, { role: u.role, status: u.status });
 }
 function isLoggedIn(){ return !!getCurrentUser(); }
 function currentRole(){ return getCurrentUser()?.role||null; }
@@ -18835,8 +18853,15 @@ async function doSysLogin(){
     return;
   }
   _clearLoginFail(lockKey);
-  // Set session — include a signature derived from password hash so role-tampering in DevTools invalidates it
-  sessionStorage.setItem('qms_session', JSON.stringify({id:user.id,username:user.username,role:user.role,displayName:user.displayName||user.username,_sig:(user.password||'').slice(0,32)}));
+  // Compute _sig from the hash portion of the stored password (PBKDF2-safe)
+  const _stored=user.password||'';
+  const _sigSrc=_stored.startsWith('pbkdf2:')?(_stored.split(':')[3]||_stored):_stored;
+  sessionStorage.setItem('qms_session', JSON.stringify({id:user.id,username:user.username,role:user.role,displayName:user.displayName||user.username,_sig:_sigSrc.slice(0,32)}));
+  // Obtain server-issued token (graceful — app works without it if secret not configured)
+  try{
+    const _ar=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+    if(_ar.ok){const _ad=await _ar.json();if(_ad.token)sessionStorage.setItem('qms_token',_ad.token);}
+  }catch(_e){/* non-fatal */}
   recordLogin(user);
   logChange('access','Login','User logged in','QMS');
   document.getElementById('loginScreen').style.display='none';
@@ -21835,13 +21860,13 @@ function openEditRequest(){
     let html='';
     form.forEach(function(sec){
       html += '<div style="margin-bottom:10px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">'
-        + '<div style="background:#f1f5f9;padding:7px 12px;font-weight:700;font-size:12px;color:#334155;">'+sec.title+'</div>';
+        + '<div style="background:#f1f5f9;padding:7px 12px;font-weight:700;font-size:12px;color:#334155;">'+esc(sec.title)+'</div>';
       sec.items.forEach(function(item){
         const cur = (rec.answers&&rec.answers[item.id])||'';
         html += '<div style="padding:8px 12px;border-top:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;">'
-          + '<div style="flex:1;font-size:12px;color:#334155;"><strong>'+item.id+'</strong> — '+item.title
-          + ' <span style="color:#94a3b8;font-size:11px;">('+item.points+'pt'+(item.autoFail?' ⚡AF':'')+')</span></div>'
-          + '<select class="edit-req-ans" data-item="'+item.id+'" data-pts="'+item.points+'" data-af="'+(item.autoFail?1:0)+'" onchange="_erRecalc()" '
+          + '<div style="flex:1;font-size:12px;color:#334155;"><strong>'+esc(item.id)+'</strong> — '+esc(item.title)
+          + ' <span style="color:#94a3b8;font-size:11px;">('+esc(String(item.points))+'pt'+(item.autoFail?' ⚡AF':'')+')</span></div>'
+          + '<select class="edit-req-ans" data-item="'+esc(item.id)+'" data-pts="'+esc(String(item.points))+'" data-af="'+(item.autoFail?1:0)+'" onchange="_erRecalc()" '
           + 'style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff;">'
           + '<option value="Y"'+(cur==='Y'?' selected':'')+'>YES</option>'
           + '<option value="N"'+(cur==='N'?' selected':'')+'>NO</option>'
@@ -21866,7 +21891,7 @@ function _erRecalc(){
     const pts = +sel.getAttribute('data-pts')||0;
     const af  = sel.getAttribute('data-af')==='1';
     const val = sel.value;
-    possible += pts;
+    if(val!=='NA'){ possible += pts; }   // N/A excluded from denominator
     if(val==='Y') earned += pts;
     if(val==='N' && af) autoFail=true;
   });
@@ -21897,11 +21922,17 @@ function submitEditRequest(){
       const af     = sel.getAttribute('data-af')==='1';
       const val    = sel.value;
       proposedAnswers[itemId] = val;
-      possible += pts;
+      if(val!=='NA'){ possible += pts; }   // N/A excluded from denominator
       if(val==='Y') earned += pts;
       if(val==='N' && af) autoFail=true;
     });
     proposedScore = autoFail ? '0' : possible>0 ? (earned/possible*100).toFixed(1) : '0';
+    // Block submission if nothing actually changed
+    const origRec = getRecords().find(r=>r.id===recordId);
+    if(origRec && origRec.answers){
+      const changed = Object.keys(proposedAnswers).some(k=>proposedAnswers[k]!==(origRec.answers[k]||''));
+      if(!changed){ toast('No answers have been changed — adjust at least one item before submitting.','error'); return; }
+    }
   }
 
   const reqs=getEditRequests();
@@ -21933,16 +21964,16 @@ function openEditReview(reqId){
   const req=getEditRequests().find(r=>r.id===reqId); if(!req) return;
   const rec=getRecords().find(r=>r.id===req.recordId);
   document.getElementById('editReviewBody').innerHTML=`
-    <input type="hidden" id="reviewEditReqId" value="${req.id}">
-    <div style="margin-bottom:12px;"><strong>${rec?rec.agentName:'Unknown Agent'}</strong> — ${rec?fmtDate(rec.evalDate):''}
-      <br><small style="color:var(--gray);">Requested by: ${req.requestedBy} on ${new Date(req.submittedAt).toLocaleString()}</small>
+    <input type="hidden" id="reviewEditReqId" value="${esc(req.id)}">
+    <div style="margin-bottom:12px;"><strong>${rec?esc(rec.agentName):'Unknown Agent'}</strong> — ${rec?fmtDate(rec.evalDate):''}
+      <br><small style="color:var(--gray);">Requested by: ${esc(req.requestedBy)} on ${new Date(req.submittedAt).toLocaleString()}</small>
     </div>
     <div style="background:#fff3cd;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:12px;">
-      <strong>Change Requested:</strong><br>${req.reason}
-      ${req.proposedScore!=null?'<br><strong>Proposed Score:</strong> '+(req.proposedAutoFail?'AUTO FAIL (0%)':req.proposedScore+'%'):''}
-      ${req.proposedRemarks?'<br><strong>Proposed Remarks:</strong> '+req.proposedRemarks:''}
+      <strong>Change Requested:</strong><br>${esc(req.reason)}
+      ${req.proposedScore!=null?'<br><strong>Proposed Score:</strong> '+(req.proposedAutoFail?'AUTO FAIL (0%)':esc(String(req.proposedScore))+'%'):''}
+      ${req.proposedRemarks?'<br><strong>Proposed Remarks:</strong> '+esc(req.proposedRemarks):''}
     </div>
-    ${req.proposedAnswers?'<div style="margin-bottom:12px;"><strong style="font-size:12px;">Answer Changes (vs current):</strong><div style="max-height:200px;overflow-y:auto;margin-top:6px;border:1px solid #e2e8f0;border-radius:6px;">'+Object.keys(req.proposedAnswers).map(function(k){var cur=(rec&&rec.answers&&rec.answers[k])||'—';var nw=req.proposedAnswers[k];var changed=cur!==nw;return '<div style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-size:11px;display:flex;gap:10px;background:'+(changed?'#fef9c3':'#fff')+'"><span style="flex:1;color:#334155;font-weight:'+(changed?'700':'400')+';">'+k+'</span><span style="color:#64748b;">'+cur+'</span><span>→</span><span style="color:'+(changed?'#16a34a':'#64748b')+';font-weight:700;">'+nw+'</span></div>';}).join('')+'</div></div>':''}
+    ${req.proposedAnswers?'<div style="margin-bottom:12px;"><strong style="font-size:12px;">Answer Changes (vs current):</strong><div style="max-height:200px;overflow-y:auto;margin-top:6px;border:1px solid #e2e8f0;border-radius:6px;">'+Object.keys(req.proposedAnswers).map(function(k){var cur=(rec&&rec.answers&&rec.answers[k])||'—';var nw=req.proposedAnswers[k];var changed=cur!==nw;var nwColor=nw==='Y'?'#16a34a':nw==='N'?'#dc2626':'#64748b';return '<div style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-size:11px;display:flex;gap:10px;background:'+(changed?'#fef9c3':'#fff')+'"><span style="flex:1;color:#334155;font-weight:'+(changed?'700':'400')+';">'+esc(k)+'</span><span style="color:#64748b;">'+esc(cur)+'</span><span>→</span><span style="color:'+nwColor+';font-weight:700;">'+esc(nw)+'</span></div>';}).join('')+'</div></div>':''}
     <div class="form-group">
       <label>Admin Note</label>
       <textarea id="adminEditNote" placeholder="Reason for approving/rejecting..." style="min-height:60px;"></textarea>
@@ -21962,18 +21993,27 @@ function resolveEditRequest(status){
     if(ri>=0){
       const settings=getSettings();
       const passScore=+(settings.passScore||80);
+      const oldScore = records[ri].finalScore;
+      const oldResult = records[ri].result;
       // Apply item-level answer changes if provided
       if(reqs[idx].proposedAnswers){
-        records[ri].answers = Object.assign({}, records[ri].answers||{}, reqs[idx].proposedAnswers);
-        // Recalculate section scores + final score from new answers
+        // Merge only the PROPOSED answers onto original — do NOT carry over
+        // unproposed answers so stale AF items cannot re-trigger auto-fail.
+        const mergedAnswers = Object.assign({}, records[ri].answers||{});
+        Object.keys(reqs[idx].proposedAnswers).forEach(function(k){
+          mergedAnswers[k] = reqs[idx].proposedAnswers[k];
+        });
+        records[ri].answers = mergedAnswers;
+        // Recalculate section scores + final score fresh from merged answers.
+        // autoFail is derived entirely from proposedAnswers — never from the stored flag.
         const form = getForm();
-        let totalEarned=0, totalPossible=0, autoFail=reqs[idx].proposedAutoFail||false;
+        let totalEarned=0, totalPossible=0, autoFail=false;
         const sectionScores={};
         form.forEach(function(sec){
           let secEarned=0, secPossible=0;
           sec.items.forEach(function(item){
-            const ans = records[ri].answers[item.id];
-            secPossible += item.points;
+            const ans = mergedAnswers[item.id];
+            if(ans!=='NA'){ secPossible += item.points; }   // N/A excluded
             if(ans==='Y') secEarned += item.points;
             if(ans==='N' && item.autoFail) autoFail=true;
           });
@@ -21985,15 +22025,21 @@ function resolveEditRequest(status){
         const pct = autoFail ? 0 : (totalPossible>0 ? totalEarned/totalPossible*100 : 0);
         records[ri].finalScore = +pct.toFixed(1);
         records[ri].result = autoFail ? 'AUTO FAIL' : (records[ri].finalScore>=passScore?'PASS':'FAIL');
-      } else if(reqs[idx].proposedScore){
+      } else if(reqs[idx].proposedScore!=null && reqs[idx].proposedScore!==''){
         records[ri].finalScore=+reqs[idx].proposedScore;
         records[ri].result=records[ri].finalScore>=passScore?'PASS':'FAIL';
+        // sectionScores cannot be reconstructed from score alone — mark as edited
+        records[ri].sectionScores = records[ri].sectionScores || {};
       }
       if(reqs[idx].proposedRemarks) records[ri].remarks=reqs[idx].proposedRemarks;
       records[ri].editApproved=true;
       records[ri].editApprovedAt=new Date().toISOString();
       records[ri].editApprovedBy=(getCurrentUser()||{}).username||'admin';
       DB.set('records',records);
+      // Audit trail — log the score change
+      logChange('evaluation','Edit Approved',
+        `Score changed ${oldScore}% → ${records[ri].finalScore}% (${oldResult} → ${records[ri].result}) for record ${reqs[idx].recordId} — approved by ${(getCurrentUser()||{}).username||'admin'}`,
+        'QMS');
     }
   }
   saveEditRequests(reqs);
@@ -22875,7 +22921,7 @@ function dbHealthCheck(autoFix){
   if(footer) footer.style.display='none';
 
   var method = autoFix ? 'POST' : 'GET';
-  fetch('/api/reconcile',{method:method,headers:{'Cache-Control':'no-cache'}})
+  fetch('/api/reconcile',{method:method,headers:Object.assign({'Cache-Control':'no-cache'},_authHeaders())})
     .then(function(r){ return r.json(); })
     .then(function(d){
       if(checkBtn) checkBtn.disabled=false;

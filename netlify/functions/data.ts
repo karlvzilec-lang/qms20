@@ -8,6 +8,7 @@ import {
   upsertToSupabase,
   mergeBucketSupabase,
 } from "../../db/supabase.js";
+import { tokenFromRequest } from "../../db/token.js";
 
 // Shared data API for the QAMS app, backed by TWO independent databases.
 //
@@ -42,6 +43,15 @@ interface MergedRow {
 }
 
 export default async (req: Request) => {
+  // Token guard: only enforced when QMS_SESSION_SECRET is configured.
+  // Writes require a valid session; reads are left open for health-check / initial load.
+  if (req.method !== "GET" && process.env.QMS_SESSION_SECRET) {
+    const claims = tokenFromRequest(req);
+    if (!claims) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   try {
     if (req.method === "GET") {
       const [netlifyResult, supabaseResult] = await Promise.allSettled([
@@ -127,7 +137,7 @@ export default async (req: Request) => {
         const deletes = Array.isArray(body.deletes) ? body.deletes : [];
         // Nothing to do — treat as a successful no-op.
         if (upserts.length === 0 && deletes.length === 0) {
-          return Response.json({ ok: true, bucket, persisted: { netlify: true, supabase: null } });
+          return Response.json({ ok: true, bucket, persisted: { netlify: true, supabase: supabaseEnabled() ? true : null } });
         }
 
         const upsertsJson = JSON.stringify(upserts);
