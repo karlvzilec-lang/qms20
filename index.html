@@ -4952,6 +4952,7 @@ const _DbSync = (function(){
   var _busy       = false;
   var _rtOk       = false;
   var _booted     = false;
+  var _bootDone   = false;  // true once first remote GET resolves; blocks premature pushes
   var _online     = navigator.onLine !== false;
   var _retryTimer = null;
 
@@ -4973,11 +4974,19 @@ const _DbSync = (function(){
     el.style.background=c[s]||c.offline; el.title=t[s]||s;
   }
 
+  // Hold the debounce until boot() finishes its first remote GET.
+  // Prevents a cold-start (empty localStorage) from flushing stale/demo data
+  // to Supabase before real data has been fetched and written locally.
+  function _flushIfReady(){
+    if(!_bootDone){ clearTimeout(_timer); _timer=setTimeout(_flushIfReady,500); return; }
+    _flush();
+  }
+
   function schedule(k){
     if(_queue.indexOf(k)===-1) _queue.push(k);
     _saveQueue();
     clearTimeout(_timer);
-    _timer=setTimeout(_flush,DEB_MS);
+    _timer=setTimeout(_flushIfReady,DEB_MS);
   }
 
   function _flush(){
@@ -5137,11 +5146,18 @@ const _DbSync = (function(){
         },function(payload){
           var row=payload.new;
           if(!row||!row.bucket||_DB_LOCAL_ONLY.has(row.bucket)) return;
-          var remote=JSON.stringify(row.data);
-          var local=localStorage.getItem('qms2_'+row.bucket);
-          if(remote!==local&&row.data!==null){
-            localStorage.setItem('qms2_'+row.bucket,remote);
-            console.log('[DbSync] Realtime push: '+row.bucket);
+          if(row.data===null) return;
+          var localRaw=localStorage.getItem('qms2_'+row.bucket);
+          var finalData=row.data;
+          // Merge so local-only entries added offline are not wiped by a
+          // realtime broadcast from another device's push.
+          if(_MERGE_BUCKETS.has(row.bucket)&&localRaw){
+            try{ finalData=_mergeBucket(row.bucket,row.data,JSON.parse(localRaw)); }catch(_){}
+          }
+          var finalStr=JSON.stringify(finalData);
+          if(finalStr!==localRaw){
+            localStorage.setItem('qms2_'+row.bucket,finalStr);
+            console.log('[DbSync] Realtime update: '+row.bucket);
             rerender();
           }
         })
@@ -5168,7 +5184,7 @@ const _DbSync = (function(){
         +'display:inline-block;margin-left:8px;flex-shrink:0;transition:background .4s;cursor:help;align-self:center;';
       dot.title='DB sync'; bar.appendChild(dot);
     }
-    // Hydrate from remote, then push any local-only buckets
+    // Hydrate from remote using merge (not full-replace), then push local-only buckets
     fetch(API,{headers:{'Cache-Control':'no-cache'}})
       .then(function(r){ return r.ok?r.json():Promise.reject(r.status); })
       .then(function(rows){
@@ -5176,26 +5192,48 @@ const _DbSync = (function(){
         rows.forEach(function(row){
           if(!row.bucket||_DB_LOCAL_ONLY.has(row.bucket)) return;
           remoteBuckets.add(row.bucket);
-          var remote=JSON.stringify(row.data);
-          var local=localStorage.getItem('qms2_'+row.bucket);
-          if(remote!==local&&row.data!==null)
-            localStorage.setItem('qms2_'+row.bucket,remote);
+          if(row.data===null) return;
+          var localRaw=localStorage.getItem('qms2_'+row.bucket);
+          var finalData=row.data;
+          // Merge on boot: preserves entries added offline since the last push.
+          if(_MERGE_BUCKETS.has(row.bucket)&&localRaw){
+            try{ finalData=_mergeBucket(row.bucket,row.data,JSON.parse(localRaw)); }catch(_){}
+          }
+          var finalStr=JSON.stringify(finalData);
+          if(finalStr!==localRaw) localStorage.setItem('qms2_'+row.bucket,finalStr);
         });
-        // Push local buckets not in remote (first-time migration + offline queue)
+        // Seed 5 demo agents only when Supabase has no agents bucket at all AND
+        // local is also empty — guarantees a blank roster never appears on first install.
+        // Written directly to localStorage (not DB.set) so the push is handled by the
+        // migration loop below rather than queued separately.
+        if(!remoteBuckets.has('agents')){
+          var _ar=localStorage.getItem('qms2_agents');
+          if(!_ar||_ar==='null'||_ar==='[]'){
+            localStorage.setItem('qms2_agents',JSON.stringify([
+              {id:uuid(),name:'Ms. Phon PichPisey',staffId:'CC-001',team:'FTTH Team A',supervisor:'Mr. Mark Celiz',campaign:'FTTH',email:'pichpisey@cellcard.com.kh',hired:'2023-01-15',status:'Active',createdAt:new Date().toISOString()},
+              {id:uuid(),name:'Mr. Chhan Soking',staffId:'CC-002',team:'Mobile Team B',supervisor:'Mr. Mark Celiz',campaign:'Mobile',email:'soking@cellcard.com.kh',hired:'2022-06-01',status:'Active',createdAt:new Date().toISOString()},
+              {id:uuid(),name:'Ms. Saborn Vicheka',staffId:'CC-003',team:'FTTH Team A',supervisor:'Ms. Anna',campaign:'FTTH',email:'vicheka@cellcard.com.kh',hired:'2023-03-10',status:'Active',createdAt:new Date().toISOString()},
+              {id:uuid(),name:'Mr. Phol Panha',staffId:'CC-004',team:'General Team',supervisor:'Mr. Mark Celiz',campaign:'General',email:'panha@cellcard.com.kh',hired:'2021-11-20',status:'Active',createdAt:new Date().toISOString()},
+              {id:uuid(),name:'Ms. Dear Sreynin',staffId:'CC-005',team:'Mobile Team B',supervisor:'Ms. Anna',campaign:'Mobile',email:'sreynin@cellcard.com.kh',hired:'2023-07-05',status:'Active',createdAt:new Date().toISOString()}
+            ]));
+          }
+        }
+        // Push local-only buckets (first-time migration + offline queue)
         _SYNC_BUCKETS.forEach(function(k){
           if(!remoteBuckets.has(k)){
             var v=localStorage.getItem('qms2_'+k);
             if(v&&v!=='null'&&_queue.indexOf(k)===-1) _queue.push(k);
           }
         });
-        // Also flush any pre-existing offline queue
+        _bootDone=true; // gate open — pending schedule() calls may now flush
         if(_queue.length){ _saveQueue(); _flush(); }
         _status('ok');
         _autoSnapshot();
       })
       .catch(function(){
         _status('offline');
-        // Even offline, re-queue all buckets so they push when reconnected
+        _bootDone=true; // offline counts as done — local data is safe to push on reconnect
+        // Re-queue all buckets so they push when back online
         _SYNC_BUCKETS.forEach(function(k){
           if(_queue.indexOf(k)===-1) _queue.push(k);
         });
@@ -20686,17 +20724,9 @@ async function init(){
       logoImg.onload = processLogos;
     }
   }
-  // Seed demo agents
-  if(!getAgents().length){
-    const agents=[
-      {id:uuid(),name:'Ms. Phon PichPisey',staffId:'CC-001',team:'FTTH Team A',supervisor:'Mr. Mark Celiz',campaign:'FTTH',email:'pichpisey@cellcard.com.kh',hired:'2023-01-15',status:'Active',createdAt:new Date().toISOString()},
-      {id:uuid(),name:'Mr. Chhan Soking',staffId:'CC-002',team:'Mobile Team B',supervisor:'Mr. Mark Celiz',campaign:'Mobile',email:'soking@cellcard.com.kh',hired:'2022-06-01',status:'Active',createdAt:new Date().toISOString()},
-      {id:uuid(),name:'Ms. Saborn Vicheka',staffId:'CC-003',team:'FTTH Team A',supervisor:'Ms. Anna',campaign:'FTTH',email:'vicheka@cellcard.com.kh',hired:'2023-03-10',status:'Active',createdAt:new Date().toISOString()},
-      {id:uuid(),name:'Mr. Phol Panha',staffId:'CC-004',team:'General Team',supervisor:'Mr. Mark Celiz',campaign:'General',email:'panha@cellcard.com.kh',hired:'2021-11-20',status:'Active',createdAt:new Date().toISOString()},
-      {id:uuid(),name:'Ms. Dear Sreynin',staffId:'CC-005',team:'Mobile Team B',supervisor:'Ms. Anna',campaign:'Mobile',email:'sreynin@cellcard.com.kh',hired:'2023-07-05',status:'Active',createdAt:new Date().toISOString()},
-    ];
-    DB.set('agents',agents);
-  }
+  // Demo agent seed removed from init() — it now lives inside _DbSync.boot() which
+  // runs only AFTER confirming Supabase has no agents, preventing the push-before-pull
+  // race that was wiping the real roster on fresh-browser loads.
   loadApiKey();
   // Restore session if still active
   if(isLoggedIn()){
