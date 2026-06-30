@@ -1960,6 +1960,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     <button class="settings-tab" data-stab="change-history" onclick="switchSettingsTab('change-history',this)" id="changeHistoryTab" style="display:none;">📜 Change History</button>
 <button class="settings-tab" data-stab="integrations" onclick="switchSettingsTab('integrations',this)" id="integrationsTab" style="display:none;">🔌 Integrations</button>
 <button class="settings-tab" data-stab="db-health" onclick="switchSettingsTab('db-health',this)" id="dbHealthTab" style="display:none;">🗄️ DB Health</button>
+<button class="settings-tab" data-stab="evaluation-rules" onclick="switchSettingsTab('evaluation-rules',this);_renderCooldownToggle()" id="evalRulesTab" style="display:none;">📋 Evaluation</button>
   </div>
 
   <!-- TAB: QA Settings -->
@@ -2468,6 +2469,35 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     <div id="dbHealthFooter" style="display:none;margin-top:10px;font-size:11px;color:#94a3b8;text-align:right;"></div>
   </div>
 </div><!-- /stab-db-health -->
+
+<!-- TAB: Evaluation Rules (SuperAdmin only) -->
+<div id="stab-evaluation-rules" class="stab-panel" style="display:none;">
+  <div class="card">
+    <div class="card-title">📋 Evaluation Rules</div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:4px 0 12px;">
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:6px;">48-Hour Evaluation Cooldown</div>
+        <div style="font-size:13px;color:#64748b;line-height:1.65;max-width:520px;">
+          By default, a <strong>48-hour wait</strong> is enforced between consecutive evaluations of the same agent. Toggle this <strong>OFF</strong> to lift the rule system-wide — all users (QA, TL, Admin) can evaluate any agent at any time. All evaluations are still recorded in the change history.
+        </div>
+        <div id="cooldownRuleStatus" style="margin-top:10px;font-size:12px;font-weight:700;"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;margin-top:2px;">
+        <div id="cooldownToggleTrack" onclick="toggleCooldownRule()"
+          style="width:52px;height:28px;border-radius:14px;background:#e2e8f0;cursor:pointer;position:relative;transition:background .25s;box-shadow:inset 0 1px 3px rgba(0,0,0,.1);">
+          <div id="cooldownToggleKnob"
+            style="position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);transition:left .25s;"></div>
+        </div>
+        <span id="cooldownToggleLabel" style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.4px;"></span>
+      </div>
+    </div>
+    <div style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;padding:10px 14px;margin-top:4px;">
+      <div style="font-size:12px;color:#92400e;line-height:1.6;">
+        <strong>Note:</strong> This setting takes effect immediately across all active sessions. Use with caution — lifting the cooldown allows back-to-back evaluations which may skew QA metrics. Restore the rule when batch evaluation is no longer needed.
+      </div>
+    </div>
+  </div>
+</div><!-- /stab-evaluation-rules -->
 
 </div><!-- /screen-settings -->
 
@@ -7236,7 +7266,7 @@ function submitEval(){
     const _msAgo  = Date.now() - _lastTs.getTime();
     const _hrsAgo = Math.floor(_msAgo/3600000);
     const _hrsLeft= 48 - _hrsAgo;
-    if(_msAgo < 48*3600000){
+    if(_msAgo < 48*3600000 && !getSettings().disable48hCooldown){
       const _canOverride = isAdmin() || isSuperAdmin();
       showConfirm({
         title:'⏱ Evaluation Cooldown Active',
@@ -10694,7 +10724,9 @@ function saveSettings(){
   if(_form){ DB.set('form',_form); _form=null; }
   const activeBtn = document.querySelector('.scoring-mode-btn.active');
   const globalScoringMode = activeBtn ? activeBtn.dataset.mode : 'per-section';
+  const _existingSettings = getSettings();
   const settings={
+    ..._existingSettings,
     passScore: +document.getElementById('settingPassScore').value || 80,
     autoFailMode: document.getElementById('settingAutoFailMode').value,
     globalScoringMode
@@ -10705,6 +10737,34 @@ function saveSettings(){
   populateCampaignDropdown();
   logChange('settings','Saved',`Updated system settings (scoring: ${globalScoringMode})`,'QMS');
   toast('Settings saved! Scoring mode: ' + globalScoringMode + '. Changes apply to new evaluations.', 'success');
+}
+
+function _renderCooldownToggle(){
+  const off = !!getSettings().disable48hCooldown;
+  const track = document.getElementById('cooldownToggleTrack');
+  const knob  = document.getElementById('cooldownToggleKnob');
+  const label = document.getElementById('cooldownToggleLabel');
+  const status= document.getElementById('cooldownRuleStatus');
+  if(track) track.style.background = off ? '#dc2626' : '#e2e8f0';
+  if(knob)  knob.style.left = off ? '28px' : '4px';
+  if(label){ label.textContent = off ? 'LIFTED' : 'ACTIVE'; label.style.color = off ? '#dc2626' : '#16a34a'; }
+  if(status){ status.textContent = off ? '⚠️ Cooldown is currently LIFTED — all users can evaluate agents without waiting.' : '✅ Cooldown is ACTIVE — 48-hour wait enforced between evaluations.'; status.style.color = off ? '#dc2626' : '#16a34a'; }
+}
+
+function toggleCooldownRule(){
+  const settings = getSettings();
+  settings.disable48hCooldown = !settings.disable48hCooldown;
+  DB.set('settings', settings);
+  _renderCooldownToggle();
+  const user = getCurrentUser();
+  logChange('settings', settings.disable48hCooldown ? 'Lifted' : 'Restored',
+    `48h evaluation cooldown ${settings.disable48hCooldown ? 'LIFTED (disabled)' : 'RESTORED (enabled)'} by ${user?.displayName||'SuperAdmin'}`, 'QMS');
+  toast(
+    settings.disable48hCooldown
+      ? 'Cooldown LIFTED — all users can evaluate agents without waiting.'
+      : 'Cooldown RESTORED — standard 48-hour rule is back.',
+    settings.disable48hCooldown ? 'warning' : 'success'
+  );
 }
 
 // ═══════════════════════════════════════════════════
@@ -22448,6 +22508,8 @@ function initDangerZoneVisibility(){
   if(nitTab) nitTab.style.display=show?'':'none';
   var dhTab=document.getElementById('dbHealthTab');
   if(dhTab) dhTab.style.display=show?'':'none';
+  var erTab=document.getElementById('evalRulesTab');
+  if(erTab) erTab.style.display=superOnly?'':'none';
 }
 
 
