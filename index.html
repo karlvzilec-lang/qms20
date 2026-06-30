@@ -5005,6 +5005,22 @@ const _DbSync = (function(){
     }catch(e){}
   }
 
+  // Buckets that must be MERGED (union by id) rather than replaced on pull.
+  // Prevents a device with fewer records from wiping records on other devices.
+  var _MERGE_BUCKETS = new Set(['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','accessRequests','pwresets']);
+
+  function _mergeBucket(bucket, remoteArr, localArr){
+    // Union by id — remote wins on conflict (more recent server copy takes precedence).
+    // Local-only entries are preserved so no device ever loses data on pull.
+    if(!Array.isArray(remoteArr)||!Array.isArray(localArr)) return remoteArr||localArr||[];
+    var merged = remoteArr.slice();
+    var remoteIds = new Set(remoteArr.map(function(x){ return x&&x.id; }));
+    localArr.forEach(function(item){
+      if(item&&item.id&&!remoteIds.has(item.id)) merged.push(item);
+    });
+    return merged;
+  }
+
   function pull(){
     if(_busy) return; _busy=true;
     fetch(API,{headers:{'Cache-Control':'no-cache'}})
@@ -5013,10 +5029,18 @@ const _DbSync = (function(){
         var changed=false;
         rows.forEach(function(row){
           if(!row.bucket||_DB_LOCAL_ONLY.has(row.bucket)) return;
-          var remote=JSON.stringify(row.data);
-          var local=localStorage.getItem('qms2_'+row.bucket);
-          if(remote!==local&&row.data!==null){
-            localStorage.setItem('qms2_'+row.bucket,remote);
+          if(row.data===null) return;
+          var localRaw=localStorage.getItem('qms2_'+row.bucket);
+          var finalData=row.data;
+          if(_MERGE_BUCKETS.has(row.bucket)&&localRaw){
+            try{
+              var localArr=JSON.parse(localRaw);
+              finalData=_mergeBucket(row.bucket,row.data,localArr);
+            }catch(e){}
+          }
+          var finalStr=JSON.stringify(finalData);
+          if(finalStr!==localRaw){
+            localStorage.setItem('qms2_'+row.bucket,finalStr);
             changed=true;
           }
         });
