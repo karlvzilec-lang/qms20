@@ -1248,9 +1248,18 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         <div class="form-grid">
           <div class="form-group">
             <label>Agent Name <span class="req">*</span></label>
-            <select id="evalAgent" onchange="onAgentSelect()">
-              <option value="">— Select Agent —</option>
-            </select>
+            <div style="position:relative;" id="evalAgentWrap">
+              <input type="text" id="evalAgentSearch" placeholder="Type name, staff ID or team…"
+                     autocomplete="off" spellcheck="false"
+                     oninput="_evalAgentFilter(this)" onfocus="_evalAgentFilter(this)" onblur="_evalAgentBlur()"
+                     style="width:100%;box-sizing:border-box;">
+              <input type="hidden" id="evalAgent">
+              <div id="evalAgentDrop" role="listbox"
+                   style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;z-index:9999;
+                          background:#fff;border:1.5px solid var(--primary);border-radius:8px;
+                          max-height:230px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.14);">
+              </div>
+            </div>
           </div>
           <div class="form-group">
             <label>Evaluator Name <span class="req">*</span></label>
@@ -7229,10 +7238,82 @@ function updateScore(){
 }
 
 function populateAgentDropdown(){
-  const sel=document.getElementById('evalAgent');
-  const cur=sel.value;
-  sel.innerHTML='<option value="">— Select Agent —</option>'+
-    getAgents().filter(a=>a.status==='Active').map(a=>`<option value="${esc(a.id)}" ${cur===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
+  // Typeahead — no static select to rebuild. Just re-validate the hidden ID
+  // in case the roster changed while the form was open.
+  const hiddenEl = document.getElementById('evalAgent');
+  const searchEl = document.getElementById('evalAgentSearch');
+  if(!hiddenEl||!searchEl) return;
+  if(hiddenEl.value){
+    const a = getAgents().find(x=>x.id===hiddenEl.value && x.status==='Active');
+    if(a) searchEl.value = a.name;
+    else { hiddenEl.value=''; searchEl.value=''; }
+  }
+}
+
+// ── Predictive agent typeahead for eval form ─────────────────────────────────
+function _evalAgentFilter(inp){
+  const q = (inp.value||'').trim().toLowerCase();
+  const drop = document.getElementById('evalAgentDrop');
+  const hiddenEl = document.getElementById('evalAgent');
+  if(!drop) return;
+  hiddenEl.value = ''; // clear prior selection when user is re-typing
+  if(!q){ drop.style.display='none'; return; }
+  const matches = getAgents()
+    .filter(a=>a.status==='Active' && (
+      a.name.toLowerCase().includes(q) ||
+      (a.staffId||'').toLowerCase().includes(q) ||
+      (a.team||'').toLowerCase().includes(q) ||
+      (a.campaign||'').toLowerCase().includes(q)
+    ))
+    .slice(0,25);
+  if(!matches.length){
+    drop.innerHTML='<div style="padding:10px 14px;font-size:12px;color:#94a3b8;text-align:center;">No agents found</div>';
+  } else {
+    drop.innerHTML = matches.map(a=>{
+      const safeId   = esc(a.id);
+      const safeName = esc(a.name);
+      return `<div role="option" data-id="${safeId}"
+        onmousedown="_evalAgentPick('${safeId}','${safeName.replace(/'/g,'&#39;')}')"
+        onmouseenter="this.style.background='#fff7ed'" onmouseleave="this.style.background=''"
+        style="padding:9px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#1e293b;">${safeName}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:1px;">${esc(a.staffId||'')}${a.team?' · '+esc(a.team):''}</div>
+        </div>
+        ${a.campaign?`<span style="font-size:11px;background:#fff3e0;color:#FF7900;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap;">${esc(a.campaign)}</span>`:''}
+      </div>`;
+    }).join('');
+  }
+  drop.style.display='block';
+}
+
+function _evalAgentPick(id, name){
+  const searchEl = document.getElementById('evalAgentSearch');
+  const hiddenEl = document.getElementById('evalAgent');
+  const drop     = document.getElementById('evalAgentDrop');
+  if(searchEl) searchEl.value = name;
+  if(hiddenEl) hiddenEl.value = id;
+  if(drop)     drop.style.display = 'none';
+  onAgentSelect();
+}
+
+function _evalAgentBlur(){
+  // Give mousedown on an option time to fire before hiding the dropdown
+  setTimeout(()=>{
+    const drop     = document.getElementById('evalAgentDrop');
+    const searchEl = document.getElementById('evalAgentSearch');
+    const hiddenEl = document.getElementById('evalAgent');
+    if(drop) drop.style.display = 'none';
+    if(!searchEl||!hiddenEl) return;
+    if(searchEl.value && !hiddenEl.value){
+      // Partial text left — try exact-name match as a fallback
+      const exact = getAgents().find(a=>
+        a.status==='Active' && a.name.toLowerCase()===searchEl.value.trim().toLowerCase()
+      );
+      if(exact){ hiddenEl.value=exact.id; onAgentSelect(); }
+      else searchEl.value=''; // clear ghost text — user must pick from the list
+    }
+  }, 160);
 }
 
 // Launch evaluation screen with a specific agent pre-selected
@@ -7241,9 +7322,12 @@ function startEvaluateAgent(agentId){
   showScreen('evaluation', evalNavBtn || document.querySelectorAll('.nav-btn')[1]);
   // Wait for the screen to render, then pre-select
   setTimeout(()=>{
-    const sel = document.getElementById('evalAgent');
-    if(sel){
-      sel.value = agentId;
+    const hiddenEl = document.getElementById('evalAgent');
+    const searchEl = document.getElementById('evalAgentSearch');
+    if(hiddenEl){
+      hiddenEl.value = agentId;
+      const _a = getAgents().find(a=>a.id===agentId);
+      if(searchEl && _a) searchEl.value = _a.name;
       onAgentSelect();
     }
     // Auto-fill Evaluator Name from session (always overwrite — locked field)
@@ -7273,6 +7357,8 @@ function evalToggleReasonField(){
 function clearEvalForm(){
   buildEvalForm();
   document.getElementById('evalAgent').value='';
+  const _eas=document.getElementById('evalAgentSearch'); if(_eas) _eas.value='';
+  const _ead=document.getElementById('evalAgentDrop');   if(_ead) _ead.style.display='none';
   // Re-auto-fill evaluator name from session on clear
   const _cu = getCurrentUser();
   document.getElementById('evalQAO').value = _cu ? (_cu.displayName||_cu.username) : '';
@@ -7301,7 +7387,7 @@ function submitEval(){
     }
     toast(msg,'error');
   };
-  if(!agentId){ _markErr('evalAgent','Please select an agent.'); return; }
+  if(!agentId){ _markErr('evalAgentSearch','Please search and select an agent from the list.'); return; }
   if(!qao){ _markErr('evalQAO','Evaluator name is missing — please log in again.'); return; }
   if(!date){ _markErr('evalDate','Please select an evaluation date.'); return; }
   const campaign = document.getElementById('evalCampaign')?.value;
