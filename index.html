@@ -1212,6 +1212,11 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
   <div class="page-header no-print">
     <div><h2>QA Evaluation Form</h2><p>New Attribute — Cellcard Contact Center Quality Assessment</p></div>
     <div class="btn-group no-print">
+      <!-- SuperAdmin-only 48h cooldown quick-toggle (hidden for all other roles) -->
+      <button id="evalCooldownQuickBtn" onclick="_toggleCooldownFromEvalScreen()" style="display:none;align-items:center;gap:6px;padding:6px 13px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;" title="Toggle 48-hour evaluation cooldown (SuperAdmin only)">
+        <span id="evalCooldownQuickIcon" style="font-size:13px;"></span>
+        <span>48h Rule: </span><span id="evalCooldownQuickLabel" style="letter-spacing:.3px;"></span>
+      </button>
       <button class="btn btn-gray" onclick="clearEvalForm()" style="display:flex;align-items:center;gap:6px;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
         Clear
@@ -5407,6 +5412,13 @@ function showScreen(name,btn){
     if(_qaoEl && _evalU) _qaoEl.value = _evalU.displayName || _evalU.username;
     const _dateEl = document.getElementById('evalDate');
     if(_dateEl && !_dateEl.value) _dateEl.value = today();
+    // Show 48h quick-toggle only for superadmin
+    const _qb = document.getElementById('evalCooldownQuickBtn');
+    if(_qb){
+      const _isSA = _evalU && _evalU.role === 'superadmin';
+      _qb.style.display = _isSA ? 'flex' : 'none';
+      if(_isSA) _renderEvalCooldownQuickBtn();
+    }
   }
   if(name==='records')   { renderRecords(); populateMonthFilter('recMonth','records'); }
   if(name==='roster'){
@@ -10794,6 +10806,7 @@ function toggleCooldownRule(){
   settings.disable48hCooldown = !settings.disable48hCooldown;
   DB.set('settings', settings);
   _renderCooldownToggle();
+  _renderEvalCooldownQuickBtn();
   const user = getCurrentUser();
   logChange('settings', settings.disable48hCooldown ? 'Lifted' : 'Restored',
     `48h evaluation cooldown ${settings.disable48hCooldown ? 'LIFTED (disabled)' : 'RESTORED (enabled)'} by ${user?.displayName||'SuperAdmin'}`, 'QMS');
@@ -10803,6 +10816,24 @@ function toggleCooldownRule(){
       : 'Cooldown RESTORED — standard 48-hour rule is back.',
     settings.disable48hCooldown ? 'warning' : 'success'
   );
+}
+
+function _renderEvalCooldownQuickBtn(){
+  const btn   = document.getElementById('evalCooldownQuickBtn');
+  const icon  = document.getElementById('evalCooldownQuickIcon');
+  const label = document.getElementById('evalCooldownQuickLabel');
+  if(!btn) return;
+  const off = !!getSettings().disable48hCooldown;
+  icon.textContent  = off ? '⚠️' : '🔒';
+  label.textContent = off ? 'LIFTED' : 'ACTIVE';
+  btn.style.borderColor  = off ? '#dc2626' : '#16a34a';
+  btn.style.background   = off ? '#fef2f2' : '#f0fdf4';
+  btn.style.color        = off ? '#dc2626' : '#16a34a';
+  label.style.color      = off ? '#dc2626' : '#16a34a';
+}
+
+function _toggleCooldownFromEvalScreen(){
+  toggleCooldownRule();
 }
 
 // ═══════════════════════════════════════════════════
