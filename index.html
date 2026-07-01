@@ -4651,21 +4651,25 @@ CORS_ORIGIN=https://yourdomain.com</code>
 
 <!-- Dispute Modal (TL submits) -->
 <div class="modal-overlay" id="disputeModal">
-  <div class="modal" style="max-width:500px;">
+  <div class="modal" style="max-width:640px;">
     <div class="modal-header" style="background:var(--warning);">
       <h3>⚠️ Submit Score Dispute</h3>
       <button class="modal-close" onclick="closeModal('disputeModal')">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
       <p style="font-size:13px;color:#555;margin-bottom:16px;">Flag this evaluation for QA review. Please provide a clear reason.</p>
       <input type="hidden" id="disputeRecordId">
       <div class="form-group" style="margin-bottom:12px;">
         <label>Reason for Dispute <span class="req">*</span></label>
         <textarea id="disputeReason" placeholder="Explain why you are challenging this score..." style="min-height:90px;"></textarea>
       </div>
-      <div class="form-group">
-        <label>Suggested Score (optional)</label>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label>Overall Suggested Score (optional) <small style="color:var(--gray);font-weight:400;">— quick summary; the per-attribute picks below drive the actual recalculation</small></label>
         <input type="number" id="disputeSuggestedScore" min="0" max="100" placeholder="e.g. 85">
+      </div>
+      <div class="form-group" id="disputeItemsWrap" style="display:none;">
+        <label>Which attributes are you disputing? <small style="color:var(--gray);font-weight:400;">— check any item(s) you believe were scored incorrectly, then pick what the answer should have been</small></label>
+        <div id="disputeItemsBody" style="border:1px solid #e2e8f0;border-radius:8px;max-height:260px;overflow-y:auto;"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -4766,7 +4770,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
       <button class="modal-close" onclick="closeModal('editRequestModal')">✕</button>
     </div>
     <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
-      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1e40af;">
+      <div id="editReqModeBanner" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1e40af;">
         ℹ️ Edit requests are sent to Admin for approval before any score is changed. Your current answers are pre-filled — adjust what needs correcting.
       </div>
       <input type="hidden" id="editReqRecordId">
@@ -7908,7 +7912,12 @@ function viewRecord(id){
   const _enBtn = document.getElementById('viewEmailBtn');
   const _delBtn = document.getElementById('viewDeleteBtn');
   const _vUser = getCurrentUser();
-  if(_erBtn) _erBtn.style.display = (_vUser&&_vUser.role==='qa')?'':'none';
+  if(_erBtn){
+    _erBtn.style.display = (_vUser&&(_vUser.role==='qa'||_vUser.role==='tl'))?'':'none';
+    // Label reflects what will actually happen on submit for THIS record —
+    // direct apply within the 7-day ownership window, admin approval otherwise.
+    _erBtn.textContent = _canDirectEditRecord(r) ? '✏️ Edit Directly' : '✏️ Request Edit';
+  }
   if(_enBtn) _enBtn.style.display = (isQA()||isAdmin())?'':'none';
   if(_delBtn) _delBtn.style.display = isAdmin()?'':'none';
 }
@@ -21414,9 +21423,10 @@ applyRoleUI = function(){
     const tlBtn = document.getElementById('tlTeamNavBtn');
     if(tlBtn) tlBtn.style.display='none';
   }
-  // Show edit request button for QA on view modal
+  // Show edit button for QA and TL on view modal — viewRecord() sets the
+  // precise label/eligibility per-record when a specific record is open.
   const erBtn = document.getElementById('viewEditReqBtn');
-  if(erBtn) erBtn.style.display = (user.role==='qa')?'':'none';
+  if(erBtn) erBtn.style.display = (user.role==='qa'||user.role==='tl')?'':'none';
   // Email notify button for admin/QA
   const enBtn = document.getElementById('viewEmailBtn');
   if(enBtn) enBtn.style.display = (isQA()||isAdmin())?'':'none';
@@ -21690,8 +21700,47 @@ function openDisputeFromTL(){
   document.getElementById('disputeRecordId').value = _currentTLRecordId;
   document.getElementById('disputeReason').value = '';
   document.getElementById('disputeSuggestedScore').value = '';
+
+  // Build per-item dispute picker: checkbox flags an item as disputed, and the
+  // Y/N/NA selector (enabled only once checked) captures the TL's recommended
+  // answer — reuses the same proposedAnswers-style mechanic editRequests uses.
+  const rec = getRecords().find(r=>r.id===_currentTLRecordId);
+  const formObj = rec && rec.formId ? getFormById(rec.formId) : null;
+  const form = formObj ? formObj.sections : getForm();
+  const wrap = document.getElementById('disputeItemsWrap');
+  const body = document.getElementById('disputeItemsBody');
+  if(wrap && body && rec && form && form.length){
+    let html='';
+    form.forEach(function(sec){
+      html += '<div style="background:#f1f5f9;padding:7px 12px;font-weight:700;font-size:12px;color:#334155;">'+esc(sec.title)+'</div>';
+      sec.items.forEach(function(item){
+        const cur = (rec.answers&&rec.answers[item.id])||'';
+        html += '<div style="padding:8px 12px;border-top:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;">'
+          + '<input type="checkbox" class="dispute-item-check" data-item="'+esc(item.id)+'" onchange="_disputeItemToggle(this)">'
+          + '<div style="flex:1;font-size:12px;color:#334155;"><strong>'+esc(item.id)+'</strong> — '+esc(item.title)
+          + ' <span style="color:#94a3b8;font-size:11px;">(currently: '+esc(cur||'—')+')</span></div>'
+          + '<select class="dispute-item-ans" data-item="'+esc(item.id)+'" disabled '
+          + 'style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#f8fafc;">'
+          + '<option value="Y"'+(cur==='Y'?' selected':'')+'>YES</option>'
+          + '<option value="N"'+(cur==='N'?' selected':'')+'>NO</option>'
+          + '<option value="NA"'+(cur==='NA'?' selected':'')+'>N/A</option>'
+          + '</select></div>';
+      });
+    });
+    body.innerHTML = html;
+    wrap.style.display = '';
+  } else if(wrap){
+    wrap.style.display = 'none';
+  }
+
   closeModal('tlReviewModal');
   openModal('disputeModal');
+}
+
+function _disputeItemToggle(checkbox){
+  const itemId = checkbox.getAttribute('data-item');
+  const sel = document.querySelector('.dispute-item-ans[data-item="'+CSS.escape(itemId)+'"]');
+  if(sel){ sel.disabled = !checkbox.checked; sel.style.background = checkbox.checked?'#fff':'#f8fafc'; }
 }
 
 function submitDispute(){
@@ -21703,6 +21752,21 @@ function submitDispute(){
   if(!reason){ toast('Please provide a reason for the dispute.','error'); return; }
   const r = getRecords().find(x=>x.id===recordId);
   if(!r){ toast('Record not found','error'); return; }
+
+  // Capture disputed attributes + recommended answers from checked rows only
+  let disputedItemIds = [];
+  let recommendedAnswers = null;
+  const checks = document.querySelectorAll('.dispute-item-check:checked');
+  if(checks.length){
+    recommendedAnswers = {};
+    checks.forEach(function(chk){
+      const itemId = chk.getAttribute('data-item');
+      const sel = document.querySelector('.dispute-item-ans[data-item="'+CSS.escape(itemId)+'"]');
+      disputedItemIds.push(itemId);
+      recommendedAnswers[itemId] = sel ? sel.value : '';
+    });
+  }
+
   const disputes = getDisputes();
   // Remove old pending dispute for same record
   const filtered = disputes.filter(d=>!(d.recordId===recordId && d.status==='pending'));
@@ -21717,6 +21781,8 @@ function submitDispute(){
     tlUser: user?user.username:'',
     reason,
     suggestedScore: suggested?+suggested:null,
+    disputedItemIds: disputedItemIds,
+    recommendedAnswers: recommendedAnswers,
     status: 'pending',
     finalScore: null,
     qaNote: null,
@@ -21747,9 +21813,14 @@ function openDisputeReview(disputeId){
     </div>
     <div style="background:#fff3cd;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:14px;">
       <strong>TL Dispute Reason:</strong><br>${dispute.reason}
+      ${dispute.disputedItemIds&&dispute.disputedItemIds.length?'<br><strong>Disputed Attributes:</strong> '+dispute.disputedItemIds.map(esc).join(', '):''}
+    </div>
+    <div style="margin-bottom:12px;">
+      <strong style="font-size:12px;">Full Evaluation Form — disputed items highlighted with TL's recommended answer:</strong>
+      <div style="margin-top:6px;">${r?_renderFullFormWithChanges(r, dispute.recommendedAnswers||{}):'<div style="color:var(--gray);font-size:12px;">Original record not found.</div>'}</div>
     </div>
     <div class="form-group" style="margin-bottom:12px;">
-      <label>Updated Score (if agreeing) <small style="color:var(--gray);font-weight:400;">— Leave blank to keep original</small></label>
+      <label>Updated Score (if agreeing) <small style="color:var(--gray);font-weight:400;">— Leave blank to auto-calculate from recommended answers, or to keep original if none were given</small></label>
       <input type="number" id="reviewNewScore" min="0" max="100" placeholder="${dispute.originalScore.toFixed(1)}" value="${dispute.suggestedScore||''}">
     </div>
     <div class="form-group">
@@ -21770,24 +21841,39 @@ function resolveDispute(status){
   dispute.status = status;
   dispute.qaNote = qaNote;
   dispute.resolvedAt = new Date().toISOString();
-  if(status==='agreed' && newScore){
-    const fs = +newScore;
-    dispute.finalScore = fs;
-    // Update the original record score
+  if(status==='agreed'){
     const records = getRecords();
     const ri = records.findIndex(x=>x.id===dispute.recordId);
     if(ri>=0){
-      const settings = getSettings();
-      records[ri].finalScore = fs;
-      records[ri].result = fs>=settings.passScore?'PASS':'FAIL';
+      if(dispute.recommendedAnswers && Object.keys(dispute.recommendedAnswers).length){
+        // Per-attribute recommendations exist — merge and recalculate, same
+        // mechanism editRequests approval uses. Takes priority over a manually
+        // typed score so the final score always matches the agreed-upon answers.
+        _applyAnswersAndRecalc(records[ri], dispute.recommendedAnswers);
+        dispute.finalScore = records[ri].finalScore;
+      } else if(newScore){
+        // No per-attribute detail — fall back to the original manual-score path.
+        const fs = +newScore;
+        dispute.finalScore = fs;
+        records[ri].finalScore = fs;
+        records[ri].result = fs>=(+getSettings().passScore||80)?'PASS':'FAIL';
+      } else {
+        dispute.finalScore = dispute.originalScore;
+      }
       records[ri].disputeResolved = true;
       DB.set('records',records);
+    } else {
+      dispute.finalScore = dispute.originalScore;
     }
   } else {
     dispute.finalScore = dispute.originalScore;
   }
   disputes[idx]=dispute;
   saveDisputes(disputes);
+  // Audit trail — dispute resolution was not previously logged.
+  logChange('evaluation', status==='agreed'?'Dispute Agreed':'Dispute Rejected',
+    `Dispute for "${dispute.agentName}" (record ${dispute.recordId}) ${status==='agreed'?`agreed — score ${dispute.originalScore}% → ${dispute.finalScore}%`:'rejected — score unchanged'} by ${(getCurrentUser()||{}).username||'QA'}. TL: ${dispute.tlUser}`,
+    'QMS');
   toast(status==='agreed'?'Dispute agreed — score updated!':'Dispute rejected.', status==='agreed'?'success':'error');
   closeModal('disputeReviewModal');
   if(document.getElementById('screen-tlteam')?.classList.contains('active')) renderTLTeamView();
@@ -22335,6 +22421,17 @@ function openEditRequest(){
   document.getElementById('editReqReason').value='';
   document.getElementById('editReqRemarks').value = rec.remarks||'';
 
+  const _banner = document.getElementById('editReqModeBanner');
+  if(_banner){
+    if(_canDirectEditRecord(rec)){
+      _banner.style.background='#f0fdf4'; _banner.style.borderColor='#bbf7d0'; _banner.style.color='#166534';
+      _banner.innerHTML='✅ <strong>Direct edit</strong> — this record is within the 7-day window and you\'re the QA officer or TL for this agent. Your change applies immediately, no admin approval needed.';
+    } else {
+      _banner.style.background='#eff6ff'; _banner.style.borderColor='#bfdbfe'; _banner.style.color='#1e40af';
+      _banner.innerHTML='ℹ️ This edit will be <strong>sent to Admin for approval</strong> before any score is changed — either the 7-day self-edit window has passed, or you\'re not the QA officer/TL for this agent.';
+    }
+  }
+
   // Build per-item answer editor
   const wrap = document.getElementById('editReqItemsWrap');
   const body = document.getElementById('editReqItemsBody');
@@ -22417,6 +22514,33 @@ function submitEditRequest(){
     }
   }
 
+  // 7-day direct-edit bypass: the record's own QA officer, or the agent's TL,
+  // can apply the change immediately without admin approval. Everyone else,
+  // or the same people once the record is older than 7 days, falls through
+  // to the existing pending-approval flow below unchanged.
+  const _deRecords = getRecords();
+  const _deRi = _deRecords.findIndex(r=>r.id===recordId);
+  if(_deRi>=0 && _canDirectEditRecord(_deRecords[_deRi])){
+    const _deUser = getCurrentUser();
+    const _oldScore = _deRecords[_deRi].finalScore;
+    const _oldResult = _deRecords[_deRi].result;
+    if(proposedAnswers) _applyAnswersAndRecalc(_deRecords[_deRi], proposedAnswers);
+    const _remarksEl = document.getElementById('editReqRemarks');
+    if(_remarksEl && _remarksEl.value.trim()) _deRecords[_deRi].remarks = _remarksEl.value.trim();
+    _deRecords[_deRi].directEdit = true;
+    _deRecords[_deRi].directEditAt = new Date().toISOString();
+    _deRecords[_deRi].directEditBy = _deUser?.username||'';
+    _deRecords[_deRi].directEditReason = reason;
+    DB.set('records', _deRecords);
+    logChange('evaluation','Direct Edit',
+      `Score changed ${_oldScore}% → ${_deRecords[_deRi].finalScore}% (${_oldResult} → ${_deRecords[_deRi].result}) for record ${recordId} — edited directly by ${_deUser?.displayName||_deUser?.username||'user'} (within 7-day window). Reason: ${reason}`,
+      'QMS');
+    toast('Evaluation updated directly — no approval needed within the 7-day window.','success');
+    closeModal('editRequestModal');
+    closeModal('viewEvalModal');
+    return;
+  }
+
   const reqs=getEditRequests();
   const user=getCurrentUser();
   reqs.unshift({
@@ -22455,12 +22579,105 @@ function openEditReview(reqId){
       ${req.proposedScore!=null?'<br><strong>Proposed Score:</strong> '+(req.proposedAutoFail?'AUTO FAIL (0%)':esc(String(req.proposedScore))+'%'):''}
       ${req.proposedRemarks?'<br><strong>Proposed Remarks:</strong> '+esc(req.proposedRemarks):''}
     </div>
-    ${req.proposedAnswers?'<div style="margin-bottom:12px;"><strong style="font-size:12px;">Answer Changes (vs current):</strong><div style="max-height:200px;overflow-y:auto;margin-top:6px;border:1px solid #e2e8f0;border-radius:6px;">'+Object.keys(req.proposedAnswers).map(function(k){var cur=(rec&&rec.answers&&rec.answers[k])||'—';var nw=req.proposedAnswers[k];var changed=cur!==nw;var nwColor=nw==='Y'?'#16a34a':nw==='N'?'#dc2626':'#64748b';return '<div style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-size:11px;display:flex;gap:10px;background:'+(changed?'#fef9c3':'#fff')+'"><span style="flex:1;color:#334155;font-weight:'+(changed?'700':'400')+';">'+esc(k)+'</span><span style="color:#64748b;">'+esc(cur)+'</span><span>→</span><span style="color:'+nwColor+';font-weight:700;">'+esc(nw)+'</span></div>';}).join('')+'</div></div>':''}
+    <div style="margin-bottom:12px;">
+      <strong style="font-size:12px;">Full Evaluation Form — changed items highlighted:</strong>
+      <div style="margin-top:6px;">${rec?_renderFullFormWithChanges(rec, req.proposedAnswers||{}):'<div style="color:var(--gray);font-size:12px;">Original record not found.</div>'}</div>
+    </div>
     <div class="form-group">
       <label>Admin Note</label>
       <textarea id="adminEditNote" placeholder="Reason for approving/rejecting..." style="min-height:60px;"></textarea>
     </div>`;
   openModal('editReviewModal');
+}
+
+// Shared by editRequests approval, the 7-day direct-edit bypass, and dispute
+// agreement — merges proposed/recommended item answers onto a record and
+// recalculates section scores, finalScore, and result from scratch. autoFail
+// is derived entirely from the merged answers, never from a stored flag, so
+// a resolved AUTO FAIL can't silently persist after the triggering item changes.
+// Merges only the given answers onto the original — unproposed items are left
+// as-is so stale/unrelated items can't be pulled in by accident.
+function _applyAnswersAndRecalc(record, proposedAnswers){
+  const mergedAnswers = Object.assign({}, record.answers||{});
+  Object.keys(proposedAnswers).forEach(function(k){
+    mergedAnswers[k] = proposedAnswers[k];
+  });
+  record.answers = mergedAnswers;
+  const settings = getSettings();
+  const passScore = +(settings.passScore||80);
+  const form = getForm();
+  let totalEarned=0, totalPossible=0, autoFail=false;
+  const sectionScores={};
+  form.forEach(function(sec){
+    let secEarned=0, secPossible=0;
+    sec.items.forEach(function(item){
+      const ans = mergedAnswers[item.id];
+      if(ans!=='NA'){ secPossible += item.points; }   // N/A excluded
+      if(ans==='Y') secEarned += item.points;
+      if(ans==='N' && item.autoFail) autoFail=true;
+    });
+    sectionScores[sec.id]={earned:secEarned,possible:secPossible};
+    totalEarned   += secEarned;
+    totalPossible += secPossible;
+  });
+  record.sectionScores = sectionScores;
+  const pct = autoFail ? 0 : (totalPossible>0 ? totalEarned/totalPossible*100 : 0);
+  record.finalScore = +pct.toFixed(1);
+  record.result = autoFail ? 'AUTO FAIL' : (record.finalScore>=passScore?'PASS':'FAIL');
+  return record;
+}
+
+// 7-day direct-edit eligibility (req: "Allow QA and TL to edit the attribute
+// of the submitted evaluation form within 7 days, if not [within the window]
+// edit will require admin approval"). Scoped narrowly per user confirmation:
+// only the record's own QA officer, or the TL of the agent's team — not any
+// QA/TL on any record. Past 7 days, or outside this ownership, always falls
+// back to the existing admin-approval editRequests flow.
+function _canDirectEditRecord(record){
+  const u = getCurrentUser();
+  if(!u || !record) return false;
+  if(u.role!=='qa' && u.role!=='tl') return false;
+  const isOwnerQA = !!record.qaOfficer && (record.qaOfficer||'').toLowerCase()===(u.displayName||u.username||'').toLowerCase();
+  const isAgentTL = u.role==='tl' && !!u.team && !!record.agentTeam && u.team===record.agentTeam;
+  if(!isOwnerQA && !isAgentTL) return false;
+  const ageMs = Date.now() - new Date(record.createdAt||record.evalDate+'T00:00:00').getTime();
+  return ageMs <= 7*24*3600000;
+}
+
+// Shared by the admin edit-request review and the QA dispute review — renders
+// every section/item of the exact form version used for this record, with
+// items that have a proposed/recommended answer highlighted and showing the
+// current → proposed value. Lets the reviewer see the whole evaluation in
+// context rather than just an isolated list of changed item ids.
+function _renderFullFormWithChanges(record, changedAnswers){
+  changedAnswers = changedAnswers || {};
+  const formObj = record && record.formId ? getFormById(record.formId) : null;
+  const form = formObj ? formObj.sections : getForm();
+  if(!form || !form.length) return '<div style="color:var(--gray);font-size:12px;">Form structure unavailable.</div>';
+  let html = '<div style="max-height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;">';
+  form.forEach(function(sec){
+    html += '<div style="background:#f1f5f9;padding:7px 12px;font-weight:700;font-size:12px;color:#334155;">'+esc(sec.title)+'</div>';
+    sec.items.forEach(function(item){
+      const cur = (record.answers && record.answers[item.id]) || '—';
+      // Highlight only items whose proposed value actually differs from the
+      // current one — the item picker submits every item's select value
+      // (defaulting unset ones to Y), so key-presence alone would flag
+      // everything as "changed" even when only one item truly was.
+      const hasProposal = Object.prototype.hasOwnProperty.call(changedAnswers, item.id);
+      const isChanged = hasProposal && changedAnswers[item.id]!==cur;
+      const nw = hasProposal ? changedAnswers[item.id] : null;
+      const curColor = cur==='Y'?'#16a34a':cur==='N'?'#dc2626':cur==='NA'?'#64748b':'#94a3b8';
+      const nwColor  = nw==='Y'?'#16a34a':nw==='N'?'#dc2626':'#64748b';
+      html += '<div style="padding:8px 12px;border-top:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;background:'+(isChanged?'#fef9c3':'#fff')+';">'
+        + '<div style="flex:1;font-size:12px;color:#334155;"><strong>'+esc(item.id)+'</strong> — '+esc(item.title)
+        + ' <span style="color:#94a3b8;font-size:11px;">('+esc(String(item.points))+'pt'+(item.autoFail?' ⚡AF':'')+')</span></div>'
+        + '<span style="color:'+curColor+';font-weight:700;font-size:12px;white-space:nowrap;">'+esc(cur)+'</span>'
+        + (isChanged?'<span style="color:#94a3b8;">→</span><span style="color:'+nwColor+';font-weight:700;font-size:12px;white-space:nowrap;">'+esc(nw)+'</span>':'')
+        + '</div>';
+    });
+  });
+  html += '</div>';
+  return html;
 }
 
 function resolveEditRequest(status){
@@ -22473,40 +22690,11 @@ function resolveEditRequest(status){
     const records=getRecords();
     const ri=records.findIndex(r=>r.id===reqs[idx].recordId);
     if(ri>=0){
-      const settings=getSettings();
-      const passScore=+(settings.passScore||80);
+      const passScore=+(getSettings().passScore||80);
       const oldScore = records[ri].finalScore;
       const oldResult = records[ri].result;
-      // Apply item-level answer changes if provided
       if(reqs[idx].proposedAnswers){
-        // Merge only the PROPOSED answers onto original — do NOT carry over
-        // unproposed answers so stale AF items cannot re-trigger auto-fail.
-        const mergedAnswers = Object.assign({}, records[ri].answers||{});
-        Object.keys(reqs[idx].proposedAnswers).forEach(function(k){
-          mergedAnswers[k] = reqs[idx].proposedAnswers[k];
-        });
-        records[ri].answers = mergedAnswers;
-        // Recalculate section scores + final score fresh from merged answers.
-        // autoFail is derived entirely from proposedAnswers — never from the stored flag.
-        const form = getForm();
-        let totalEarned=0, totalPossible=0, autoFail=false;
-        const sectionScores={};
-        form.forEach(function(sec){
-          let secEarned=0, secPossible=0;
-          sec.items.forEach(function(item){
-            const ans = mergedAnswers[item.id];
-            if(ans!=='NA'){ secPossible += item.points; }   // N/A excluded
-            if(ans==='Y') secEarned += item.points;
-            if(ans==='N' && item.autoFail) autoFail=true;
-          });
-          sectionScores[sec.id]={earned:secEarned,possible:secPossible};
-          totalEarned   += secEarned;
-          totalPossible += secPossible;
-        });
-        records[ri].sectionScores = sectionScores;
-        const pct = autoFail ? 0 : (totalPossible>0 ? totalEarned/totalPossible*100 : 0);
-        records[ri].finalScore = +pct.toFixed(1);
-        records[ri].result = autoFail ? 'AUTO FAIL' : (records[ri].finalScore>=passScore?'PASS':'FAIL');
+        _applyAnswersAndRecalc(records[ri], reqs[idx].proposedAnswers);
       } else if(reqs[idx].proposedScore!=null && reqs[idx].proposedScore!==''){
         records[ri].finalScore=+reqs[idx].proposedScore;
         records[ri].result=records[ri].finalScore>=passScore?'PASS':'FAIL';
