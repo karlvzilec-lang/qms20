@@ -5710,6 +5710,15 @@ function renderDashboard(){
     // Apply active period filter
     const periodStart = _dashPeriod==='day'?startOfDay:_dashPeriod==='week'?startOfWeek:startOfMonth;
     records = teamRecords.filter(r=>inRange(r.evalDate, periodStart));
+  } else if(isAMUser){
+    // Admin/Manager/CEO/Chief: the amDashFilter buttons (Today/Week/Month/Year)
+    // update _amDashPeriod and correctly re-highlight themselves (lines above),
+    // but until this branch existed, nothing ever filtered `records` by it — the
+    // KPI cards always showed the unfiltered all-time allRecords regardless of
+    // which period button was active. Reuses the same _amPeriodRange() helper
+    // renderAMDashboard() already uses further down, so both panels agree.
+    const amStart = _amPeriodRange(_amDashPeriod).start;
+    records = allRecords.filter(r=>inRange(r.evalDate, amStart));
   }
 
   const pass=records.filter(r=>r.result==='PASS'||(r.passed&&!r.autoFailed)).length;
