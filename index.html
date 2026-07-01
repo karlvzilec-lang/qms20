@@ -19228,21 +19228,60 @@ async function doSysLogin(){
     errEl.style.display='block'; return;
   }
 
-  const users=getUsers();
-  let user=null;
-  for(const u of users){
-    const nameMatch=(u.username.toLowerCase()===username.toLowerCase()||(u.email||'').toLowerCase()===username.toLowerCase());
-    if(!nameMatch) continue;
-    const match=await verifyPw(password,u.password);
-    if(match){
-      // Upgrade legacy SHA-256 or plaintext → PBKDF2 on successful login
-      if(!_IS_PBKDF2.test(u.password)){
-        u.password=await hashPw(password);
-        saveUsers(users);
+  const _tryLocalMatch = async () => {
+    const users=getUsers();
+    for(const u of users){
+      const nameMatch=(u.username.toLowerCase()===username.toLowerCase()||(u.email||'').toLowerCase()===username.toLowerCase());
+      if(!nameMatch) continue;
+      if(await verifyPw(password,u.password)){
+        // Upgrade legacy SHA-256 or plaintext → PBKDF2 on successful login
+        if(!_IS_PBKDF2.test(u.password)){
+          u.password=await hashPw(password);
+          saveUsers(users);
+        }
+        return u;
       }
-      user=u; break;
     }
+    return null;
+  };
+
+  let user = await _tryLocalMatch();
+
+  // Local cache had no match — fall back to the server, which is the real
+  // source of truth. Closes the chicken-and-egg gap where a device's local
+  // users cache goes stale (e.g. after a password reset made elsewhere) and
+  // gets stuck rejecting the correct password forever: a fresh pull normally
+  // only happens AFTER login, but login itself was gated on this same stale
+  // copy. A server-verified password now self-heals this device immediately.
+  if(!user){
+    try{
+      const _sar = await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+      if(_sar.ok){
+        const _sad = await _sar.json();
+        if(_sad.ok){
+          try{
+            const _dr = await fetch('/api/data',{headers:{'Cache-Control':'no-cache'}});
+            if(_dr.ok){
+              const _rows = await _dr.json();
+              const _usersRow = _rows.find(r=>r.bucket==='users');
+              if(_usersRow && Array.isArray(_usersRow.data)){
+                localStorage.setItem('qms2_users', JSON.stringify(_usersRow.data));
+              }
+            }
+          }catch(_e){/* pull failed — still honor the verified server login below */}
+          user = await _tryLocalMatch(); // retry now that the local cache is fresh
+          if(!user){
+            // Extremely rare: server verified the password but the freshly-pulled
+            // users bucket still doesn't contain this id (e.g. pull failed above).
+            // Trust the server's verification rather than lock out a correct password.
+            user = { id:_sad.userId, username, role:_sad.role, displayName:_sad.displayName, status:'active', password:'' };
+          }
+          if(_sad.token) sessionStorage.setItem('qms_token', _sad.token);
+        }
+      }
+    }catch(_e){/* server unreachable — fall through to normal failure below */}
   }
+
   if(!user){
     _recordLoginFail(lockKey);
     errEl.textContent='Invalid username / email or password.';
