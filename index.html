@@ -1301,7 +1301,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
             </select>
           </div>
           <div class="form-group full" id="evalReasonForCallingGroup">
-            <label>Reason for Calling <span style="font-size:10px;font-weight:600;color:#FF7900;background:#fff3e0;padding:1px 7px;border-radius:10px;margin-left:6px;">Inbound Only</span></label>
+            <label><span id="evalReasonForCallingLabel">Reason for Calling</span> <span id="evalReasonForCallingBadge" style="font-size:10px;font-weight:600;color:#FF7900;background:#fff3e0;padding:1px 7px;border-radius:10px;margin-left:6px;">Inbound Only</span></label>
             <input type="text" id="evalReasonForCalling" placeholder="e.g. Billing inquiry, Technical support, Account issue…">
           </div>
           <div class="form-group full">
@@ -1312,6 +1312,11 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       </div>
 
       <!-- QA Sections -->
+      <div class="no-print" style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <button id="evalDetailsToggleAll" onclick="toggleAllItemDetails()" style="background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:4px 8px;display:flex;align-items:center;gap:4px;">
+          <span id="evalDetailsToggleAllIcon">▾</span><span id="evalDetailsToggleAllLabel">Expand All Details</span>
+        </button>
+      </div>
       <div id="qaSections"></div>
 
       <!-- Submit Footer -->
@@ -7242,12 +7247,13 @@ function buildEvalForm(){
         <div class="qa-item-header">
           <div class="qa-item-num ${item.autoFail?'autofail':''}">${item.id}</div>
           <div class="qa-item-info">
-            <div class="qa-item-title">
+            <div class="qa-item-title" onclick="toggleItemDetails('${item.id}')" style="cursor:pointer;">
+              <span id="idarr-${item.id}" style="display:inline-block;width:12px;color:var(--gray);font-size:10px;">▶</span>
               ${item.title}
               ${item.autoFail?'<span class="autofail-flag">⚡ AUTO FAIL</span>':''}
               ${item.naAllowed?'<span style="font-size:10px;color:var(--gray);font-weight:400;margin-left:6px;">(N/A allowed)</span>':''}
             </div>
-            <div class="qa-item-desc">${(item.desc||'').replace(/\n/g,'<br>')}</div>
+            <div class="qa-item-desc" id="idesc-${item.id}" style="display:none;">${(item.desc||'').replace(/\n/g,'<br>')}</div>
           </div>
           <div class="qa-item-points">${item.points} pt${item.points!==1?'s':''}</div>
         </div>
@@ -7273,6 +7279,28 @@ function toggleSection(id){
   const arr=document.getElementById('sarr-'+id);
   body.style.display = body.style.display==='none'?'':'none';
   arr.textContent = body.style.display==='none'?'▶':'▼';
+}
+
+// Per-item description collapse — defaults closed so the form is shorter and
+// evaluators scroll less. Independent per item (not accordion-exclusive) so
+// multiple can stay open at once for side-by-side reference while scoring.
+function toggleItemDetails(id){
+  const desc=document.getElementById('idesc-'+id);
+  const arr=document.getElementById('idarr-'+id);
+  if(!desc||!arr) return;
+  const opening = desc.style.display==='none';
+  desc.style.display = opening?'block':'none';
+  arr.textContent = opening?'▼':'▶';
+}
+
+function toggleAllItemDetails(){
+  const icon  = document.getElementById('evalDetailsToggleAllIcon');
+  const label = document.getElementById('evalDetailsToggleAllLabel');
+  const expanding = icon.textContent==='▾'; // current label says "Expand All" → we're about to expand
+  document.querySelectorAll('#qaSections .qa-item-desc').forEach(d=>{ d.style.display = expanding?'block':'none'; });
+  document.querySelectorAll('#qaSections [id^="idarr-"]').forEach(a=>{ a.textContent = expanding?'▼':'▶'; });
+  icon.textContent = expanding?'▴':'▾';
+  label.textContent = expanding?'Collapse All Details':'Expand All Details';
 }
 
 function setRating(itemId, val, btn){
@@ -7510,10 +7538,27 @@ function onAgentSelect(){
   if(agent && agent.campaign) document.getElementById('evalCampaign').value=agent.campaign;
 }
 
+// Reason field is relevant for Inbound, Chat, and Email — the channels where a
+// specific contact reason is meaningful to capture (Outbound calls are agent-
+// initiated, so there's no "reason" a customer gave). Same field/id is reused
+// across channels and just relabeled, for consistency with the existing pattern.
+const _EVAL_REASON_CONFIG = {
+  Inbound: { label:'Reason for Calling', badge:'Inbound Only', placeholder:'e.g. Billing inquiry, Technical support, Account issue…' },
+  Chat:    { label:'Reason for Chat',    badge:'Chat Only',    placeholder:'e.g. Product question, Order status, Technical support…' },
+  Email:   { label:'Reason for Email',   badge:'Email Only',  placeholder:'e.g. Refund request, Account update, Complaint…' }
+};
 function evalToggleReasonField(){
   const ct  = document.getElementById('evalCallType')?.value;
   const grp = document.getElementById('evalReasonForCallingGroup');
-  if(grp) grp.style.display = (ct==='Inbound') ? '' : 'none';
+  const cfg = _EVAL_REASON_CONFIG[ct];
+  if(grp) grp.style.display = cfg ? '' : 'none';
+  if(!cfg) return;
+  const lblEl   = document.getElementById('evalReasonForCallingLabel');
+  const badgeEl = document.getElementById('evalReasonForCallingBadge');
+  const inputEl = document.getElementById('evalReasonForCalling');
+  if(lblEl)   lblEl.textContent = cfg.label;
+  if(badgeEl) badgeEl.textContent = cfg.badge;
+  if(inputEl) inputEl.placeholder = cfg.placeholder;
 }
 
 function clearEvalForm(){
@@ -7629,7 +7674,7 @@ function _doSubmitEval(){
     duration: document.getElementById('evalDuration').value,
     refNo: document.getElementById('evalRef').value,
     mobileNumber: document.getElementById('evalMobile')?.value?.trim()||'',
-    reasonForCalling: document.getElementById('evalCallType').value==='Inbound' ? (document.getElementById('evalReasonForCalling')?.value?.trim()||'') : '',
+    reasonForCalling: _EVAL_REASON_CONFIG[document.getElementById('evalCallType').value] ? (document.getElementById('evalReasonForCalling')?.value?.trim()||'') : '',
     callType: document.getElementById('evalCallType').value,
     campaign: document.getElementById('evalCampaign').value,
     remarks: document.getElementById('evalRemarks').value,
