@@ -1975,6 +1975,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 <button class="settings-tab" data-stab="integrations" onclick="switchSettingsTab('integrations',this)" id="integrationsTab" style="display:none;">🔌 Integrations</button>
 <button class="settings-tab" data-stab="db-health" onclick="switchSettingsTab('db-health',this)" id="dbHealthTab" style="display:none;">🗄️ DB Health</button>
 <button class="settings-tab" data-stab="evaluation-rules" onclick="switchSettingsTab('evaluation-rules',this);_renderCooldownToggle()" id="evalRulesTab" style="display:none;">📋 Evaluation</button>
+<button class="settings-tab" data-stab="migration" onclick="switchSettingsTab('migration',this);_migInit()" id="migrationTab" style="display:none;">🚀 Migration</button>
   </div>
 
   <!-- TAB: QA Settings -->
@@ -2512,6 +2513,156 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     </div>
   </div>
 </div><!-- /stab-evaluation-rules -->
+
+<!-- TAB: Migration (SuperAdmin only) -->
+<div id="stab-migration" class="stab-panel" style="display:none;">
+
+  <!-- Hero banner -->
+  <div style="background:linear-gradient(135deg,#1e1b4b,#4f46e5);border-radius:12px;padding:18px 22px;margin-bottom:18px;color:#fff;">
+    <div style="font-size:15px;font-weight:800;margin-bottom:5px;">🚀 Data Migration &amp; Integration Hub</div>
+    <div style="font-size:12px;opacity:.85;line-height:1.75;">
+      Export all QMS data, schema, and business logic. Deploy to any on-prem Windows Server, cloud provider, or integrate with AI agents and MCP servers.
+      All exports include checksums and are compatible with PostgreSQL, MySQL, SQL Server, and SQLite.
+    </div>
+  </div>
+
+  <!-- Row: Export + Business Logic -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+    <div class="card">
+      <div class="card-title">📦 Full Data Export</div>
+      <div style="font-size:12px;color:#64748b;line-height:1.65;margin-bottom:12px;">
+        Pulls all buckets from Supabase — users, agents, evaluations, NPS, settings, and form config — into a single signed JSON bundle ready to import anywhere.
+      </div>
+      <div id="migExportStats" style="display:none;background:#f8fafc;border-radius:8px;padding:10px 12px;font-size:11px;color:#475569;margin-bottom:12px;line-height:1.8;border:1.5px solid #e2e8f0;"></div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="_migFetch()" id="migFetchBtn" style="flex:1;padding:9px;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">🔍 Fetch &amp; Preview</button>
+        <button onclick="_migDownload()" id="migDownloadBtn" disabled style="flex:1;padding:9px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;opacity:.4;">⬇ Download JSON</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">🧠 Business Logic Export</div>
+      <div style="font-size:12px;color:#64748b;line-height:1.65;margin-bottom:12px;">
+        Exports QA form structure, scoring rules, pass thresholds, role permissions, and system settings as a portable config — survives any infrastructure move.
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="_migExportLogic()" style="flex:1;padding:9px;background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Config Bundle</button>
+        <button onclick="_migExportUsers()" style="flex:1;padding:9px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">👥 Users CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Database Schema / DDL -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-title">🗄️ Database Schema (DDL)</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Ready-to-run SQL — paste into your database admin tool and execute before importing data.</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+      <button onclick="_migDDL('pg')"     id="migDdlBtnPg"     style="padding:5px 14px;border-radius:20px;border:1.5px solid #4f46e5;background:#4f46e5;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">PostgreSQL</button>
+      <button onclick="_migDDL('mysql')"  id="migDdlBtnMysql"  style="padding:5px 14px;border-radius:20px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:11px;font-weight:700;cursor:pointer;">MySQL / MariaDB</button>
+      <button onclick="_migDDL('mssql')"  id="migDdlBtnMssql"  style="padding:5px 14px;border-radius:20px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:11px;font-weight:700;cursor:pointer;">SQL Server</button>
+      <button onclick="_migDDL('sqlite')" id="migDdlBtnSqlite" style="padding:5px 14px;border-radius:20px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:11px;font-weight:700;cursor:pointer;">SQLite</button>
+    </div>
+    <div style="position:relative;">
+      <pre id="migDdlPre" style="background:#0f172a;color:#e2e8f0;padding:14px 16px;border-radius:8px;font-size:11px;line-height:1.7;margin:0;overflow-x:auto;white-space:pre;"></pre>
+      <button onclick="_migCopyEl('migDdlPre')" style="position:absolute;top:8px;right:8px;padding:4px 10px;background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:6px;font-size:11px;cursor:pointer;">📋 Copy</button>
+    </div>
+  </div>
+
+  <!-- Push to target -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-title">🎯 Push to Target Server</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.65;">
+      Point to any server that implements the same <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px;">/api/data</code> GET + POST contract (see Server Package below). All buckets are pushed with the merge strategy — no data is overwritten.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-bottom:10px;">
+      <input type="url" id="migTargetUrl" placeholder="https://your-server.com/api/data  — or  http://192.168.1.10:3001/api/data"
+        style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;box-sizing:border-box;">
+      <button onclick="_migTest()" style="padding:8px 14px;background:#f8fafc;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">🔌 Test</button>
+      <button onclick="_migPush()" id="migPushBtn" style="padding:8px 14px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">🚀 Push All</button>
+    </div>
+    <div id="migTargetStatus" style="display:none;font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:8px;"></div>
+    <div id="migPushWrap" style="display:none;">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px;font-weight:600;">Migration log:</div>
+      <div id="migPushLog" style="background:#0f172a;color:#86efac;padding:10px 12px;border-radius:8px;font-size:11px;font-family:monospace;max-height:200px;overflow-y:auto;line-height:1.7;"></div>
+    </div>
+  </div>
+
+  <!-- Import bundle -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-title">📥 Import Bundle</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.65;">
+      Upload a previously exported JSON bundle and push it to the current Supabase instance or a custom target URL.
+      The merge strategy is applied — existing records are never overwritten.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <label style="flex:1;padding:9px 14px;border:2px dashed #e2e8f0;border-radius:8px;cursor:pointer;text-align:center;font-size:12px;color:#64748b;font-weight:600;" id="migImportLabel">
+        📂 Choose JSON bundle…
+        <input type="file" id="migImportFile" accept=".json" style="display:none;" onchange="_migImportRead(this)">
+      </label>
+      <button onclick="_migImportPush()" id="migImportBtn" disabled style="padding:9px 16px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;opacity:.4;white-space:nowrap;">⬆ Push to Target</button>
+    </div>
+    <div id="migImportStatus" style="display:none;margin-top:10px;font-size:12px;padding:8px 12px;border-radius:8px;"></div>
+  </div>
+
+  <!-- On-prem server package -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-title">📡 On-Prem Server Package</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.65;">
+      Drop-in Node.js server that replaces the Netlify function. Runs on Windows Server, Linux, or any Docker container.
+      Uses <strong>SQLite by default</strong> (zero config) — swap to PostgreSQL or SQL Server via environment variables.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div style="background:#f8fafc;border-radius:8px;padding:10px 14px;font-size:11px;color:#475569;border:1.5px solid #e2e8f0;">
+        <div style="font-weight:700;margin-bottom:4px;">Quick start (Windows Server)</div>
+        <code style="display:block;white-space:pre-wrap;font-size:10.5px;color:#1e293b;">node --version   # need v18+
+npm install
+node server.js   # listens on :3001</code>
+      </div>
+      <div style="background:#f8fafc;border-radius:8px;padding:10px 14px;font-size:11px;color:#475569;border:1.5px solid #e2e8f0;">
+        <div style="font-weight:700;margin-bottom:4px;">Environment variables</div>
+        <code style="display:block;white-space:pre-wrap;font-size:10.5px;color:#1e293b;">PORT=3001
+DB_TYPE=sqlite|postgres|mssql
+DB_URL=./qms.db  # or connection string
+CORS_ORIGIN=https://yourdomain.com</code>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="_migDlServer('server')" style="flex:1;padding:9px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">⬇ server.js</button>
+      <button onclick="_migDlServer('pkg')"    style="flex:1;padding:9px;background:#334155;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">⬇ package.json</button>
+      <button onclick="_migDlServer('env')"    style="flex:1;padding:9px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">⬇ .env.example</button>
+      <button onclick="_migDlServer('docker')" style="flex:1;padding:9px;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Dockerfile</button>
+    </div>
+  </div>
+
+  <!-- MCP / AI API contract -->
+  <div class="card">
+    <div class="card-title">🤖 AI &amp; MCP Integration</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.65;">
+      QMS exposes a simple REST API that any AI agent or MCP server can call. Download the OpenAPI spec or the MCP server stub to connect Claude, GPT, or any LLM tool.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:8px;padding:12px 14px;font-size:12px;">
+        <div style="font-weight:700;color:#7c3aed;margin-bottom:6px;">Endpoints available to AI</div>
+        <div style="color:#64748b;line-height:1.8;font-size:11px;">
+          GET  /api/data → all buckets<br>
+          POST /api/data → upsert bucket<br>
+          All responses are JSON arrays with <code style="background:#f3e8ff;padding:1px 4px;border-radius:3px;">id</code> fields — LLM-friendly.
+        </div>
+      </div>
+      <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:12px 14px;font-size:12px;">
+        <div style="font-weight:700;color:#16a34a;margin-bottom:6px;">MCP server stub</div>
+        <div style="color:#64748b;line-height:1.8;font-size:11px;">
+          The stub exposes <code style="background:#dcfce7;padding:1px 4px;border-radius:3px;">get_data</code>, <code style="background:#dcfce7;padding:1px 4px;border-radius:3px;">push_data</code>, and <code style="background:#dcfce7;padding:1px 4px;border-radius:3px;">query_records</code> as MCP tools — ready for Claude Desktop or any MCP client.
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="_migDlAI('openapi')" style="flex:1;padding:9px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">⬇ OpenAPI Spec</button>
+      <button onclick="_migDlAI('mcp')"     style="flex:1;padding:9px;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">⬇ MCP Server Stub</button>
+      <button onclick="_migDlAI('postman')" style="flex:1;padding:9px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Postman Collection</button>
+    </div>
+  </div>
+
+</div><!-- /stab-migration -->
 
 </div><!-- /screen-settings -->
 
@@ -22657,6 +22808,8 @@ function initDangerZoneVisibility(){
   if(dhTab) dhTab.style.display=show?'':'none';
   var erTab=document.getElementById('evalRulesTab');
   if(erTab) erTab.style.display=superOnly?'':'none';
+  var mgTab=document.getElementById('migrationTab');
+  if(mgTab) mgTab.style.display=superOnly?'':'none';
 }
 
 
@@ -23192,6 +23345,601 @@ function _renderDbHealthTable(d){
 }
 
 function _he(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MIGRATION HUB — export, push, DDL generation, server package download
+// ═══════════════════════════════════════════════════════════════════════════
+
+var _migData = null; // last fetched bundle
+var _migImportData = null; // loaded from file
+
+function _migInit(){
+  if(!document.getElementById('migDdlPre').textContent) _migDDL('pg');
+}
+
+// ── Download helper ───────────────────────────────────────────────────────
+function _migDl(filename, content, mime){
+  mime = mime || 'application/octet-stream';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content],{type:mime}));
+  a.download = filename;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+function _migCopyEl(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  navigator.clipboard.writeText(el.textContent||el.value||'').then(()=>toast('Copied to clipboard','success')).catch(()=>{});
+}
+
+// ── Full data export ──────────────────────────────────────────────────────
+function _migFetch(){
+  const btn = document.getElementById('migFetchBtn');
+  btn.textContent = '⏳ Fetching…'; btn.disabled = true;
+  fetch('/api/data',{headers:{'Cache-Control':'no-cache'}})
+    .then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(rows=>{
+      _migData = {
+        _meta: {
+          version: '2.0',
+          exported: new Date().toISOString(),
+          source: window.location.origin,
+          buckets: rows.length,
+          checksum: rows.reduce((s,r)=>s+(Array.isArray(r.data)?r.data.length:1),0)
+        },
+        buckets: rows
+      };
+      const statsEl = document.getElementById('migExportStats');
+      statsEl.style.display = 'block';
+      statsEl.innerHTML = rows.map(r=>{
+        const cnt = Array.isArray(r.data)?r.data.length:(r.data!=null?1:0);
+        const kb  = (JSON.stringify(r.data||'').length/1024).toFixed(1);
+        return `<span style="display:inline-flex;gap:6px;margin-right:10px;margin-bottom:2px;">
+          <strong>${r.bucket}</strong><span style="color:#94a3b8;">${cnt} items · ${kb} KB</span>
+        </span>`;
+      }).join('') + `<hr style="margin:8px 0;border:none;border-top:1px solid #e2e8f0;">
+        <strong>Total:</strong> ${rows.length} buckets · ${_migData._meta.checksum} records · ${(JSON.stringify(_migData).length/1024).toFixed(1)} KB`;
+      const dlBtn = document.getElementById('migDownloadBtn');
+      dlBtn.disabled = false; dlBtn.style.opacity='1';
+      btn.textContent='✅ Fetched'; btn.disabled=false;
+      toast('Fetched '+rows.length+' buckets from Supabase','success');
+    })
+    .catch(e=>{ btn.textContent='🔍 Fetch & Preview'; btn.disabled=false; toast('Fetch failed: '+e,'error'); });
+}
+
+function _migDownload(){
+  if(!_migData){ toast('Fetch first','error'); return; }
+  const ts = new Date().toISOString().slice(0,16).replace(/[:.]/g,'-');
+  _migDl('qms-export-'+ts+'.json', JSON.stringify(_migData,null,2), 'application/json');
+  toast('Bundle downloaded','success');
+}
+
+// ── Business logic export ─────────────────────────────────────────────────
+function _migExportLogic(){
+  const bundle = {
+    _meta: { type:'qms-logic-bundle', version:'2.0', exported: new Date().toISOString() },
+    settings:    DB.get('settings')   || {},
+    form:        DB.get('form')        || [],
+    evaluations: DB.get('evaluations') || [],
+    npsRoleMatrix: DB.get('npsRoleMatrix') || {},
+    npsSurveys:  DB.get('npsSurveys')  || []
+  };
+  _migDl('qms-logic-'+new Date().toISOString().slice(0,10)+'.json', JSON.stringify(bundle,null,2),'application/json');
+  toast('Business logic bundle downloaded','success');
+}
+
+function _migExportUsers(){
+  const users = getUsers().map(u=>({
+    id: u.id, username: u.username, displayName: u.displayName||'',
+    role: u.role, status: u.status||'active', email: u.email||'',
+    team: u.team||'', createdAt: u.createdAt||''
+    // password intentionally excluded
+  }));
+  const headers = Object.keys(users[0]||{});
+  const csv = [headers.join(','), ...users.map(u=>headers.map(h=>{
+    const v = String(u[h]||'').replace(/"/g,'""');
+    return v.includes(',')||v.includes('"') ? '"'+v+'"' : v;
+  }).join(','))].join('\r\n');
+  _migDl('qms-users-'+new Date().toISOString().slice(0,10)+'.csv', csv, 'text/csv');
+  toast('Users CSV downloaded (passwords excluded)','success');
+}
+
+// ── DDL schema generator ──────────────────────────────────────────────────
+var _migDdlMap = {
+  pg: `-- ═══ QMS v2 — PostgreSQL / Supabase Schema ══════════════════════════
+-- Compatible with: Supabase, Amazon RDS, Neon, Railway, fly.io
+
+CREATE TABLE IF NOT EXISTS qams_data (
+  bucket     TEXT        PRIMARY KEY,
+  data       JSONB       NOT NULL DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Row-Level Security (required when using Supabase anon key)
+ALTER TABLE qams_data ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS allow_all ON qams_data;
+CREATE POLICY allow_all ON qams_data
+  FOR ALL TO public USING (true) WITH CHECK (true);
+
+-- Performance index
+CREATE INDEX IF NOT EXISTS idx_qams_bucket_ts ON qams_data (updated_at DESC);
+
+-- Permissions
+GRANT ALL ON TABLE qams_data TO anon, authenticated;`,
+
+  mysql: `-- ═══ QMS v2 — MySQL / MariaDB Schema ════════════════════════════════
+-- Compatible with: AWS RDS MySQL, PlanetScale, Azure Database for MySQL
+
+CREATE TABLE IF NOT EXISTS qams_data (
+  bucket     VARCHAR(255) NOT NULL,
+  data       JSON         NOT NULL,
+  updated_at DATETIME(3)  NOT NULL
+             DEFAULT CURRENT_TIMESTAMP(3)
+             ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (bucket)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;`,
+
+  mssql: `-- ═══ QMS v2 — Microsoft SQL Server Schema ════════════════════════════
+-- Compatible with: SQL Server 2016+, Azure SQL, Windows Server
+
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'qams_data')
+BEGIN
+  CREATE TABLE dbo.qams_data (
+    bucket     NVARCHAR(255)  NOT NULL,
+    data       NVARCHAR(MAX)  NOT NULL
+               CONSTRAINT df_qams_data DEFAULT (N'[]'),
+    updated_at DATETIMEOFFSET NOT NULL
+               CONSTRAINT df_qams_updated DEFAULT SYSDATETIMEOFFSET(),
+    CONSTRAINT pk_qams_data PRIMARY KEY CLUSTERED (bucket ASC)
+  );
+
+  -- JSON validation (SQL Server 2016+)
+  ALTER TABLE dbo.qams_data
+    ADD CONSTRAINT ck_qams_json CHECK (ISJSON(data) = 1);
+
+  CREATE INDEX idx_qams_ts ON dbo.qams_data (updated_at DESC);
+END
+GO`,
+
+  sqlite: `-- ═══ QMS v2 — SQLite Schema ══════════════════════════════════════════
+-- Compatible with: local Windows files, Cloudflare D1, Turso, LibSQL
+
+CREATE TABLE IF NOT EXISTS qams_data (
+  bucket     TEXT NOT NULL PRIMARY KEY,
+  data       TEXT NOT NULL DEFAULT '[]',
+  updated_at TEXT NOT NULL DEFAULT (datetime('now','utc'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_qams_ts
+  ON qams_data (updated_at DESC);`
+};
+
+function _migDDL(type){
+  document.getElementById('migDdlPre').textContent = _migDdlMap[type]||'';
+  ['pg','mysql','mssql','sqlite'].forEach(t=>{
+    const b = document.getElementById('migDdlBtn'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(!b) return;
+    const active = t===type;
+    b.style.background = active?'#4f46e5':'#f8fafc';
+    b.style.color      = active?'#fff':'#64748b';
+    b.style.borderColor= active?'#4f46e5':'#e2e8f0';
+  });
+}
+
+// ── Push to target ────────────────────────────────────────────────────────
+function _migTest(){
+  const url = (document.getElementById('migTargetUrl').value||'').trim();
+  if(!url){ toast('Enter a target URL first','error'); return; }
+  const el = document.getElementById('migTargetStatus');
+  el.style.display='block'; el.style.background='#f8fafc'; el.style.color='#64748b'; el.textContent='Testing…';
+  fetch(url,{headers:{'Cache-Control':'no-cache'}})
+    .then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status))
+    .then(data=>{
+      const cnt = Array.isArray(data)?data.length:0;
+      el.style.background='#f0fdf4'; el.style.color='#16a34a';
+      el.textContent='✅ Connected — '+cnt+' buckets found on target.';
+    })
+    .catch(e=>{ el.style.background='#fef2f2'; el.style.color='#dc2626'; el.textContent='❌ Connection failed: '+e; });
+}
+
+async function _migPush(){
+  const url = (document.getElementById('migTargetUrl').value||'').trim();
+  if(!url){ toast('Enter a target URL first','error'); return; }
+  if(!_migData){ toast('Fetch source data first (Fetch & Preview button)','error'); return; }
+  const logEl = document.getElementById('migPushLog');
+  const wrap  = document.getElementById('migPushWrap');
+  const btn   = document.getElementById('migPushBtn');
+  wrap.style.display='block'; logEl.textContent='';
+  btn.disabled=true; btn.textContent='🔄 Pushing…';
+
+  const log = msg=>{ logEl.textContent+=msg+'\n'; logEl.scrollTop=logEl.scrollHeight; };
+  log('['+new Date().toLocaleTimeString()+'] Starting migration to '+url);
+  let ok=0, fail=0;
+  for(const row of _migData.buckets){
+    try{
+      const r = await fetch(url,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({bucket:row.bucket, data:row.data})
+      });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const cnt = Array.isArray(row.data)?row.data.length:1;
+      log('  ✅ '+row.bucket+' ('+cnt+' records)');
+      ok++;
+    }catch(e){
+      log('  ❌ '+row.bucket+' — '+e.message);
+      fail++;
+    }
+  }
+  log('\n['+new Date().toLocaleTimeString()+'] Done — '+ok+' buckets pushed, '+fail+' failed.');
+  btn.disabled=false; btn.textContent='🚀 Push All';
+  toast(fail===0?'Migration complete — '+ok+' buckets pushed':'Migration done with '+fail+' errors', fail===0?'success':'warning');
+}
+
+// ── Import bundle ─────────────────────────────────────────────────────────
+function _migImportRead(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      _migImportData = JSON.parse(e.target.result);
+      const buckets = _migImportData.buckets||(_migImportData._meta?null:Object.entries(_migImportData).map(([b,d])=>({bucket:b,data:d})));
+      if(!buckets){ toast('Invalid bundle format','error'); _migImportData=null; return; }
+      const label = document.getElementById('migImportLabel');
+      const cnt   = buckets.reduce((s,r)=>s+(Array.isArray(r.data)?r.data.length:1),0);
+      label.childNodes[0].textContent = '📂 '+file.name+' ('+buckets.length+' buckets, '+cnt+' records)';
+      const btn = document.getElementById('migImportBtn'); btn.disabled=false; btn.style.opacity='1';
+      const st  = document.getElementById('migImportStatus');
+      st.style.display='block'; st.style.background='#f0fdf4'; st.style.color='#16a34a';
+      st.textContent = '✅ Bundle loaded — '+buckets.length+' buckets, '+cnt+' total records. Set a target URL above (or leave blank to push to current Supabase), then click Push.';
+    }catch(ex){ toast('Could not parse JSON: '+ex.message,'error'); }
+  };
+  reader.readAsText(file);
+}
+
+async function _migImportPush(){
+  if(!_migImportData){ toast('Load a bundle file first','error'); return; }
+  const url = (document.getElementById('migTargetUrl').value||'').trim() || '/api/data';
+  const buckets = _migImportData.buckets || Object.entries(_migImportData).filter(([k])=>k!=='_meta').map(([b,d])=>({bucket:b,data:d}));
+  const st = document.getElementById('migImportStatus');
+  st.style.display='block'; st.style.background='#f8fafc'; st.style.color='#64748b'; st.textContent='Pushing…';
+  let ok=0, fail=0;
+  for(const row of buckets){
+    try{
+      const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bucket:row.bucket,data:row.data})});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      ok++;
+    }catch(e){ fail++; console.warn('Import push failed for '+row.bucket,e); }
+  }
+  st.style.background = fail===0?'#f0fdf4':'#fef3c7';
+  st.style.color      = fail===0?'#16a34a':'#92400e';
+  st.textContent = fail===0 ? '✅ Import complete — '+ok+' buckets pushed.' : '⚠️ Done — '+ok+' OK, '+fail+' failed.';
+  toast(fail===0?'Import complete':'Import done with '+fail+' errors', fail===0?'success':'warning');
+}
+
+// ── Server package downloads ──────────────────────────────────────────────
+function _migDlServer(type){
+  if(type==='server') _migDl('server.js', _migServerJs(), 'application/javascript');
+  if(type==='pkg')    _migDl('package.json', _migPkgJson(), 'application/json');
+  if(type==='env')    _migDl('.env.example', _migEnvExample(), 'text/plain');
+  if(type==='docker') _migDl('Dockerfile', _migDockerfile(), 'text/plain');
+  toast('Downloaded '+type,'success');
+}
+
+function _migServerJs(){ return `// ═══ QMS v2 — On-Prem API Server (Node.js / Express) ════════════════════
+// Replaces the Netlify serverless function. Runs on Windows Server, Linux, or Docker.
+// DB_TYPE=sqlite (default — zero config) | postgres | mssql
+//
+// QUICK START:
+//   npm install && node server.js
+//
+// Then in QMS: Settings → Migration → Push to Target → http://YOUR_IP:3001/api/data
+// ═════════════════════════════════════════════════════════════════════════
+
+require('dotenv').config();
+const express = require('express');
+const cors    = require('cors');
+const app     = express();
+
+const PORT        = process.env.PORT        || 3001;
+const DB_TYPE     = process.env.DB_TYPE     || 'sqlite';
+const DB_URL      = process.env.DB_URL      || './qms_data.db';
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+
+app.use(cors({ origin: CORS_ORIGIN }));
+app.use(express.json({ limit: '50mb' }));
+
+const MERGE_BUCKETS = new Set([
+  'users','agents','records','coachings','disputes','editRequests',
+  'changeLog','npsRecords','npsResponses','accessRequests','pwresets'
+]);
+
+function mergeArrays(incoming, existing){
+  if(!Array.isArray(incoming)||!Array.isArray(existing)) return incoming;
+  const merged = [...incoming];
+  const ids = new Set(incoming.map(x=>x&&x.id));
+  existing.forEach(x=>{ if(x&&x.id&&!ids.has(x.id)) merged.push(x); });
+  return merged;
+}
+
+let adapter;
+
+async function initDb(){
+  if(DB_TYPE === 'sqlite'){
+    const Database = require('better-sqlite3');
+    const db = new Database(DB_URL);
+    db.exec(\`
+      CREATE TABLE IF NOT EXISTS qams_data (
+        bucket TEXT NOT NULL PRIMARY KEY,
+        data   TEXT NOT NULL DEFAULT '[]',
+        updated_at TEXT NOT NULL DEFAULT (datetime('now','utc'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_ts ON qams_data(updated_at DESC);
+    \`);
+    adapter = {
+      getAll: ()=> db.prepare('SELECT bucket, data FROM qams_data').all()
+                      .map(r=>({ bucket:r.bucket, data:JSON.parse(r.data) })),
+      getOne: (b)=>{ const r=db.prepare('SELECT data FROM qams_data WHERE bucket=?').get(b); return r?JSON.parse(r.data):null; },
+      upsert: (b,d)=> db.prepare(\`
+        INSERT INTO qams_data(bucket,data,updated_at) VALUES(?,?,datetime('now','utc'))
+        ON CONFLICT(bucket) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at
+      \`).run(b, JSON.stringify(d))
+    };
+  } else if(DB_TYPE === 'postgres'){
+    const { Pool } = require('pg');
+    const pool = new Pool({ connectionString: DB_URL, ssl: process.env.DB_SSL?{rejectUnauthorized:false}:false });
+    await pool.query(\`
+      CREATE TABLE IF NOT EXISTS qams_data (
+        bucket TEXT PRIMARY KEY,
+        data JSONB NOT NULL DEFAULT '[]',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    \`);
+    adapter = {
+      getAll: async()=> (await pool.query('SELECT bucket, data FROM qams_data')).rows,
+      getOne: async(b)=>{ const r=await pool.query('SELECT data FROM qams_data WHERE bucket=$1',[b]); return r.rows[0]?.data||null; },
+      upsert: async(b,d)=> pool.query(
+        'INSERT INTO qams_data(bucket,data,updated_at) VALUES($1,$2::jsonb,now()) ON CONFLICT(bucket) DO UPDATE SET data=$2::jsonb,updated_at=now()',
+        [b,JSON.stringify(d)]
+      )
+    };
+  } else if(DB_TYPE === 'mssql'){
+    const sql = require('mssql');
+    const cfg = { connectionString: DB_URL };
+    const pool = await sql.connect(cfg);
+    await pool.query(\`
+      IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name='qams_data')
+      CREATE TABLE dbo.qams_data (
+        bucket NVARCHAR(255) PRIMARY KEY,
+        data NVARCHAR(MAX) NOT NULL DEFAULT '[]',
+        updated_at DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
+      )
+    \`);
+    adapter = {
+      getAll: async()=> (await pool.query('SELECT bucket, data FROM dbo.qams_data')).recordset
+                          .map(r=>({ bucket:r.bucket, data:JSON.parse(r.data) })),
+      getOne: async(b)=>{ const r=await pool.request().input('b',b).query('SELECT data FROM dbo.qams_data WHERE bucket=@b'); const row=r.recordset[0]; return row?JSON.parse(row.data):null; },
+      upsert: async(b,d)=> pool.request().input('b',b).input('d',JSON.stringify(d)).query(\`
+        MERGE dbo.qams_data AS t USING (SELECT @b AS bucket) AS s ON t.bucket=s.bucket
+        WHEN MATCHED THEN UPDATE SET data=@d, updated_at=SYSDATETIMEOFFSET()
+        WHEN NOT MATCHED THEN INSERT(bucket,data,updated_at) VALUES(@b,@d,SYSDATETIMEOFFSET());
+      \`)
+    };
+  } else { throw new Error('Unknown DB_TYPE: '+DB_TYPE); }
+}
+
+app.get('/api/data', async(req,res)=>{
+  try{ res.json(await adapter.getAll()); }
+  catch(e){ console.error(e); res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/data', async(req,res)=>{
+  try{
+    const { bucket, data } = req.body;
+    if(!bucket) return res.status(400).json({error:'Missing bucket'});
+    let final = data;
+    if(MERGE_BUCKETS.has(bucket) && Array.isArray(data)){
+      const existing = await adapter.getOne(bucket);
+      if(Array.isArray(existing)) final = mergeArrays(data, existing);
+    }
+    await adapter.upsert(bucket, final);
+    res.json({ ok:true, bucket, count:Array.isArray(final)?final.length:1 });
+  }catch(e){ console.error(e); res.status(500).json({error:e.message}); }
+});
+
+app.get('/health', (_,res)=>res.json({ok:true, db:DB_TYPE, ts:new Date().toISOString()}));
+app.options('*', cors());
+
+initDb()
+  .then(()=>app.listen(PORT,()=>console.log('[QMS] API running on http://0.0.0.0:'+PORT)))
+  .catch(e=>{ console.error('[QMS] DB init failed:',e.message); process.exit(1); });
+`;}
+
+function _migPkgJson(){ return JSON.stringify({
+  name:'qms-api-server', version:'2.0.0',
+  description:'QMS v2 on-prem API server — replaces Netlify serverless function',
+  main:'server.js', scripts:{ start:'node server.js', dev:'nodemon server.js' },
+  dependencies:{ 'better-sqlite3':'^9.4.3', cors:'^2.8.5', dotenv:'^16.4.5', express:'^4.18.3' },
+  optionalDependencies:{ mssql:'^10.0.2', pg:'^8.11.3', nodemon:'^3.0.3' },
+  engines:{ node:'>=18.0.0' }
+},null,2); }
+
+function _migEnvExample(){ return `# QMS API Server — Environment Variables
+# Copy this file to .env and adjust for your environment
+
+# Server port
+PORT=3001
+
+# Database type: sqlite | postgres | mssql
+DB_TYPE=sqlite
+
+# SQLite: path to database file (relative to server.js)
+DB_URL=./qms_data.db
+
+# PostgreSQL example:
+# DB_TYPE=postgres
+# DB_URL=postgres://qmsuser:password@localhost:5432/qmsdb
+# DB_SSL=true  # uncomment for TLS connections
+
+# SQL Server / Windows Server example:
+# DB_TYPE=mssql
+# DB_URL=mssql://qmsuser:password@WIN-SERVER\\\\SQLEXPRESS/qmsdb
+
+# CORS — restrict to your app domain in production
+CORS_ORIGIN=*
+`;}
+
+function _migDockerfile(){ return `# QMS v2 — Docker container for the on-prem API server
+# Build:  docker build -t qms-api .
+# Run:    docker run -d -p 3001:3001 -v ./data:/app/data --name qms-api qms-api
+# Logs:   docker logs qms-api -f
+
+FROM node:20-alpine
+WORKDIR /app
+COPY package.json ./
+RUN npm install --omit=dev
+COPY server.js ./
+RUN mkdir -p /app/data
+ENV DB_TYPE=sqlite
+ENV DB_URL=/app/data/qms_data.db
+ENV PORT=3001
+ENV CORS_ORIGIN=*
+EXPOSE 3001
+VOLUME ["/app/data"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \\
+  CMD wget -qO- http://localhost:3001/health || exit 1
+CMD ["node","server.js"]
+`;}
+
+// ── AI / MCP downloads ────────────────────────────────────────────────────
+function _migDlAI(type){
+  if(type==='openapi') _migDl('qms-openapi.json', _migOpenApi(), 'application/json');
+  if(type==='mcp')     _migDl('mcp-server.js', _migMcpStub(), 'application/javascript');
+  if(type==='postman') _migDl('qms-postman.json', _migPostman(), 'application/json');
+  toast('Downloaded '+type,'success');
+}
+
+function _migOpenApi(){ return JSON.stringify({
+  openapi:'3.0.3',
+  info:{ title:'QMS v2 Data API', version:'2.0.0', description:'Cellcard QAMS data sync API. Buckets are JSON arrays; items are identified by "id" fields. All writes use a merge strategy — existing records are never overwritten.' },
+  servers:[{ url:window.location.origin+'/api', description:'Current QMS instance' }],
+  paths:{
+    '/data':{
+      get:{ summary:'Get all buckets', operationId:'getAllBuckets', responses:{ '200':{ description:'All data buckets', content:{ 'application/json':{ schema:{ type:'array', items:{ '$ref':'#/components/schemas/Bucket' } } } } } } },
+      post:{ summary:'Upsert a bucket', operationId:'upsertBucket', requestBody:{ required:true, content:{ 'application/json':{ schema:{ '$ref':'#/components/schemas/BucketWrite' } } } }, responses:{ '200':{ description:'Success', content:{ 'application/json':{ schema:{ type:'object', properties:{ ok:{ type:'boolean' }, bucket:{ type:'string' }, count:{ type:'integer' } } } } } } } }
+    }
+  },
+  components:{ schemas:{
+    Bucket:{ type:'object', properties:{ bucket:{ type:'string' }, data:{ type:'array', items:{ type:'object', properties:{ id:{ type:'string' } } } } } },
+    BucketWrite:{ type:'object', required:['bucket','data'], properties:{ bucket:{ type:'string', enum:['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','accessRequests','pwresets','settings','form','evaluations','npsInputData','npsRoleMatrix','npsSurveys'] }, data:{ } } }
+  }}
+},null,2); }
+
+function _migMcpStub(){ return `// ═══ QMS v2 — MCP Server Stub ══════════════════════════════════════════
+// Connects QMS data to any MCP client (Claude Desktop, AI agents, etc.)
+//
+// Install:  npm install @modelcontextprotocol/sdk node-fetch
+// Run:      QMS_API=http://localhost:3001/api/data node mcp-server.js
+//
+// Claude Desktop config  (~/.claude/claude_desktop_config.json):
+// {
+//   "mcpServers": {
+//     "qms": {
+//       "command": "node",
+//       "args": ["/absolute/path/to/mcp-server.js"],
+//       "env": { "QMS_API": "http://your-server:3001/api/data" }
+//     }
+//   }
+// }
+// ════════════════════════════════════════════════════════════════════════
+
+const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
+const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
+const fetch = require('node-fetch');
+
+const API = process.env.QMS_API || 'http://localhost:3001/api/data';
+
+const server = new Server({ name:'qms', version:'2.0.0' }, { capabilities:{ tools:{} } });
+
+server.setRequestHandler('tools/list', async()=>({ tools:[
+  {
+    name:'get_bucket',
+    description:'Get all records from a QMS data bucket (agents, records, users, coachings, npsRecords, etc.)',
+    inputSchema:{ type:'object', properties:{ bucket:{ type:'string', description:'Bucket name' } }, required:['bucket'] }
+  },
+  {
+    name:'push_data',
+    description:'Write or update records in a QMS bucket. Uses merge-by-id so existing records are never deleted.',
+    inputSchema:{ type:'object', properties:{ bucket:{ type:'string' }, data:{ type:'array', items:{ type:'object' } } }, required:['bucket','data'] }
+  },
+  {
+    name:'query_records',
+    description:'Search QA evaluation records with optional filters',
+    inputSchema:{ type:'object', properties:{
+      agentName:{ type:'string', description:'Partial agent name filter' },
+      qaOfficer:{ type:'string', description:'QA officer name filter' },
+      dateFrom:{ type:'string', description:'ISO date (YYYY-MM-DD)' },
+      dateTo:{ type:'string', description:'ISO date (YYYY-MM-DD)' },
+      minScore:{ type:'number' }, maxScore:{ type:'number' },
+      result:{ type:'string', enum:['PASS','FAIL','AUTO FAIL'] },
+      limit:{ type:'integer', default:50 }
+    }}
+  }
+]}));
+
+server.setRequestHandler('tools/call', async(req)=>{
+  const { name, arguments:args } = req.params;
+
+  if(name==='get_bucket'){
+    const rows = await fetch(API).then(r=>r.json());
+    const row  = rows.find(r=>r.bucket===args.bucket);
+    const data = row?.data;
+    if(!data) return { content:[{type:'text',text:'Bucket "'+args.bucket+'" not found or empty.'}] };
+    const cnt = Array.isArray(data)?data.length:1;
+    return { content:[{type:'text',text:'Bucket: '+args.bucket+' ('+cnt+' records)\\n\\n'+JSON.stringify(data,null,2)}] };
+  }
+
+  if(name==='push_data'){
+    const r = await fetch(API,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ bucket:args.bucket, data:args.data })
+    }).then(r=>r.json());
+    return { content:[{type:'text',text:JSON.stringify(r)}] };
+  }
+
+  if(name==='query_records'){
+    const rows = await fetch(API).then(r=>r.json());
+    let recs = (rows.find(r=>r.bucket==='records')||{}).data||[];
+    if(args.agentName) recs=recs.filter(r=>(r.agentName||'').toLowerCase().includes(args.agentName.toLowerCase()));
+    if(args.qaOfficer) recs=recs.filter(r=>(r.qaOfficer||'').toLowerCase().includes(args.qaOfficer.toLowerCase()));
+    if(args.dateFrom)  recs=recs.filter(r=>(r.evalDate||'')>=args.dateFrom);
+    if(args.dateTo)    recs=recs.filter(r=>(r.evalDate||'')<=args.dateTo);
+    if(args.result)    recs=recs.filter(r=>r.result===args.result);
+    if(args.minScore!=null) recs=recs.filter(r=>(r.finalScore||0)>=args.minScore);
+    if(args.maxScore!=null) recs=recs.filter(r=>(r.finalScore||0)<=args.maxScore);
+    const limit = args.limit||50;
+    const out = recs.slice(0,limit);
+    return { content:[{type:'text',text:'Found '+recs.length+' records (showing '+out.length+').\\n\\n'+JSON.stringify(out,null,2)}] };
+  }
+
+  throw new Error('Unknown tool: '+name);
+});
+
+new StdioServerTransport().connect(server).catch(console.error);
+`;}
+
+function _migPostman(){ return JSON.stringify({
+  info:{ name:'QMS v2 API', schema:'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+  variable:[{ key:'base_url', value:window.location.origin }],
+  item:[
+    { name:'Get All Buckets', request:{ method:'GET', url:'{{base_url}}/api/data', header:[{key:'Cache-Control',value:'no-cache'}] } },
+    { name:'Upsert Bucket (agents)', request:{ method:'POST', url:'{{base_url}}/api/data', header:[{key:'Content-Type',value:'application/json'}], body:{ mode:'raw', raw:JSON.stringify({bucket:'agents',data:[{id:'example-id',name:'Test Agent',staffId:'CC-001',team:'Team A',status:'Active'}]},null,2) } } },
+    { name:'Upsert Bucket (settings)', request:{ method:'POST', url:'{{base_url}}/api/data', header:[{key:'Content-Type',value:'application/json'}], body:{ mode:'raw', raw:JSON.stringify({bucket:'settings',data:{passScore:75,disable48hCooldown:false}},null,2) } } }
+  ]
+},null,2); }
 
 </script>
 
