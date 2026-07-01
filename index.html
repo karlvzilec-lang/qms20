@@ -20982,16 +20982,15 @@ async function init(){
     return; // skip normal app init entirely
   }
   document.getElementById('headerDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
-  // Ensure Super Admin always exists — password will be hashed by migratePasswords below
-  (function seedSuperAdmin(){
-    const users = DB.get('users');
-    if(!users || !users.length) return; // will use in-memory defaults which already include Super
-    if(!users.find(u=>u.id==='superadmin'||u.username.toLowerCase()==='super')){
-      // Password stored as plaintext here — migratePasswords() will hash it immediately
-      users.push({ id:'superadmin', username:'Super', password:'cellcard', role:'superadmin', status:'active', displayName:'Super Admin', email:'super@cellcard.com.kh', createdAt:new Date().toISOString() });
-      DB.set('users', users);
-    }
-  })();
+  // Super Admin auto-reseed removed. It used to inject a fresh default-password
+  // ('cellcard') superadmin into localStorage whenever this device's local cache
+  // hadn't yet synced one — but init() runs before login, before _DbSync.boot()
+  // ever fires, so that write silently overwrote the LOCAL login check with the
+  // default password ahead of any server sync. That caused real account lockouts
+  // (the real, changed password stopped working on that device until someone
+  // guessed the default). getUsers() already returns safe in-memory defaults when
+  // the users bucket is genuinely empty, and the server's /api/auth has its own
+  // non-mutating fallback — neither needs this client-side write.
   // Migrate any plaintext or legacy SHA-256 passwords → PBKDF2
   await (async function migratePasswords(){
     const users = getUsers(); // includes in-memory defaults if localStorage is empty
