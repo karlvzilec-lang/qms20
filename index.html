@@ -971,6 +971,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
   <button class="nav-btn active" onclick="showScreen('dashboard',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Dashboard</button>
   <button class="nav-btn" id="tlTeamNavBtn" style="display:none;" onclick="showScreen('tlteam',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> My Team</button>
   <button class="nav-btn" onclick="showScreen('evaluation',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> New Evaluation</button>
+  <button class="nav-btn" onclick="showScreen('autoqa',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> Auto QA <span style="background:rgba(255,255,255,.25);color:#fff;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:800;margin-left:2px;">BETA</span></button>
   <button class="nav-btn" onclick="showScreen('records',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Records</button>
   <button class="nav-btn" id="rosterNavBtn" onclick="showScreen('roster',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Roster</button>
   <button class="nav-btn" onclick="showScreen('reports',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Reports</button>
@@ -992,23 +993,41 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     <div><h2>Dashboard</h2><p id="dashWelcome"></p></div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <!-- Admin/Manager period filter -->
-      <div id="amDashFilter" style="display:none;background:#f1f5f9;border-radius:10px;padding:3px 4px;gap:2px;">
+      <div id="amDashFilter" style="display:none;align-items:center;background:#f1f5f9;border-radius:10px;padding:3px 4px;gap:2px;">
         <button class="dash-period-btn" data-amdp="today"  onclick="setAMDashPeriod('today',this)">Today</button>
         <button class="dash-period-btn" data-amdp="week"   onclick="setAMDashPeriod('week',this)">This Week</button>
         <button class="dash-period-btn active" data-amdp="month" onclick="setAMDashPeriod('month',this)">This Month</button>
         <button class="dash-period-btn" data-amdp="year"   onclick="setAMDashPeriod('year',this)">This Year</button>
+        <button class="dash-period-btn" data-amdp="custom" onclick="setAMDashPeriod('custom',this)">Custom</button>
+        <span id="amDashCustomRange" style="display:none;align-items:center;gap:4px;margin-left:4px;">
+          <input type="date" id="amCustomFrom" onchange="_amCustomRangeChange()" style="font-size:11px;padding:3px 5px;border:1px solid #e2e8f0;border-radius:6px;">
+          <span style="font-size:11px;color:#94a3b8;">to</span>
+          <input type="date" id="amCustomTo" onchange="_amCustomRangeChange()" style="font-size:11px;padding:3px 5px;border:1px solid #e2e8f0;border-radius:6px;">
+        </span>
       </div>
       <!-- TL period filter -->
-      <div id="tlDashFilter" style="display:none;background:#f1f5f9;border-radius:10px;padding:3px 4px;gap:2px;">
+      <div id="tlDashFilter" style="display:none;align-items:center;background:#f1f5f9;border-radius:10px;padding:3px 4px;gap:2px;">
         <button class="dash-period-btn active" data-period="week" onclick="setDashPeriod('week',this)">This Week</button>
         <button class="dash-period-btn" data-period="day" onclick="setDashPeriod('day',this)">Today</button>
         <button class="dash-period-btn" data-period="month" onclick="setDashPeriod('month',this)">This Month</button>
+        <button class="dash-period-btn" data-period="custom" onclick="setDashPeriod('custom',this)">Custom</button>
+        <span id="tlDashCustomRange" style="display:none;align-items:center;gap:4px;margin-left:4px;">
+          <input type="date" id="tlCustomFrom" onchange="_tlCustomRangeChange()" style="font-size:11px;padding:3px 5px;border:1px solid #e2e8f0;border-radius:6px;">
+          <span style="font-size:11px;color:#94a3b8;">to</span>
+          <input type="date" id="tlCustomTo" onchange="_tlCustomRangeChange()" style="font-size:11px;padding:3px 5px;border:1px solid #e2e8f0;border-radius:6px;">
+        </span>
       </div>
       <!-- QA period filter — default Month to Date -->
-      <div id="qaDashFilter" style="display:none;background:#f1f5f9;border-radius:10px;padding:3px 4px;gap:2px;">
+      <div id="qaDashFilter" style="display:none;align-items:center;background:#f1f5f9;border-radius:10px;padding:3px 4px;gap:2px;">
         <button class="dash-period-btn" data-qadp="day"   onclick="setQADashPeriod('day',this)">Today</button>
         <button class="dash-period-btn" data-qadp="week"  onclick="setQADashPeriod('week',this)">This Week</button>
         <button class="dash-period-btn active" data-qadp="month" onclick="setQADashPeriod('month',this)">Month to Date</button>
+        <button class="dash-period-btn" data-qadp="custom" onclick="setQADashPeriod('custom',this)">Custom</button>
+        <span id="qaDashCustomRange" style="display:none;align-items:center;gap:4px;margin-left:4px;">
+          <input type="date" id="qaCustomFrom" onchange="_qaCustomRangeChange()" style="font-size:11px;padding:3px 5px;border:1px solid #e2e8f0;border-radius:6px;">
+          <span style="font-size:11px;color:#94a3b8;">to</span>
+          <input type="date" id="qaCustomTo" onchange="_qaCustomRangeChange()" style="font-size:11px;padding:3px 5px;border:1px solid #e2e8f0;border-radius:6px;">
+        </span>
       </div>
       <button class="btn btn-primary" id="dashNewEvalBtn" onclick="showScreen('evaluation',document.querySelectorAll('.nav-btn')[1])"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> New Evaluation</button>
     </div>
@@ -1082,10 +1101,16 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
             <div style="font-weight:700;font-size:15px;">📈 My Score Trend</div>
             <div style="font-size:12px;color:var(--gray);margin-top:2px;">Aggregated scores and evaluations completed over time</div>
           </div>
-          <div style="display:flex;align-items:center;gap:4px;background:#fff8f0;border:1.5px solid #ffdcb0;border-radius:8px;padding:3px 4px;">
+          <div style="display:flex;align-items:center;gap:4px;background:#fff8f0;border:1.5px solid #ffdcb0;border-radius:8px;padding:3px 4px;flex-wrap:wrap;">
             <button class="dash-period-btn active" data-qap="week"  onclick="setQAPeriod('week',this)">By Day (Week)</button>
             <button class="dash-period-btn"        data-qap="month" onclick="setQAPeriod('month',this)">By Week (Month)</button>
             <button class="dash-period-btn"        data-qap="year"  onclick="setQAPeriod('year',this)">By Month (Year)</button>
+            <button class="dash-period-btn"        data-qap="custom" onclick="setQAPeriod('custom',this)">Custom</button>
+            <span id="qaTrendCustomRange" style="display:none;align-items:center;gap:4px;margin-left:2px;">
+              <input type="date" id="qaTrendCustomFrom" onchange="_qaTrendCustomRangeChange()" style="font-size:11px;padding:3px 5px;border:1px solid #ffdcb0;border-radius:6px;">
+              <span style="font-size:11px;color:#94a3b8;">to</span>
+              <input type="date" id="qaTrendCustomTo" onchange="_qaTrendCustomRangeChange()" style="font-size:11px;padding:3px 5px;border:1px solid #ffdcb0;border-radius:6px;">
+            </span>
           </div>
         </div>
         <div style="padding:16px 18px;position:relative;height:240px;">
@@ -1131,6 +1156,12 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
             <button class="dash-period-btn"        data-ep="month"  onclick="setEvalSummaryPeriod('month',this)">This Month</button>
             <button class="dash-period-btn"        data-ep="week"   onclick="setEvalSummaryPeriod('week',this)">This Week</button>
             <button class="dash-period-btn"        data-ep="today"  onclick="setEvalSummaryPeriod('today',this)">Today</button>
+            <button class="dash-period-btn"        data-ep="custom" onclick="setEvalSummaryPeriod('custom',this)">Custom</button>
+            <span id="epCustomRange" style="display:none;align-items:center;gap:4px;">
+              <input type="date" id="epCustomFrom" onchange="renderEvalSummaryTable()" style="font-size:11px;padding:3px 5px;border:1px solid #e2e8f0;border-radius:6px;">
+              <span style="font-size:11px;color:#94a3b8;">to</span>
+              <input type="date" id="epCustomTo" onchange="renderEvalSummaryTable()" style="font-size:11px;padding:3px 5px;border:1px solid #e2e8f0;border-radius:6px;">
+            </span>
           </div>
         </div>
         <div style="overflow-x:auto;" id="dashEvalSummaryTable"></div>
@@ -1352,6 +1383,45 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         </div>
         <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="submitEval()">✅ Submit</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ AUTO QA (YELLOW MESSENGER) ═══════════ -->
+<div class="screen" id="screen-autoqa">
+  <div class="page-header no-print">
+    <div><h2>Auto QA — Yellow Messenger</h2><p>Paste one or more transcript links. Each one is fetched and pre-scored with rule-based matching against the active form — a QA officer still reviews and submits every evaluation.</p></div>
+    <div class="btn-group no-print">
+      <button class="btn btn-outline" onclick="exportAutoQAQueueToExcel()" style="display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Queue to Excel
+      </button>
+    </div>
+  </div>
+
+  <div class="qa-header-card">
+    <div style="font-size:14px;font-weight:800;margin-bottom:10px;">🔗 Transcript Links</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:8px;">One Yellow Messenger public link per line, e.g. <code>https://app.yellow.ai/public/messages/&lt;signature&gt;/start/&lt;ms&gt;/end/&lt;ms&gt;</code></div>
+    <textarea id="autoQALinks" placeholder="https://app.yellow.ai/public/messages/..." style="width:100%;box-sizing:border-box;min-height:90px;font-size:12px;font-family:monospace;"></textarea>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+      <button class="btn btn-primary" onclick="autoQAFetchAll()" style="display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+        Fetch &amp; Pre-Score All
+      </button>
+      <span id="autoQAStatusLine" style="font-size:12px;color:var(--gray);"></span>
+    </div>
+  </div>
+
+  <div class="qa-header-card">
+    <div style="font-size:14px;font-weight:800;margin-bottom:10px;">📋 Review Queue</div>
+    <div style="overflow-x:auto;">
+      <table class="attr-table" style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th>Link</th><th>Customer</th><th>Agent (matched)</th><th>Source</th>
+          <th>Draft Score</th><th>Needs Review</th><th>Status</th><th>Action</th>
+        </tr></thead>
+        <tbody id="autoQAQueueBody"><tr><td colspan="8" style="text-align:center;color:var(--gray);padding:20px;">No links processed yet.</td></tr></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -5561,6 +5631,7 @@ function showScreen(name,btn){
     const r=u.role;
     const denied={
       evaluation: ['viewer','tl','manager'],
+      autoqa:     ['viewer','tl','manager'],
       settings:   ['viewer','qa','tl'],
       tlteam:     ['viewer','qa'],
     };
@@ -5584,6 +5655,7 @@ function showScreen(name,btn){
   if(btn) btn.classList.add('active');
   if(name==='dashboard') renderDashboard();
   if(name==='tlteam'){ populateMonthFilter('tlTeamMonth','tlteam'); renderTLTeamView(); }
+  if(name==='autoqa') renderAutoQAQueue();
   if(name==='evaluation'){
     buildEvalForm(); populateAgentDropdown(); populateCampaignDropdown();
     // Auto-fill the readonly QA Officer field from the current session
@@ -5628,15 +5700,25 @@ function setDashPeriod(period, btn){
   _dashPeriod = period;
   document.querySelectorAll('[data-period]').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  const customEl = document.getElementById('tlDashCustomRange');
+  if(customEl) customEl.style.display = period==='custom' ? 'inline-flex' : 'none';
+  if(period==='custom') _seedCustomRangeDefaults('tlCustomFrom','tlCustomTo');
   renderDashboard();
 }
+
+function _tlCustomRangeChange(){ renderDashboard(); }
 
 function setQADashPeriod(period, btn){
   _qaDashPeriod = period;
   document.querySelectorAll('[data-qadp]').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  const customEl = document.getElementById('qaDashCustomRange');
+  if(customEl) customEl.style.display = period==='custom' ? 'inline-flex' : 'none';
+  if(period==='custom') _seedCustomRangeDefaults('qaCustomFrom','qaCustomTo');
   renderDashboard();
 }
+
+function _qaCustomRangeChange(){ renderDashboard(); }
 
 function renderDashboard(){
   const allRecords=getRecords(), agents=getAgents();
@@ -5698,8 +5780,16 @@ function renderDashboard(){
     let myAll = allRecords.filter(r=>r.qaOfficer&&r.qaOfficer.toLowerCase()===((user.displayName||user.username).toLowerCase()));
     if(!myAll.length) myAll = allRecords.filter(r=>r.qaOfficer&&r.qaOfficer.toLowerCase().includes(user.username.toLowerCase()));
     // Apply QA period filter to the KPI numbers
-    const qaStart = _qaDashPeriod==='day' ? startOfDay : _qaDashPeriod==='week' ? startOfWeek : startOfMonth;
-    records = myAll.filter(r=>inRange(r.evalDate, qaStart));
+    if(_qaDashPeriod==='custom'){
+      const qaFromEl=document.getElementById('qaCustomFrom'), qaToEl=document.getElementById('qaCustomTo');
+      const cStart = qaFromEl?.value ? new Date(qaFromEl.value+'T00:00:00') : startOfMonth;
+      const cEnd = qaToEl?.value ? new Date(qaToEl.value+'T00:00:00') : new Date(now);
+      cEnd.setDate(cEnd.getDate()+1); // inclusive of the "To" day
+      records = myAll.filter(r=>{ const d=new Date(r.evalDate+'T00:00:00'); return d>=cStart && d<cEnd; });
+    } else {
+      const qaStart = _qaDashPeriod==='day' ? startOfDay : _qaDashPeriod==='week' ? startOfWeek : startOfMonth;
+      records = myAll.filter(r=>inRange(r.evalDate, qaStart));
+    }
     // Keep unfiltered set for chart panels (full history)
     teamRecords = myAll;
   } else if(isTLUser){
@@ -5708,8 +5798,16 @@ function renderDashboard(){
     // All evals for TL's agents, across ALL QAs (combined)
     teamRecords = allRecords.filter(r=>myAgentsSet.has(r.agentId));
     // Apply active period filter
-    const periodStart = _dashPeriod==='day'?startOfDay:_dashPeriod==='week'?startOfWeek:startOfMonth;
-    records = teamRecords.filter(r=>inRange(r.evalDate, periodStart));
+    if(_dashPeriod==='custom'){
+      const tlFromEl=document.getElementById('tlCustomFrom'), tlToEl=document.getElementById('tlCustomTo');
+      const cStart = tlFromEl?.value ? new Date(tlFromEl.value+'T00:00:00') : startOfMonth;
+      const cEnd = tlToEl?.value ? new Date(tlToEl.value+'T00:00:00') : new Date(now);
+      cEnd.setDate(cEnd.getDate()+1); // inclusive of the "To" day
+      records = teamRecords.filter(r=>{ const d=new Date(r.evalDate+'T00:00:00'); return d>=cStart && d<cEnd; });
+    } else {
+      const periodStart = _dashPeriod==='day'?startOfDay:_dashPeriod==='week'?startOfWeek:startOfMonth;
+      records = teamRecords.filter(r=>inRange(r.evalDate, periodStart));
+    }
   } else if(isAMUser){
     // Admin/Manager/CEO/Chief: the amDashFilter buttons (Today/Week/Month/Year)
     // update _amDashPeriod and correctly re-highlight themselves (lines above),
@@ -5717,8 +5815,8 @@ function renderDashboard(){
     // KPI cards always showed the unfiltered all-time allRecords regardless of
     // which period button was active. Reuses the same _amPeriodRange() helper
     // renderAMDashboard() already uses further down, so both panels agree.
-    const amStart = _amPeriodRange(_amDashPeriod).start;
-    records = allRecords.filter(r=>inRange(r.evalDate, amStart));
+    const amRange = _amPeriodRange(_amDashPeriod);
+    records = allRecords.filter(r=>inRange(r.evalDate, amRange.start) && (!amRange.end || new Date(r.evalDate+'T00:00:00') < amRange.end));
   }
 
   const pass=records.filter(r=>r.result==='PASS'||(r.passed&&!r.autoFailed)).length;
@@ -6274,7 +6372,25 @@ function setAMDashPeriod(period, btn){
   _amDashPeriod = period;
   document.querySelectorAll('[data-amdp]').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  const customEl = document.getElementById('amDashCustomRange');
+  if(customEl) customEl.style.display = period==='custom' ? 'inline-flex' : 'none';
+  if(period==='custom') _seedCustomRangeDefaults('amCustomFrom','amCustomTo');
   renderDashboard();
+}
+
+function _amCustomRangeChange(){ renderDashboard(); }
+
+// Shared by all 3 dashboard Custom pickers — defaults to the last 30 days,
+// only on first use (never overwrites a value the user already picked).
+function _seedCustomRangeDefaults(fromId, toId){
+  const fEl=document.getElementById(fromId), tEl=document.getElementById(toId);
+  if(!fEl||!tEl) return;
+  if(fEl.value && tEl.value) return;
+  const now=new Date();
+  const toStr=now.toISOString().slice(0,10);
+  const fromD=new Date(now); fromD.setDate(fromD.getDate()-29);
+  if(!fEl.value) fEl.value=fromD.toISOString().slice(0,10);
+  if(!tEl.value) tEl.value=toStr;
 }
 
 function switchLeaderboardTab(tab, btn){
@@ -6285,24 +6401,38 @@ function switchLeaderboardTab(tab, btn){
   document.getElementById('lbPanelTLs').style.display    = tab==='tls'    ? '' : 'none';
 }
 
+// Returns {start, end, label}. `end` is null (no upper bound, filters up to
+// now) for every preset period — only 'custom' sets an explicit end, since
+// that's the only mode where "now" isn't implicitly the right upper bound.
 function _amPeriodRange(period){
   const now = new Date();
   if(period==='today'){
-    const s=new Date(now); s.setHours(0,0,0,0); return {start:s, label:'Today'};
+    const s=new Date(now); s.setHours(0,0,0,0); return {start:s, end:null, label:'Today'};
   }
   if(period==='week'){
-    const s=new Date(now); s.setDate(now.getDate()-now.getDay()); s.setHours(0,0,0,0); return {start:s, label:'This Week'};
+    const s=new Date(now); s.setDate(now.getDate()-now.getDay()); s.setHours(0,0,0,0); return {start:s, end:null, label:'This Week'};
   }
   if(period==='year'){
-    return {start:new Date(now.getFullYear(),0,1), label:'This Year'};
+    return {start:new Date(now.getFullYear(),0,1), end:null, label:'This Year'};
+  }
+  if(period==='custom'){
+    const fEl=document.getElementById('amCustomFrom'), tEl=document.getElementById('amCustomTo');
+    const fromStr=fEl?.value, toStr=tEl?.value;
+    const s=fromStr?new Date(fromStr+'T00:00:00'):new Date(now.getFullYear(),now.getMonth(),1);
+    // Upper bound is exclusive-of-next-day, so the "To" date itself is fully included.
+    const e=toStr?new Date(toStr+'T00:00:00'):new Date(now); e.setDate(e.getDate()+1);
+    return {start:s, end:e, label:'Custom'};
   }
   // month (default)
-  return {start:new Date(now.getFullYear(),now.getMonth(),1), label:'This Month'};
+  return {start:new Date(now.getFullYear(),now.getMonth(),1), end:null, label:'This Month'};
 }
 
 function renderAMDashboard(allRecords, agents){
-  const {start, label} = _amPeriodRange(_amDashPeriod);
-  const periodRecs = allRecords.filter(r => new Date(r.evalDate+'T00:00:00') >= start);
+  const {start, end, label} = _amPeriodRange(_amDashPeriod);
+  const periodRecs = allRecords.filter(r => {
+    const d = new Date(r.evalDate+'T00:00:00');
+    return d >= start && (!end || d < end);
+  });
   const settings   = getSettings();
   const passScore  = settings.passScore || 80;
 
@@ -6537,9 +6667,18 @@ function setQAPeriod(p, btn){
   _qaPeriod = p;
   document.querySelectorAll('[data-qap]').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  const customEl = document.getElementById('qaTrendCustomRange');
+  if(customEl) customEl.style.display = p==='custom' ? 'inline-flex' : 'none';
+  if(p==='custom') _seedCustomRangeDefaults('qaTrendCustomFrom','qaTrendCustomTo');
   const user = getCurrentUser();
   const allRecords = getRecords();
   const myRecs = _getMyRecords(allRecords, user);
+  renderQAScoreChart(myRecs);
+}
+
+function _qaTrendCustomRangeChange(){
+  const user = getCurrentUser();
+  const myRecs = _getMyRecords(getRecords(), user);
   renderQAScoreChart(myRecs);
 }
 
@@ -6615,6 +6754,54 @@ function renderQAScoreChart(myRecs){
       labels.push(`Wk ${wStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`);
       scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+r.finalScore,0)/recs.length).toFixed(1) : null);
       countData.push(recs.length);
+    }
+  } else if(_qaPeriod==='custom'){
+    // Bucket granularity auto-adapts to the picked range, same approach as
+    // the NPS Executive Dashboard's custom range: short spans get daily
+    // bars, longer ones roll up to weekly or monthly so the chart doesn't
+    // end up with hundreds of unreadable bars.
+    const fEl=document.getElementById('qaTrendCustomFrom'), tEl=document.getElementById('qaTrendCustomTo');
+    const cStart = fEl?.value ? new Date(fEl.value+'T00:00:00') : new Date(now.getFullYear(),now.getMonth(),1);
+    const cEndIncl = tEl?.value ? new Date(tEl.value+'T00:00:00') : new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const cEnd = new Date(cEndIncl); cEnd.setDate(cEnd.getDate()+1); // exclusive upper bound
+    const rangeDays = Math.max(1, Math.round((cEnd-cStart)/86400000));
+    if(rangeDays<=31){
+      // Daily bars
+      for(let i=0;i<rangeDays;i++){
+        const d=new Date(cStart); d.setDate(d.getDate()+i);
+        // Local date components, not toISOString() — evalDate strings come from
+        // a plain <input type="date">, always local calendar dates. Using
+        // toISOString() here would UTC-shift the key and silently mismatch by
+        // a day in any timezone ahead of UTC (caught via interactive testing).
+        const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const recs=myRecs.filter(r=>r.evalDate===key);
+        labels.push(d.toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+        scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+r.finalScore,0)/recs.length).toFixed(1) : null);
+        countData.push(recs.length);
+      }
+    } else if(rangeDays<=180){
+      // Weekly bars
+      const weekCount = Math.ceil(rangeDays/7);
+      for(let i=0;i<weekCount;i++){
+        const wStart=new Date(cStart); wStart.setDate(wStart.getDate()+i*7);
+        const wEnd=new Date(wStart); wEnd.setDate(wStart.getDate()+7);
+        const recs=myRecs.filter(r=>{ const d=new Date(r.evalDate+'T00:00:00'); return d>=wStart&&d<wEnd&&d<cEnd; });
+        labels.push(`Wk ${wStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`);
+        scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+r.finalScore,0)/recs.length).toFixed(1) : null);
+        countData.push(recs.length);
+      }
+    } else {
+      // Monthly bars
+      const mStart=new Date(cStart.getFullYear(),cStart.getMonth(),1);
+      const monthCount = (cEndIncl.getFullYear()-mStart.getFullYear())*12 + (cEndIncl.getMonth()-mStart.getMonth()) + 1;
+      for(let i=0;i<monthCount;i++){
+        const d=new Date(mStart.getFullYear(),mStart.getMonth()+i,1);
+        const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const recs=myRecs.filter(r=>r.evalDate&&r.evalDate.startsWith(key));
+        labels.push(d.toLocaleDateString('en-US',{month:'short',year:'2-digit'}));
+        scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+r.finalScore,0)/recs.length).toFixed(1) : null);
+        countData.push(recs.length);
+      }
     }
   } else {
     // Last 12 months — one bar per month
@@ -6865,6 +7052,9 @@ function setEvalSummaryPeriod(period, btn){
   _evalSummaryPeriod = period;
   document.querySelectorAll('[data-ep]').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  const customEl = document.getElementById('epCustomRange');
+  if(customEl) customEl.style.display = period==='custom' ? 'inline-flex' : 'none';
+  if(period==='custom') _seedCustomRangeDefaults('epCustomFrom','epCustomTo');
   renderEvalSummaryTable();
 }
 
@@ -6888,6 +7078,13 @@ function renderEvalSummaryTable(){
   if(_evalSummaryPeriod==='today')  records = allRecords.filter(r=>r.evalDate===todayStr);
   else if(_evalSummaryPeriod==='week')  records = allRecords.filter(r=>inRange(r.evalDate,startOfWeek));
   else if(_evalSummaryPeriod==='month') records = allRecords.filter(r=>inRange(r.evalDate,startOfMonth));
+  else if(_evalSummaryPeriod==='custom'){
+    const fEl=document.getElementById('epCustomFrom'), tEl=document.getElementById('epCustomTo');
+    const cStart = fEl?.value ? new Date(fEl.value+'T00:00:00') : startOfMonth;
+    const cEnd = tEl?.value ? new Date(tEl.value+'T00:00:00') : new Date(now);
+    cEnd.setDate(cEnd.getDate()+1); // inclusive of the "To" day
+    records = allRecords.filter(r=>{ const d=new Date(r.evalDate+'T00:00:00'); return d>=cStart && d<cEnd; });
+  }
 
   // Aggregate per evaluator
   const byEval = {};
@@ -7720,6 +7917,350 @@ function _doSubmitEval(){
     hideLoading();
     showEvalResult(record);
   }, 700);
+}
+
+// ═══════════════════════════════════════════════════
+// AUTO QA — Yellow Messenger rule-based pre-fill
+// ═══════════════════════════════════════════════════
+// Fetches a Yellow Messenger transcript via the server-side proxy
+// (/api/yellow-transcript — needed because Yellow.ai's API is not reachable
+// from the browser under this app's CSP/CORS), runs keyword-based rules
+// against it, and pre-fills the SAME evaluation form used for manual QA.
+// Nothing is ever auto-submitted — a QA officer must review the pre-filled
+// answers (amber-outlined items are rule-suggested or unresolved) and click
+// Submit Evaluation exactly as they would for a manually scored interaction.
+
+let _autoQAQueue = []; // { id, link, status, transcript, prefill, agentId, agentMatchConfident, agentNameGuess, draft, error }
+
+async function fetchYellowTranscript(link){
+  const res = await fetch('/api/yellow-transcript?url=' + encodeURIComponent(link));
+  let json = null;
+  try{ json = await res.json(); }catch(_e){}
+  if(!res.ok || !json || json.success === false){
+    throw new Error((json && json.error) || ('Fetch failed (HTTP ' + res.status + ')'));
+  }
+  return json;
+}
+
+// Normalizes the raw Yellow.ai securedLogs response into a flat, chronological
+// transcript. AGENT-type messages carry their real text inside a JSON-encoded
+// `message` string (with metadata like agentProfilePicture); USER messages are
+// plain strings. Confirmed against a live response during development.
+function normalizeYellowTranscript(raw){
+  const arr = (raw && Array.isArray(raw.data)) ? raw.data : [];
+  const messages = arr.map(m=>{
+    let text = m.message;
+    if(typeof text === 'string' && text.trim().startsWith('{')){
+      try{ const p = JSON.parse(text); if(p && typeof p.message === 'string') text = p.message; }catch(_e){}
+    }
+    return {
+      sender: m.messageType === 'USER' ? 'customer' : (m.agentId ? 'agent' : 'bot'),
+      text: text || '',
+      ts: m.created || null,
+      agentName: m.agentName || null,
+    };
+  }).sort((a,b)=> new Date(a.ts) - new Date(b.ts));
+  const customerName  = (arr.find(m=>m.name)||{}).name || '';
+  const agentNameGuess = (arr.find(m=>m.agentName)||{}).agentName || '';
+  const channelSource  = (arr.find(m=>m.source)||{}).source || '';
+  return { customerName, agentNameGuess, channelSource, channel:'Chat', messages };
+}
+
+// Data-driven rule library, keyed by rubric item id (matches DEFAULT_FORM /
+// any published form using the same item ids). `mode:'auto'` writes a Y/N
+// answer directly; `mode:'assist'` writes a suggestion but is always flagged
+// in needsReview since the keyword match is a proxy, not a real judgment.
+// Items with no entry here (2.1, 2.2, 3.1-3.4, 4.6, ...) are always left for
+// the QA officer — no rule exists that can reliably judge them from text alone.
+const AUTO_QA_RULES = {
+  '1.1': { mode:'auto', test:(t)=>{
+    const first = t.messages.find(m=>m.sender!=='customer');
+    if(!first) return null;
+    const ok = /welcome|thank you for (contacting|calling)|how (can|may) i (help|assist)/i.test(first.text);
+    return { value: ok?'Y':'N', note:'First agent-side message: "'+(first.text||'').slice(0,140)+'"' };
+  }},
+  '1.2': { mode:'assist', test:(t)=>{
+    const idKeywords = [/date of birth|d\.?o\.?b\.?/i, /address/i, /email/i, /account\s*(no|number|#)/i, /transaction/i, /\bname\b/i];
+    const custText = t.messages.filter(m=>m.sender==='customer').map(m=>m.text).join(' \n ');
+    const hits = idKeywords.filter(rx=>rx.test(custText)).length;
+    const asked = t.messages.some(m=>m.sender!=='customer' && /confirm|verify/i.test(m.text) && /(name|address|account|email|birth)/i.test(m.text));
+    const value = asked ? (hits>=3 ? 'Y' : 'N') : '';
+    return { value, note:'Identity request detected: '+asked+'. Identifier-like keywords found in customer replies: '+hits+' (rubric requires ≥ 3). Keyword count is a proxy, not a real verification check — confirm manually.' };
+  }},
+  '1.3': { mode:'auto', test:(t)=>{
+    if(!t.customerName) return null;
+    const first = (t.customerName.split(/\s+/)[0]||'').toLowerCase();
+    if(first.length<2) return null;
+    const used = t.messages.some(m=>m.sender!=='customer' && m.text.toLowerCase().includes(first));
+    return { value: used?'Y':'N', note:'Searched agent-side messages for "'+t.customerName+'".' };
+  }},
+  '3.5': { mode:'assist', test:(t)=>{
+    const hit = t.messages.find(m=>m.sender!=='customer' && /(forward|escalat|technical team|relevant team|transfer)/i.test(m.text));
+    return { value: hit?'Y':'', note: hit ? ('Escalation language found: "'+hit.text.slice(0,140)+'" — confirm this was the correct team/timing.') : 'No escalation-style language detected.' };
+  }},
+  '4.1': { mode:'auto', test:(t)=>{
+    const hit = t.messages.find(m=>m.sender!=='customer' && /\b(apolog|sorry)\b/i.test(m.text));
+    return { value: hit?'Y':'N', note: hit ? ('"'+hit.text.slice(0,140)+'"') : 'No apology-style keyword found.' };
+  }},
+  '4.2': { mode:'auto', test:(t)=>{
+    const hit = t.messages.find(m=>m.sender!=='customer' && /\bunderstand (how|that)\b|i (can |)understand your/i.test(m.text));
+    return { value: hit?'Y':'N', note: hit ? ('"'+hit.text.slice(0,140)+'"') : 'No explicit empathy phrase found (distinct from an apology).' };
+  }},
+  '4.3': { mode:'auto', test:(t)=>{
+    const hit = t.messages.find(m=>m.sender!=='customer' && /(rest assured|will (do (my|our) best|make sure|resolve)|expedit)/i.test(m.text));
+    return { value: hit?'Y':'N', note: hit ? ('"'+hit.text.slice(0,140)+'"') : 'No reassurance-style phrase found.' };
+  }},
+  '4.5': { mode:'assist', test:(t)=>{
+    const rude = t.messages.find(m=>m.sender!=='customer' && /\b(shut up|stupid|idiot|whatever|not my problem)\b/i.test(m.text));
+    if(rude) return { value:'N', note:'Possible unprofessional language: "'+rude.text.slice(0,140)+'" — this is an AUTO-FAIL item, confirm carefully.' };
+    const garbled = t.messages.find(m=>m.sender!=='customer' && /\b\w{3} \w{3} \d{1,2} \d{2}:\d{2}:\d{2} \d{4}\b/.test(m.text));
+    if(garbled) return { value:'', note:'Malformed/unformatted text detected: "'+garbled.text.slice(0,140)+'" — review for professionalism before scoring.' };
+    return { value:'', note:'No rudeness or malformed text detected by keyword scan — still requires a human read for tone/clarity.' };
+  }},
+  '5.1': { mode:'auto', test:(t)=>{
+    const hit = t.messages.find(m=>m.sender!=='customer' && /(self.?service|\bapp\b|website|ivr|chatbot)/i.test(m.text));
+    return { value: hit?'Y':'N', note: hit ? ('"'+hit.text.slice(0,140)+'"') : 'No self-service channel mention found.' };
+  }},
+  '5.2': { mode:'assist', test:(t)=>{
+    const hit = t.messages.find(m=>m.sender!=='customer' && /(fee|charge|rate|procedure|next step|working hours|business day)/i.test(m.text));
+    return { value:'', note: hit ? ('Possible fees/procedure/timeline mention: "'+hit.text.slice(0,140)+'" — confirm it is accurate and complete.') : 'No fees/procedure/timeline language detected.' };
+  }},
+  '5.3': { mode:'assist', test:(t)=>{
+    const hit = t.messages.find(m=>m.sender!=='customer' && /(to summarize|in summary|to recap|just to confirm)/i.test(m.text));
+    return { value: hit?'Y':'', note: hit ? ('Recap language found: "'+hit.text.slice(0,140)+'"') : 'No recap/summary phrase found before closing.' };
+  }},
+  '6.1': { mode:'auto', test:(t)=>{
+    const last = [...t.messages].reverse().find(m=>m.sender!=='customer');
+    if(!last) return null;
+    const ok = /(thank you for (contacting|calling)|have a (great|nice|good) day|goodbye)/i.test(last.text);
+    return { value: ok?'Y':'N', note:'Last agent-side message: "'+last.text.slice(0,140)+'"' };
+  }},
+};
+
+// Items that are voice-only and meaningless for an async chat transcript are
+// auto-marked N/A rather than run through a rule (only applied when the
+// rubric item itself already allows N/A, so this never silently overrides a
+// mandatory item).
+const AUTO_QA_CHANNEL_NA = {
+  '4.4': 'Not applicable to an async chat interaction — auto-marked N/A for this channel.',
+  '6.3': 'Defaulted to N/A for an inbound chat complaint; override if a cross-sell moment applies.',
+};
+
+function runAutoQARules(transcript, formSections){
+  const answers = {}, comments = {}, needsReview = [];
+  (formSections||[]).forEach(sec=>(sec.items||[]).forEach(item=>{
+    const id = item.id;
+    if(item.naAllowed && AUTO_QA_CHANNEL_NA[id]){
+      answers[id] = 'NA'; comments[id] = AUTO_QA_CHANNEL_NA[id];
+      return;
+    }
+    const rule = AUTO_QA_RULES[id];
+    if(!rule){
+      needsReview.push(id);
+      comments[id] = 'No automated rule for this item — requires manual QA judgment.';
+      return;
+    }
+    const r = rule.test(transcript);
+    if(!r || r.value === ''){
+      needsReview.push(id);
+      if(r && r.note) comments[id] = r.note;
+      return;
+    }
+    answers[id] = r.value;
+    comments[id] = (rule.mode === 'assist' ? '[Auto-suggested — verify] ' : '[Auto] ') + (r.note || '');
+    if(rule.mode === 'assist') needsReview.push(id);
+  }));
+  return { answers, comments, needsReview };
+}
+
+// Read-only preview of what updateScore() would compute, using the same
+// weighted / all-or-nothing / auto-fail rules — just against an arbitrary
+// answers object instead of the live evalAnswers form state, so the queue can
+// show a draft score before anything is opened.
+function _estimateAutoQAScore(answers, formSections){
+  let earned = 0, possible = 0, autoFail = false;
+  (formSections||[]).forEach(sec=>{
+    const mode = sec.scoringMode || 'weighted';
+    const answered = (sec.items||[]).filter(it => answers[it.id] && answers[it.id] !== 'NA');
+    const noItems = answered.filter(it => answers[it.id] === 'N');
+    noItems.forEach(it=>{ if(it.autoFail) autoFail = true; });
+    if(mode === 'all-or-nothing'){
+      if(answered.length){ possible += sec.totalPoints; earned += noItems.length ? 0 : sec.totalPoints; }
+    } else {
+      answered.forEach(it=>{ possible += it.points; if(answers[it.id]==='Y') earned += it.points; });
+    }
+  });
+  return { earned, possible, pct: possible ? +(earned/possible*100).toFixed(1) : 0, autoFail };
+}
+
+function _matchAgentByName(name){
+  if(!name) return null;
+  const norm = s => (s||'').toLowerCase().replace(/^(ms|mr|mrs|dr)\.?\s+/,'').replace(/[^a-z\s]/g,'').trim();
+  const target = norm(name);
+  if(!target) return null;
+  const agents = getAgents().filter(a=>a.status==='Active');
+  return agents.find(a=>norm(a.name)===target)
+      || agents.find(a=>norm(a.name).includes(target) || target.includes(norm(a.name)))
+      || null;
+}
+
+function _autoQAActiveFormSections(){
+  const f = _selectedFormId ? getFormById(_selectedFormId) : null;
+  return f ? f.sections : getForm();
+}
+
+async function autoQAFetchAll(){
+  const ta = document.getElementById('autoQALinks');
+  const links = (ta.value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!links.length){ toast('Paste at least one Yellow Messenger link.','error'); return; }
+  _autoQAQueue = links.map(link=>({ id: uuid(), link, status:'pending' }));
+  renderAutoQAQueue();
+  const statusEl = document.getElementById('autoQAStatusLine');
+  const formSections = _autoQAActiveFormSections();
+  for(let i=0;i<_autoQAQueue.length;i++){
+    const q = _autoQAQueue[i];
+    q.status = 'fetching';
+    if(statusEl) statusEl.textContent = 'Fetching ' + (i+1) + ' of ' + _autoQAQueue.length + '…';
+    renderAutoQAQueue();
+    try{
+      const raw = await fetchYellowTranscript(q.link);
+      const transcript = normalizeYellowTranscript(raw);
+      const prefill = runAutoQARules(transcript, formSections);
+      const agentMatch = _matchAgentByName(transcript.agentNameGuess);
+      q.transcript = transcript;
+      q.prefill = prefill;
+      q.agentId = agentMatch ? agentMatch.id : '';
+      q.agentMatchConfident = !!agentMatch;
+      q.agentNameGuess = transcript.agentNameGuess;
+      q.draft = _estimateAutoQAScore(prefill.answers, formSections);
+      q.status = 'ready';
+    }catch(e){
+      q.status = 'error';
+      q.error = e && e.message ? e.message : String(e);
+    }
+    renderAutoQAQueue();
+  }
+  if(statusEl) statusEl.textContent = 'Done — ' + _autoQAQueue.filter(q=>q.status==='ready').length + ' ready, ' + _autoQAQueue.filter(q=>q.status==='error').length + ' failed.';
+}
+
+function renderAutoQAQueue(){
+  const body = document.getElementById('autoQAQueueBody');
+  if(!body) return;
+  if(!_autoQAQueue.length){
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--gray);padding:20px;">No links processed yet.</td></tr>';
+    return;
+  }
+  const statusBadges = {
+    pending:  '<span class="cov-badge" style="background:#f1f5f9;color:#64748b;">Queued</span>',
+    fetching: '<span class="cov-badge" style="background:#fef3c7;color:#92400e;">Fetching…</span>',
+    ready:    '<span class="cov-badge" style="background:#dcfce7;color:#16a34a;">Ready for review</span>',
+    reviewing:'<span class="cov-badge" style="background:#dbeafe;color:#1d4ed8;">Opened</span>',
+    error:    '<span class="cov-badge" style="background:#fee2e2;color:#dc2626;">Error</span>',
+  };
+  body.innerHTML = _autoQAQueue.map(q=>{
+    const canOpen = q.status==='ready' || q.status==='reviewing';
+    const agentCell = canOpen
+      ? (q.agentMatchConfident ? esc((getAgents().find(a=>a.id===q.agentId)||{}).name||'') : '<span style="color:#dc2626;">Unmatched'+(q.agentNameGuess?': '+esc(q.agentNameGuess):'')+'</span>')
+      : '—';
+    const draftCell = q.draft ? (q.draft.pct + '%' + (q.draft.autoFail?' ⚡':'')) : '—';
+    const reviewCell = q.prefill ? q.prefill.needsReview.length : '—';
+    const actionCell = canOpen
+      ? '<button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="openAutoQAItem(\''+q.id+'\')">Open in Eval Form</button>'
+      : (q.status==='error' ? '<span title="'+esc(q.error||'')+'" style="color:#dc2626;font-size:11px;">⚠ '+esc((q.error||'').slice(0,60))+'</span>' : '');
+    return '<tr>'
+      + '<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;" title="'+esc(q.link)+'">'+esc(q.link)+'</td>'
+      + '<td>'+(q.transcript?esc(q.transcript.customerName||'—'):'—')+'</td>'
+      + '<td>'+agentCell+'</td>'
+      + '<td>'+(q.transcript?esc(q.transcript.channelSource||'chat'):'—')+'</td>'
+      + '<td style="text-align:center;">'+draftCell+'</td>'
+      + '<td style="text-align:center;">'+reviewCell+'</td>'
+      + '<td>'+(statusBadges[q.status]||q.status)+'</td>'
+      + '<td>'+actionCell+'</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function _renderAutoQATranscriptPanel(transcript, link){
+  let panel = document.getElementById('autoQATranscriptPanel');
+  if(!panel){
+    panel = document.createElement('div');
+    panel.id = 'autoQATranscriptPanel';
+    panel.className = 'qa-header-card no-print';
+    panel.style.marginBottom = '14px';
+    const qaSections = document.getElementById('qaSections');
+    qaSections.parentNode.insertBefore(panel, qaSections);
+  }
+  const rows = transcript.messages.map(m=>{
+    const who = m.sender==='customer' ? (transcript.customerName||'Customer') : (m.agentName || (m.sender==='bot' ? 'Bot' : 'Agent'));
+    const color = m.sender==='customer' ? '#0E2A52' : '#c25800';
+    return '<div style="margin-bottom:6px;"><strong style="color:'+color+';">'+esc(who)+':</strong> '+esc(m.text)+'</div>';
+  }).join('');
+  panel.innerHTML = '<div style="font-size:14px;font-weight:800;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">'
+    + '<span>💬 Source Transcript (Yellow Messenger — auto-fetched)</span>'
+    + '<a href="'+esc(link)+'" target="_blank" rel="noopener" style="font-size:11px;white-space:nowrap;">Open original ↗</a>'
+    + '</div>'
+    + '<div style="max-height:260px;overflow-y:auto;font-size:12.5px;line-height:1.5;background:#f9fafb;border-radius:8px;padding:10px;">'+rows+'</div>'
+    + '<div style="font-size:11px;color:var(--gray);margin-top:8px;">Amber-outlined items below are rule-suggested or unresolved — please confirm or correct them before submitting.</div>';
+}
+
+function openAutoQAItem(id){
+  const q = _autoQAQueue.find(x=>x.id===id);
+  if(!q || (q.status!=='ready' && q.status!=='reviewing')) return;
+  const navBtn = document.querySelector('.nav-btn[onclick*="evaluation"]');
+  showScreen('evaluation', navBtn); // synchronously calls buildEvalForm(), resetting evalAnswers/evalComments
+
+  const callTypeEl = document.getElementById('evalCallType');
+  if(callTypeEl){ callTypeEl.value = 'Chat'; if(typeof evalToggleReasonField==='function') evalToggleReasonField(); }
+
+  if(q.agentId){
+    document.getElementById('evalAgent').value = q.agentId;
+    const a = getAgents().find(x=>x.id===q.agentId);
+    const se = document.getElementById('evalAgentSearch');
+    if(se && a) se.value = a.name;
+  }
+
+  Object.keys(q.prefill.answers).forEach(itemId=>{
+    const val = q.prefill.answers[itemId];
+    const wrap = document.querySelector('#item-' + CSS.escape(itemId) + ' .rating-btns');
+    if(!wrap) return;
+    const cls = val==='Y' ? 'yes' : val==='N' ? 'no' : 'na';
+    const btnEl = wrap.querySelector('.rating-btn.' + cls);
+    if(btnEl) setRating(itemId, val, btnEl);
+  });
+  Object.keys(q.prefill.comments).forEach(itemId=>{
+    const ta2 = document.querySelector('#item-' + CSS.escape(itemId) + ' .item-comment textarea');
+    if(ta2){ ta2.value = q.prefill.comments[itemId]; evalComments[itemId] = ta2.value; }
+  });
+  q.prefill.needsReview.forEach(itemId=>{
+    const card = document.getElementById('item-' + itemId);
+    if(card){ card.style.outline = '2px solid #f59e0b'; card.style.outlineOffset = '2px'; }
+  });
+
+  _renderAutoQATranscriptPanel(q.transcript, q.link);
+  q.status = 'reviewing';
+  renderAutoQAQueue();
+  toast('Auto QA pre-fill applied — amber outlines mark items needing your review.', 'info');
+}
+
+function exportAutoQAQueueToExcel(){
+  if(!_autoQAQueue.length){ toast('Nothing to export yet.','error'); return; }
+  const rows = [['Link','Customer','Agent (matched)','Source','Draft Score %','Auto-Fail (draft)','Items Needing Review','Status']];
+  _autoQAQueue.forEach(q=>{
+    rows.push([
+      q.link,
+      q.transcript ? q.transcript.customerName : '',
+      q.agentId ? (getAgents().find(a=>a.id===q.agentId)||{}).name : (q.agentNameGuess || 'Unmatched'),
+      q.transcript ? q.transcript.channelSource : '',
+      q.draft ? q.draft.pct : '',
+      q.draft && q.draft.autoFail ? 'YES' : '',
+      q.prefill ? q.prefill.needsReview.length : '',
+      q.status,
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Auto QA Queue');
+  XLSX.writeFile(wb, 'QMS20_AutoQA_Queue_' + today() + '.xlsx');
 }
 
 // ═══════════════════════════════════════════════════
