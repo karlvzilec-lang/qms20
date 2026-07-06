@@ -1560,8 +1560,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <button class="rpt-side-item" data-rpt-view="team-rank" onclick="switchRptView('team-rank',this)">👥 Team Ranking</button>
       <button class="rpt-side-item" data-rpt-view="tenure" onclick="switchRptView('tenure',this)">📅 By Tenure</button>
       <div class="rpt-side-group-label">Correlation</div>
-      <button class="rpt-side-item" data-rpt-view="dur-corr" onclick="switchRptView('dur-corr',this)">⏱ Duration vs Score</button>
-      <button class="rpt-side-item" data-rpt-view="ten-corr" onclick="switchRptView('ten-corr',this)">📈 Tenure vs Score</button>
+      <button class="rpt-side-item" data-rpt-view="correlation" onclick="switchRptView('correlation',this)">📈 Correlation Analysis</button>
       <div class="rpt-side-group-label">Trends</div>
       <button class="rpt-side-item" data-rpt-view="weekly" onclick="switchRptView('weekly',this)">📅 Weekly Trend</button>
       <button class="rpt-side-item admin-only-tab" id="adminTimingTab" data-rpt-view="eval-timing" onclick="switchRptView('eval-timing',this)">⏱ Eval Timing</button>
@@ -1850,34 +1849,29 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     </div>
   </div>
 
-  <!-- ── DURATION vs SCORE ── -->
-  <div class="rpt-view" id="rptv-dur-corr">
-    <div class="corr-info" id="durCorrInfo">
-      <strong>Correlation: Call Duration vs QA Score</strong><br>
-      <span id="durCorrVal"></span>
+  <!-- ── CORRELATION ANALYSIS (merged Duration vs Score + Tenure vs Score) ── -->
+  <div class="rpt-view" id="rptv-correlation">
+    <div style="display:flex;gap:0;margin-bottom:14px;background:#f1f5f9;border-radius:10px;padding:4px;width:fit-content;">
+      <button class="corr-dim-btn active" data-dim="duration" onclick="switchCorrDimension('duration',this)" style="padding:7px 16px;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;">⏱ Call Duration</button>
+      <button class="corr-dim-btn" data-dim="tenure" onclick="switchCorrDimension('tenure',this)" style="padding:7px 16px;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#64748b;">📈 Agent Tenure</button>
     </div>
-    <div class="chart-card">
-      <h4>Call Duration (minutes) vs QA Score — Scatter Plot</h4>
-      <div class="chart-wrap" style="height:340px"><canvas id="chartDurCorr"></canvas></div>
+    <div class="corr-info" id="corrInfo">
+      <strong id="corrInfoTitle">Correlation: Call Duration vs QA Score</strong><br>
+      <span id="corrVal"></span>
     </div>
-    <div class="card" style="margin-top:0">
-      <div class="card-title">Duration Bracket Analysis</div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Duration Range</th><th>Calls</th><th>Avg QA Score</th><th>Pass Rate</th></tr></thead>
-        <tbody id="durBracketBody"></tbody>
-      </table></div>
-    </div>
-  </div>
-
-  <!-- ── TENURE vs SCORE ── -->
-  <div class="rpt-view" id="rptv-ten-corr">
-    <div class="corr-info" id="tenCorrInfo">
-      <strong>Correlation: Agent Tenure vs QA Score</strong><br>
-      <span id="tenCorrVal"></span>
-    </div>
-    <div class="chart-card">
-      <h4>Agent Tenure (months) vs Avg QA Score — Scatter Plot</h4>
-      <div class="chart-wrap" style="height:340px"><canvas id="chartTenCorr"></canvas></div>
+    <div id="corrEmptyState" style="display:none;text-align:center;padding:32px;color:var(--gray);font-style:italic;"></div>
+    <div id="corrChartWrap">
+      <div class="chart-card">
+        <h4 id="corrChartTitle">Call Duration (minutes) vs QA Score — Scatter Plot</h4>
+        <div class="chart-wrap" style="height:340px"><canvas id="chartCorrelation"></canvas></div>
+      </div>
+      <div class="card" style="margin-top:0" id="corrBracketCard">
+        <div class="card-title" id="corrBracketTitle">Duration Bracket Analysis</div>
+        <div class="table-wrap"><table>
+          <thead id="corrBracketHead"><tr><th>Duration Range</th><th>Calls</th><th>Avg QA Score</th><th>Pass Rate</th></tr></thead>
+          <tbody id="corrBracketBody"></tbody>
+        </table></div>
+      </div>
     </div>
   </div>
 
@@ -9519,8 +9513,7 @@ function switchRptView(view, btn){
   if(view==='agent-rank') renderAgentRanking();
   else if(view==='team-rank') renderTeamRanking();
   else if(view==='tenure') renderTenureReport();
-  else if(view==='dur-corr') renderDurCorr();
-  else if(view==='ten-corr') renderTenCorr();
+  else if(view==='correlation') renderCorrelation();
   else if(view==='weekly') { populateWeekAgentFilter(); renderWeeklyTrend(); }
 }
 
@@ -10447,81 +10440,117 @@ function parseDuration(d){
 }
 
 // ── DURATION vs SCORE ──────────────────────────────
-function renderDurCorr(){
-  const data=getFilteredRecords().filter(r=>r.duration);
-  const pts=data.map(r=>({x:parseDuration(r.duration),y:r.finalScore,label:r.agentName})).filter(p=>p.x!==null);
-  const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
-  const r=pearsonR(xs,ys);
-  document.getElementById('durCorrVal').innerHTML=`Pearson r = <span class="corr-val">${r.toFixed(3)}</span> — <strong>${corrLabel(r)}</strong> (${pts.length} calls with duration data)`;
+// ── CORRELATION ANALYSIS (merged Duration vs Score + Tenure vs Score) ──
+// Was two near-identical views (same scatter+trend+Pearson-r template,
+// different X dimension) with no empty-state guard on the chart itself —
+// zero duration/hire-date data rendered an empty scatter plus a literal
+// "Pearson r = NaN" line. Merged into one view with a dimension picker and
+// a real guard: bracket table added for tenure too (duration already had
+// one), matching the parity the two never had before.
+let _rptCorrDimension = 'duration';
 
-  // Trend line
+function switchCorrDimension(dim, btn){
+  _rptCorrDimension = dim;
+  document.querySelectorAll('.corr-dim-btn').forEach(b=>{
+    const active=b===btn;
+    b.classList.toggle('active',active);
+    b.style.background = active ? 'linear-gradient(135deg,#FF7900,#E56A00)' : 'transparent';
+    b.style.color = active ? '#fff' : '#64748b';
+  });
+  renderCorrelation();
+}
+
+function renderCorrelation(){
+  const dim = _rptCorrDimension;
+  const emptyEl = document.getElementById('corrEmptyState');
+  const chartWrap = document.getElementById('corrChartWrap');
+  let pts, xLabel, xUnit, brackets, chartColor;
+
+  if(dim==='duration'){
+    document.getElementById('corrInfoTitle').textContent = 'Correlation: Call Duration vs QA Score';
+    document.getElementById('corrChartTitle').textContent = 'Call Duration (minutes) vs QA Score — Scatter Plot';
+    document.getElementById('corrBracketTitle').textContent = 'Duration Bracket Analysis';
+    document.getElementById('corrBracketHead').innerHTML = '<tr><th>Duration Range</th><th>Calls</th><th>Avg QA Score</th><th>Pass Rate</th></tr>';
+    const data=getFilteredRecords().filter(r=>r.duration);
+    pts=data.map(r=>({x:parseDuration(r.duration),y:r.finalScore,label:r.agentName})).filter(p=>p.x!==null);
+    xLabel='Call Duration (minutes)'; xUnit='calls with duration data'; chartColor='rgba(0,84,166,0.5)';
+    brackets=[{l:'0–2 min',min:0,max:2},{l:'2–5 min',min:2,max:5},{l:'5–8 min',min:5,max:8},{l:'8–12 min',min:8,max:12},{l:'12+ min',min:12,max:999}];
+  } else {
+    document.getElementById('corrInfoTitle').textContent = 'Correlation: Agent Tenure vs QA Score';
+    document.getElementById('corrChartTitle').textContent = 'Agent Tenure (months) vs Avg QA Score — Scatter Plot';
+    document.getElementById('corrBracketTitle').textContent = 'Tenure Bracket Analysis';
+    document.getElementById('corrBracketHead').innerHTML = '<tr><th>Tenure Range</th><th>Agents</th><th>Avg QA Score</th><th>Pass Rate</th></tr>';
+    const data=getFilteredRecords();
+    const agents=getAgents();
+    const agentMap={}; agents.forEach(a=>agentMap[a.id]=a);
+    const byAgent={};
+    data.forEach(r=>{if(!byAgent[r.agentId])byAgent[r.agentId]=[];byAgent[r.agentId].push(r.finalScore);});
+    pts=Object.entries(byAgent).map(([id,scores])=>{
+      const agent=agentMap[id];
+      const months=getTenureMonths(agent?.hired);
+      if(months===null) return null;
+      return {x:months,y:scores.reduce((a,b)=>a+b,0)/scores.length,label:agent?.name};
+    }).filter(p=>p);
+    xLabel='Tenure (months)'; xUnit='agents with hire date'; chartColor='rgba(255,121,0,0.7)';
+    brackets=[{l:'0–3 mo',min:0,max:3},{l:'3–6 mo',min:3,max:6},{l:'6–12 mo',min:6,max:12},{l:'12–24 mo',min:12,max:24},{l:'24+ mo',min:24,max:9999}];
+  }
+
+  // Guard: no chart/Pearson-r attempt at all with zero points — the bug
+  // this merge fixes, not just relocates.
+  if(!pts.length){
+    if(chartWrap) chartWrap.style.display='none';
+    if(emptyEl){
+      emptyEl.style.display='block';
+      emptyEl.textContent = dim==='duration'
+        ? 'No call duration data recorded yet for this period — nothing to correlate.'
+        : 'No agent hire-date data available yet — nothing to correlate.';
+    }
+    document.getElementById('corrVal').textContent = '';
+    return;
+  }
+  if(chartWrap) chartWrap.style.display='';
+  if(emptyEl) emptyEl.style.display='none';
+
+  const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+  const r=pearsonR(xs,ys);
+  document.getElementById('corrVal').innerHTML=`Pearson r = <span class="corr-val">${r.toFixed(3)}</span> — <strong>${corrLabel(r)}</strong> (${pts.length} ${xUnit})`;
+
   const n=xs.length;
-  const mx=n?xs.reduce((a,b)=>a+b,0)/n:0,my=n?ys.reduce((a,b)=>a+b,0)/n:0;
-  const m=n>1?(xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my),0)/xs.reduce((s,x)=>s+(x-mx)**2,0)):0;
+  const mx=n?xs.reduce((a,b)=>a+b,0)/n:0, my=n?ys.reduce((a,b)=>a+b,0)/n:0;
+  const denom=xs.reduce((s,x)=>s+(x-mx)**2,0);
+  const m=n>1&&denom?(xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my),0)/denom):0;
   const b2=my-m*mx;
-  const xMin=Math.min(...xs),xMax=Math.max(...xs);
-  mkChart('chartDurCorr','scatter',null,[
-    {label:'Calls',data:pts.map(p=>({x:p.x,y:p.y})),backgroundColor:'rgba(0,84,166,0.5)',pointRadius:5,pointHoverRadius:7},
-    {label:'Trend',data:[{x:xMin,y:m*xMin+b2},{x:xMax,y:m*xMax+b2}],type:'line',borderColor:'#e74c3c',borderWidth:2,pointRadius:0,fill:false}
-  ],{plugins:{legend:{position:'bottom'}},scales:{x:{title:{display:true,text:'Call Duration (minutes)'}},y:{title:{display:true,text:'QA Score (%)'},min:0,max:100}}});
+  const xMin=Math.min(...xs,0), xMax=Math.max(...xs,1);
+  mkChart('chartCorrelation','scatter',null,[
+    {label:dim==='duration'?'Calls':'Agents', data:pts.map(p=>({x:p.x,y:p.y})), backgroundColor:chartColor, pointRadius:dim==='duration'?5:8, pointHoverRadius:dim==='duration'?7:11},
+    {label:'Trend', data:[{x:xMin,y:m*xMin+b2},{x:xMax,y:m*xMax+b2}], type:'line', borderColor:'#e74c3c', borderWidth:2, pointRadius:0, fill:false}
+  ],{plugins:{tooltip:{callbacks:{label:ctx=>{ if(dim!=='tenure') return undefined; const pt=pts[ctx.dataIndex]; return pt?`${pt.label}: ${pt.y.toFixed(1)}% (${pt.x}mo)`:''; }}},legend:{position:'bottom'}},
+    scales:{x:{title:{display:true,text:xLabel}},y:{title:{display:true,text:'QA Score (%)'},min:0,max:100}}});
 
   (()=>{
-    if(!pts.length) return;
     const cl = corrLabel(r); const items = [];
     const icon = Math.abs(r)>=0.4?(r>0?'📈':'📉'):'➡️';
-    items.push({text:`${icon} ${cl} (r=${r.toFixed(2)}) — ${Math.abs(r)>=0.4?'call duration has a meaningful effect on QA scores':'call duration does not strongly predict QA performance'}`,type:Math.abs(r)>=0.4?'warn':'info'});
-    const brackets=[{l:'0–2 min',min:0,max:2},{l:'2–5 min',min:2,max:5},{l:'5–8 min',min:5,max:8},{l:'8–12 min',min:8,max:12},{l:'12+ min',min:12,max:999}];
+    const label = dim==='duration' ? 'call duration' : 'tenure';
+    items.push({text:`${icon} ${cl} (r=${r.toFixed(2)}) — ${Math.abs(r)>=0.4?`${label} has a meaningful effect on QA scores`:`${label} does not strongly predict QA performance`}`,type:Math.abs(r)>=0.4?'warn':'info'});
     const bStats = brackets.map(b=>{ const bp=pts.filter(p=>p.x>=b.min&&p.x<b.max); return bp.length?{l:b.l,avg:bp.reduce((s,p)=>s+p.y,0)/bp.length,n:bp.length}:null; }).filter(Boolean);
-    if(bStats.length>0){ const best2=bStats.sort((a,b)=>b.avg-a.avg)[0]; items.push({text:`🏆 Best-scoring bracket: ${best2.l} — avg ${best2.avg.toFixed(1)}% (${best2.n} calls)`,type:'good'}); }
-    _chartHeadline('chartDurCorr', items);
+    if(bStats.length>0){ const best2=bStats.slice().sort((a,b)=>b.avg-a.avg)[0]; items.push({text:`🏆 Best-scoring bracket: ${best2.l} — avg ${best2.avg.toFixed(1)}% (${best2.n} ${dim==='duration'?'calls':'agents'})`,type:'good'}); }
+    _chartHeadline('chartCorrelation', items);
   })();
 
-  // Brackets
-  const brackets=[{l:'0–2 min',min:0,max:2},{l:'2–5 min',min:2,max:5},{l:'5–8 min',min:5,max:8},{l:'8–12 min',min:8,max:12},{l:'12+ min',min:12,max:999}];
-  document.getElementById('durBracketBody').innerHTML=brackets.map(b=>{
+  document.getElementById('corrBracketBody').innerHTML=brackets.map(b=>{
     const bp=pts.filter(p=>p.x>=b.min&&p.x<b.max);
     if(!bp.length) return `<tr><td>${b.l}</td><td>0</td><td>—</td><td>—</td></tr>`;
     const bavg=(bp.reduce((s,p)=>s+p.y,0)/bp.length).toFixed(1);
-    const bpass=getRecords().filter(r=>r.duration&&parseDuration(r.duration)>=b.min&&parseDuration(r.duration)<b.max&&r.result==='PASS').length;
-    return `<tr><td>${b.l}</td><td>${bp.length}</td><td style="font-weight:700;color:${+bavg>=80?'var(--success)':+bavg>=60?'var(--warning)':'var(--danger)'}">${bavg}%</td><td>${bp.length?(bpass/bp.length*100).toFixed(0):0}%</td></tr>`;
+    let passPct;
+    if(dim==='duration'){
+      const bpass=getRecords().filter(rec=>rec.duration&&parseDuration(rec.duration)>=b.min&&parseDuration(rec.duration)<b.max&&rec.result==='PASS').length;
+      passPct = bp.length?(bpass/bp.length*100).toFixed(0):0;
+    } else {
+      const passCount = bp.filter(p=>p.y>=(+(getSettings().passScore||80))).length;
+      passPct = (passCount/bp.length*100).toFixed(0);
+    }
+    return `<tr><td>${b.l}</td><td>${bp.length}</td><td style="font-weight:700;color:${+bavg>=80?'var(--success)':+bavg>=60?'var(--warning)':'var(--danger)'}">${bavg}%</td><td>${passPct}%</td></tr>`;
   }).join('');
-}
-
-// ── TENURE vs SCORE ────────────────────────────────
-function renderTenCorr(){
-  const data=getFilteredRecords();
-  const agents=getAgents();
-  const agentMap={};
-  agents.forEach(a=>agentMap[a.id]=a);
-  const byAgent={};
-  data.forEach(r=>{if(!byAgent[r.agentId])byAgent[r.agentId]=[];byAgent[r.agentId].push(r.finalScore);});
-  const pts=Object.entries(byAgent).map(([id,scores])=>{
-    const agent=agentMap[id];
-    const months=getTenureMonths(agent?.hired);
-    if(months===null) return null;
-    return {x:months,y:scores.reduce((a,b)=>a+b,0)/scores.length,label:agent.name};
-  }).filter(p=>p);
-  const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
-  const r=pearsonR(xs,ys);
-  document.getElementById('tenCorrVal').innerHTML=`Pearson r = <span class="corr-val">${r.toFixed(3)}</span> — <strong>${corrLabel(r)}</strong> (${pts.length} agents with hire date)`;
-
-  const n=xs.length,mx=n?xs.reduce((a,b)=>a+b,0)/n:0,my=n?ys.reduce((a,b)=>a+b,0)/n:0;
-  const m=n>1?(xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my),0)/xs.reduce((s,x)=>s+(x-mx)**2,0)):0;
-  const b2=my-m*mx;
-  const xMin=Math.min(...xs,0),xMax=Math.max(...xs,1);
-  mkChart('chartTenCorr','scatter',null,[
-    {label:'Agents',data:pts.map(p=>({x:p.x,y:p.y})),backgroundColor:'rgba(255,121,0,0.7)',pointRadius:8,pointHoverRadius:11,pointBorderColor:'#fff',pointBorderWidth:2},
-    {label:'Trend',data:[{x:xMin,y:m*xMin+b2},{x:xMax,y:m*xMax+b2}],type:'line',borderColor:'#FF7900',borderWidth:2.5,pointRadius:0,fill:false}
-  ],{plugins:{tooltip:{callbacks:{label:ctx=>{const pt=pts[ctx.dataIndex];return pt?`${pt.label}: ${pt.y.toFixed(1)}% (${pt.x}mo)`:'';}}},legend:{position:'bottom'}},
-    scales:{x:{title:{display:true,text:'Tenure (months)'}},y:{title:{display:true,text:'Avg QA Score (%)'},min:0,max:100}}});
-
-  (()=>{
-    if(!pts.length) return;
-    const cl = corrLabel(r); const items = [];
-    items.push({text:`${r>0.2?'📈':r<-0.2?'📉':'➡️'} Tenure vs QA: ${cl} (r=${r.toFixed(2)}) — ${r>0.4?'longer-tenured agents score significantly higher':r<-0.2?'tenure negatively correlated with scores — review experienced agent habits':'tenure has minimal effect on QA scores'}`,type:Math.abs(r)>=0.4?'warn':'info'});
-    if(pts.length>=3){ const low=pts.filter(p=>p.x<6); const high=pts.filter(p=>p.x>=12); if(low.length&&high.length){ const lavg=low.reduce((s,p)=>s+p.y,0)/low.length; const havg=high.reduce((s,p)=>s+p.y,0)/high.length; items.push({text:`👥 <6 mo avg ${lavg.toFixed(1)}%  ·  12+ mo avg ${havg.toFixed(1)}% — ${havg>lavg?'experience drives improvement':'newer agents outperforming veterans'}`,type:havg>lavg?'good':'warn'}); } }
-    _chartHeadline('chartTenCorr', items);
-  })();
 }
 
 // ── WEEKLY TREND ───────────────────────────────────
