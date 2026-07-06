@@ -12991,6 +12991,16 @@ function _npsDrillIntoChannel(channelName){
   if(btn) switchNpsChannelTab(channelName, btn);
 }
 
+// Opens the existing NPS Data Entry modal (manual entry + CSV upload)
+// pre-scoped to whichever channel tab the user is currently viewing,
+// instead of requiring them to reopen it from the Executive Dashboard
+// header and re-select the channel by hand.
+function openNpsDataEntryForChannel(channelName){
+  openNpsDataEntry();
+  const sel = document.getElementById('ndChannel');
+  if(sel){ sel.value = channelName; ndOnChannelChange(); }
+}
+
 function setNpsChannelPeriod(period, btn){
   _npsChannelPeriod = period;
   document.querySelectorAll('.nps-ch-period-pill').forEach(b=>{
@@ -13037,7 +13047,11 @@ function renderNpsChannelDashboard(channelName){
           <input type="date" id="npsChToDate" onchange="renderNpsChannelDashboard(_npsActiveChannelKey)" style="padding:5px 9px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;">
         </div>
       </div>
-      <span style="background:#f1f5f9;color:#374151;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;">${typeIcon} ${esc(typeLabel)} · ${range.periodLabel}</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="background:#f1f5f9;color:#374151;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;">${typeIcon} ${esc(typeLabel)} · ${range.periodLabel}</span>
+        ${isQA() ? `<button onclick="openNpsDataEntryForChannel('${esc(channelName)}')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;border:none;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(255,121,0,.3);">📤 Upload / Enter Data</button>
+        <button onclick="npsDownloadCsvTemplate('${esc(channelName)}')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:#fff;color:#374151;border:1.5px solid #e2e8f0;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;">⬇ Template</button>` : ''}
+      </div>
     </div>
 
     <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
@@ -13756,26 +13770,74 @@ function npsConfirmCsvImport(){
   });
 }
 
-function npsDownloadCsvTemplate(){
+// Maps NPS_CHANNELS[...].extraFields (camelCase, e.g. 'storeCode') to their
+// CSV column name (snake_case, e.g. 'store_code') — lets the scoped template
+// use each CHANNEL's exact extraFields list (Hotline/Chat have no store
+// columns; only Retail Store does) rather than a coarser per-TYPE list that
+// would give Hotline/Chat two irrelevant blank store columns.
+const NPS_FIELD_TO_CSV_COL = {
+  agentId:'agent_id', agentName:'agent_name', storeCode:'store_code', storeRegion:'store_region',
+  appVersion:'app_version', appScreen:'app_screen', platform:'platform',
+  resellerName:'reseller_name', resellerCode:'reseller_code', resellerOutlet:'reseller_outlet',
+  resellerRegion:'reseller_region', resellerTier:'reseller_tier', feedbackTopic:'feedback_topic',
+  productPurchased:'product_purchased', transactionRef:'transaction_ref', paymentMethod:'payment_method'
+};
+const NPS_CSV_DEMOGRAPHIC_COLUMNS = ['age_bracket','gender','customer_segment','region'];
+const NPS_CSV_SAMPLE_ROWS = {
+  'Retail Store':          { agent_id:'AGT001', agent_name:'Sok Dara', store_code:'RS-042', store_region:'Phnom Penh', score:9, verbatim:'Very friendly staff and quick service', demo:['25-34','Female','Postpaid','Phnom Penh'] },
+  'Hotline':               { agent_id:'AGT002', agent_name:'Chan Nary', score:6, verbatim:'Long wait time before an agent answered', demo:['35-44','Male','Prepaid','Siem Reap'] },
+  'Chat':                  { agent_id:'AGT003', agent_name:'Kim Srey', score:9, verbatim:'Quick and helpful chat support', demo:['25-34','Female','Postpaid','Phnom Penh'] },
+  'Cellcard App':          { app_version:'4.2.1', app_screen:'Top-up', platform:'Android', score:10, verbatim:'Smooth and convenient top-up', demo:['25-34','Female','Prepaid','Battambang'] },
+  'Reseller App':          { reseller_name:'Golden Wing Trading', reseller_code:'RSL-014', reseller_outlet:'Battambang Branch', reseller_region:'Battambang', reseller_tier:'Gold', feedback_topic:'Process', score:4, verbatim:'Onboarding process for new stock is confusing' },
+  'Digital Sales Channel': { product_purchased:'Data Bundle 20GB', transaction_ref:'TXN-88231', payment_method:'Cellcard Balance', score:9, verbatim:'Easy checkout process', demo:['25-34','Female','Prepaid','Phnom Penh'] }
+};
+
+function npsDownloadCsvTemplate(channelName){
   const today = new Date().toISOString().split('T')[0];
-  const header = NPS_CSV_COLUMNS.join(',');
-  const blank = n => new Array(n).fill('').join(',');
-  const samples=[
-    // Retail Store (agent-scored)
-    `${today},Retail Store,9,Very friendly staff and quick service,AGT001,Sok Dara,RS-042,Phnom Penh,${blank(3)},${blank(6)},${blank(3)},25-34,Female,Postpaid,Phnom Penh`,
-    // Hotline (agent-scored)
-    `${today},Hotline,6,Long wait time before an agent answered,AGT002,Chan Nary,,,${blank(3)},${blank(6)},${blank(3)},35-44,Male,Prepaid,Siem Reap`,
-    // Cellcard App (self-service)
-    `${today},Cellcard App,10,Smooth and convenient top-up,${blank(4)},4.2.1,Top-up,Android,${blank(6)},${blank(3)},25-34,Female,Prepaid,Battambang`,
-    // Reseller App (reseller self-feedback — no consumer demographics)
-    `${today},Reseller App,4,Onboarding process for new stock is confusing,${blank(7)},Golden Wing Trading,RSL-014,Battambang Branch,Battambang,Gold,Process,${blank(7)}`,
-    // Digital Sales Channel (automated, post-transaction)
-    `${today},Digital Sales Channel,9,Easy checkout process,${blank(13)},Data Bundle 20GB,TXN-88231,Cellcard Balance,25-34,Female,Prepaid,Phnom Penh`,
-  ].join('\n');
-  const note='# score: 0-10 raw NPS rating (9-10=Promoter, 7-8=Passive, 0-6=Detractor). One row per respondent. channel must be one of: '+Object.keys(NPS_CHANNELS).join(', ')+'. Leave columns blank if not applicable to that channel.';
-  const blob=new Blob([note+'\n'+header+'\n'+samples],{type:'text/csv'});
+  const cfg = channelName ? _npsChannelConfig(channelName) : null;
+
+  if(!cfg){
+    // No (valid) channel given — full universal template covering all 6 types.
+    const header = NPS_CSV_COLUMNS.join(',');
+    const blank = n => new Array(n).fill('').join(',');
+    const samples=[
+      `${today},Retail Store,9,Very friendly staff and quick service,AGT001,Sok Dara,RS-042,Phnom Penh,${blank(3)},${blank(6)},${blank(3)},25-34,Female,Postpaid,Phnom Penh`,
+      `${today},Hotline,6,Long wait time before an agent answered,AGT002,Chan Nary,,,${blank(3)},${blank(6)},${blank(3)},35-44,Male,Prepaid,Siem Reap`,
+      `${today},Cellcard App,10,Smooth and convenient top-up,${blank(4)},4.2.1,Top-up,Android,${blank(6)},${blank(3)},25-34,Female,Prepaid,Battambang`,
+      `${today},Reseller App,4,Onboarding process for new stock is confusing,${blank(7)},Golden Wing Trading,RSL-014,Battambang Branch,Battambang,Gold,Process,${blank(7)}`,
+      `${today},Digital Sales Channel,9,Easy checkout process,${blank(13)},Data Bundle 20GB,TXN-88231,Cellcard Balance,25-34,Female,Prepaid,Phnom Penh`,
+    ].join('\n');
+    const note='# score: 0-10 raw NPS rating (9-10=Promoter, 7-8=Passive, 0-6=Detractor). One row per respondent. channel must be one of: '+Object.keys(NPS_CHANNELS).join(', ')+'. Leave columns blank if not applicable to that channel.';
+    const blob=new Blob([note+'\n'+header+'\n'+samples],{type:'text/csv'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='nps_data_template.csv'; a.click();
+    return;
+  }
+
+  // Channel-scoped template: universal columns + only THIS channel's exact
+  // extraFields (not the broader type list — e.g. Hotline/Chat get no store
+  // columns even though they share the 'agent' type with Retail Store), and
+  // skip demographics for reseller — the respondent is the reseller, not an
+  // end consumer.
+  const typeCols = (cfg.extraFields||[]).map(f=>NPS_FIELD_TO_CSV_COL[f]).filter(Boolean);
+  const demoCols = cfg.type==='reseller' ? [] : NPS_CSV_DEMOGRAPHIC_COLUMNS;
+  const cols = ['date','channel','score','verbatim', ...typeCols, ...demoCols];
+  const sample = NPS_CSV_SAMPLE_ROWS[channelName] || {};
+  const row = cols.map(c=>{
+    if(c==='date') return today;
+    if(c==='channel') return channelName;
+    if(c==='score') return sample.score ?? '';
+    if(c==='verbatim') return sample.verbatim || '';
+    if(demoCols.includes(c)){
+      const idx = NPS_CSV_DEMOGRAPHIC_COLUMNS.indexOf(c);
+      return (sample.demo && sample.demo[idx]) || '';
+    }
+    return sample[c] || '';
+  }).join(',');
+  const note = `# score: 0-10 raw NPS rating (9-10=Promoter, 7-8=Passive, 0-6=Detractor). One row per respondent. Template scoped to: ${channelName}.`;
+  const blob = new Blob([note+'\n'+cols.join(',')+'\n'+row], {type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='nps_data_template.csv'; a.click();
+  a.download = 'nps_template_'+cfg.key+'.csv'; a.click();
 }
 
 function npsExportSubmittedCSV(){
