@@ -12344,7 +12344,7 @@ function _npsRenderAutoInsights(allRecords, npsByBucket, buckets, kpisCurr, kpis
 
   // 7. Channel breakdown
   const chM={};
-  for(const r of currRecords){const ch=r.channel||'Other'; if(!chM[ch]) chM[ch]={p:0,pa:0,d:0}; chM[ch].p+=r.promoters||0; chM[ch].pa+=r.passives||0; chM[ch].d+=r.detractors||0;}
+  for(const r of currRecords){const ch=_npsNormalizeChannelForDisplay(r.channel); if(!chM[ch]) chM[ch]={p:0,pa:0,d:0}; chM[ch].p+=r.promoters||0; chM[ch].pa+=r.passives||0; chM[ch].d+=r.detractors||0;}
   const chSt=Object.entries(chM).map(([ch,a])=>({ch,nps:Math.round(((a.p-a.d)/(a.p+a.pa+a.d||1))*100),tot:a.p+a.pa+a.d})).filter(c=>c.tot>0).sort((a,b)=>b.nps-a.nps);
   if(chSt.length>1){
     strengths.push(`Best channel: <strong>${chSt[0].ch}</strong> — NPS ${chSt[0].nps>0?'+':''}${chSt[0].nps}.`);
@@ -12467,7 +12467,7 @@ function _npsRenderQaCorrelation(allNpsRecords, currNpsRecords, period, range, b
 
   // NPS channel stats (current period)
   const chM={};
-  for(const r of currNpsRecords){const ch=r.channel||'Other'; if(!chM[ch]) chM[ch]={p:0,pa:0,d:0}; chM[ch].p+=r.promoters||0; chM[ch].pa+=r.passives||0; chM[ch].d+=r.detractors||0;}
+  for(const r of currNpsRecords){const ch=_npsNormalizeChannelForDisplay(r.channel); if(!chM[ch]) chM[ch]={p:0,pa:0,d:0}; chM[ch].p+=r.promoters||0; chM[ch].pa+=r.passives||0; chM[ch].d+=r.detractors||0;}
   const chNpsSt=Object.entries(chM).map(([ch,a])=>({ch,nps:Math.round(((a.p-a.d)/(a.p+a.pa+a.d||1))*100),tot:a.p+a.pa+a.d})).filter(c=>c.tot>0).sort((a,b)=>a.nps-b.nps);
 
   // Period correlation insight
@@ -12760,7 +12760,7 @@ function renderNpsExecDashboard(){
   // Build OVSAT by channel from curr records
   const chMap={};
   for(const r of currRecords){
-    const ch=r.channel||'Other';
+    const ch=_npsNormalizeChannelForDisplay(r.channel);
     if(!chMap[ch]) chMap[ch]={ov5:0,ov4:0,ov3:0,ov2:0,ov1:0,ovsatT:0};
     const c=chMap[ch];
     c.ov5+=(r.ovsat5||0);c.ov4+=(r.ovsat4||0);c.ov3+=(r.ovsat3||0);c.ov2+=(r.ovsat2||0);c.ov1+=(r.ovsat1||0);c.ovsatT+=(r.ovsatTotal||0);
@@ -12859,7 +12859,7 @@ function renderNpsExecDashboard(){
   // — NPS by Channel (from curr records)
   const chNpsMap={};
   for(const r of currRecords){
-    const ch=r.channel||'Other';
+    const ch=_npsNormalizeChannelForDisplay(r.channel);
     if(!chNpsMap[ch]) chNpsMap[ch]={p:0,pa:0,d:0};
     const c=chNpsMap[ch]; c.p+=(r.promoters||0);c.pa+=(r.passives||0);c.d+=(r.detractors||0);
   }
@@ -19595,7 +19595,7 @@ function renderOvsatChannelChart(){
   // Build per-channel OVSAT data
   const chMap={};
   for(const r of records){
-    const ch=r.channel||'Other';
+    const ch=_npsNormalizeChannelForDisplay(r.channel);
     if(!chMap[ch]) chMap[ch]={ov5:0,ov4:0,ov3:0,ov2:0,ov1:0,total:0};
     const c=chMap[ch];
     c.ov5+=(r.ovsat5||0); c.ov4+=(r.ovsat4||0); c.ov3+=(r.ovsat3||0); c.ov2+=(r.ovsat2||0); c.ov1+=(r.ovsat1||0);
@@ -19760,7 +19760,7 @@ function _getNpsChannelData(){
   const aggregate = records => {
     const map = {};
     records.forEach(r=>{
-      const ch = (r.channel||'Other').trim();
+      const ch = _npsNormalizeChannelForDisplay(r.channel);
       if(!map[ch]) map[ch]={p:0,pa:0,d:0};
       map[ch].p  += r.promoters  || 0;
       map[ch].pa += r.passives   || 0;
