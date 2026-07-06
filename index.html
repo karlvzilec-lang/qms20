@@ -13636,6 +13636,15 @@ function npsHandleFileInput(inp){
   inp.value='';
 }
 let _ndCsvRows = [];
+// Universal wide CSV format — one row per respondent (not aggregated), one
+// template covering all 6 channels with unused columns simply blank per row.
+const NPS_CSV_COLUMNS = ['date','channel','score','verbatim',
+  'agent_id','agent_name','store_code','store_region',
+  'app_version','app_screen','platform',
+  'reseller_name','reseller_code','reseller_outlet','reseller_region','reseller_tier','feedback_topic',
+  'product_purchased','transaction_ref','payment_method',
+  'age_bracket','gender','customer_segment','region'];
+
 function _parseNpsCsv(file){
   const status = document.getElementById('ndUploadStatus');
   const preview = document.getElementById('ndUploadPreview');
@@ -13644,36 +13653,46 @@ function _parseNpsCsv(file){
   const reader = new FileReader();
   reader.onload = (e) => {
     try{
-      const lines = e.target.result.split(/\r?\n/).filter(l=>l.trim());
+      const lines = e.target.result.split(/\r?\n/).filter(l=>l.trim() && !l.trim().startsWith('#'));
       const header = lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/["\s]/g,''));
-      const idx = k => header.findIndex(h=>h.includes(k));
-      const col = { date:idx('date'), respondent:idx('respondent')||idx('name'), score:idx('score'),
-        channel:idx('channel'), campaign:idx('campaign'), agent:idx('agent'), comment:idx('comment')||idx('verbatim') };
+      const idx = {}; NPS_CSV_COLUMNS.forEach(c=>{ idx[c]=header.indexOf(c); });
       _ndCsvRows = [];
+      const errors = [];
       for(let i=1;i<lines.length;i++){
         const cols = lines[i].split(',').map(c=>c.replace(/^"|"$/g,'').trim());
-        if(!cols[col.score] && !cols[col.date]) continue;
-        const score = parseInt(cols[col.score])||0;
+        const g = k => idx[k]>=0 ? (cols[idx[k]]||'') : '';
+        const date = g('date'), rawChannel = g('channel'), scoreStr = g('score');
+        if(!date && !scoreStr) continue;
+        const score = parseInt(scoreStr);
+        if(isNaN(score) || score<0 || score>10){ errors.push(`Row ${i+1}: invalid score "${scoreStr}" (must be 0-10)`); continue; }
+        const channel = _npsNormalizeChannelForDisplay(rawChannel);
+        if(!NPS_CHANNELS[channel] && !errors.some(e=>e.includes('unrecognized channel'))){
+          errors.push(`Row ${i+1}: unrecognized channel "${rawChannel}" — imported as-is, won't appear in a channel tab`);
+        }
         _ndCsvRows.push({
           id:'nd_'+Date.now()+'_'+i,
-          date: col.date>=0 ? cols[col.date] : '',
-          respondent: col.respondent>=0 ? cols[col.respondent] : 'Import',
-          score, category: score<=6?'Detractor':score<=8?'Passive':'Promoter',
-          channel: col.channel>=0 ? cols[col.channel] : '',
-          campaign: col.campaign>=0 ? cols[col.campaign] : '',
-          agent: col.agent>=0 ? cols[col.agent] : '',
-          comment: col.comment>=0 ? cols[col.comment] : '',
+          date, channel, score,
+          category: score<=6?'Detractor':score<=8?'Passive':'Promoter',
+          comment: g('verbatim'),
+          agentId: g('agent_id'), agentName: g('agent_name'), storeCode: g('store_code'), storeRegion: g('store_region'),
+          appVersion: g('app_version'), appScreen: g('app_screen'), platform: g('platform'),
+          resellerName: g('reseller_name'), resellerCode: g('reseller_code'), resellerOutlet: g('reseller_outlet'),
+          resellerRegion: g('reseller_region'), resellerTier: g('reseller_tier'), feedbackTopic: g('feedback_topic'),
+          productPurchased: g('product_purchased'), transactionRef: g('transaction_ref'), paymentMethod: g('payment_method'),
+          demographic: { ageBracket:g('age_bracket'), gender:g('gender'), customerSegment:g('customer_segment'), region:g('region') },
           by: getCurrentUser()?.displayName||getCurrentUser()?.username||'Import', ts: Date.now()
         });
       }
-      if(status){ status.textContent=`✅ Parsed ${_ndCsvRows.length} row(s) from "${file.name}"`; status.style.background='#f0fdf4'; status.style.color='#166534'; status.style.border='1px solid #bbf7d0'; }
+      const errNote = errors.length ? ` (${errors.length} issue${errors.length>1?'s':''} — see console)` : '';
+      if(errors.length) console.warn('[NPS CSV import]', errors);
+      if(status){ status.textContent=`✅ Parsed ${_ndCsvRows.length} row(s) from "${file.name}"${errNote}`; status.style.background='#f0fdf4'; status.style.color='#166534'; status.style.border='1px solid #bbf7d0'; }
       // Show preview (first 5 rows)
       if(preview){
         preview.style.display='';
         const sample = _ndCsvRows.slice(0,5);
         preview.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:10px;">
-          <thead><tr style="background:#f1f5f9;">${['Date','Respondent','Score','Channel','Campaign'].map(h=>`<th style="padding:5px 8px;font-weight:700;color:#64748b;text-align:left;">${h}</th>`).join('')}</tr></thead>
-          <tbody>${sample.map(r=>`<tr style="border-top:1px solid #f1f5f9;"><td style="padding:5px 8px;">${esc(r.date)}</td><td style="padding:5px 8px;">${esc(r.respondent)}</td><td style="padding:5px 8px;font-weight:700;">${esc(String(r.score))}</td><td style="padding:5px 8px;">${esc(r.channel)}</td><td style="padding:5px 8px;">${esc(r.campaign)}</td></tr>`).join('')}</tbody>
+          <thead><tr style="background:#f1f5f9;">${['Date','Channel','Score','Verbatim'].map(h=>`<th style="padding:5px 8px;font-weight:700;color:#64748b;text-align:left;">${h}</th>`).join('')}</tr></thead>
+          <tbody>${sample.map(r=>`<tr style="border-top:1px solid #f1f5f9;"><td style="padding:5px 8px;">${esc(r.date)}</td><td style="padding:5px 8px;">${esc(r.channel)}</td><td style="padding:5px 8px;font-weight:700;">${esc(String(r.score))}</td><td style="padding:5px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.comment)}</td></tr>`).join('')}</tbody>
         </table>${_ndCsvRows.length>5?`<div style="padding:6px 10px;font-size:10px;color:#94a3b8;">…and ${_ndCsvRows.length-5} more rows</div>`:''}`;
       }
       if(actions) actions.style.display='flex';
@@ -13686,61 +13705,38 @@ function _parseNpsCsv(file){
 
 function npsConfirmCsvImport(){
   if(!_ndCsvRows.length){ toast('No rows to import.','error'); return; }
-  // Aggregate individual response rows into the same format as manual entries
-  // Group by date + channel, count P/Pa/D from individual scores
-  const groups = {};
   const cu = getCurrentUser();
-  _ndCsvRows.forEach(r=>{
-    const key = (r.date||'unknown')+'__'+(r.channel||'All');
-    if(!groups[key]) groups[key] = {
-      id:'nd_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-      date:r.date, channel:r.channel||'',
-      weekNo:0, promoters:0, passives:0, detractors:0,
-      ovsatTotal:0, ovsat5:0, ovsat4:0, ovsat3:0, ovsat2:0, ovsat1:0,
-      dsatReasons:{}, satReasons:{}, remarks:'CSV import',
-      by:cu?.displayName||cu?.username||'Import', ts:Date.now()
-    };
-    const g = groups[key];
-    const s = parseInt(r.score)||0;
-    if(s>=9) g.promoters++;
-    else if(s>=7) g.passives++;
-    else g.detractors++;
-    g.ovsatTotal++;
-    // Map 1–5 NPS score to OVSAT (treat score 9–10 as 5★, 7–8 as 4★, 5–6 as 3★, 3–4 as 2★, 0–2 as 1★)
-    if(s>=9) g.ovsat5++; else if(s>=7) g.ovsat4++; else if(s>=5) g.ovsat3++; else if(s>=3) g.ovsat2++; else g.ovsat1++;
-  });
-  // Compute derived fields and fix IDs
-  const calcPct = (c,t) => t>0 ? Math.round((c/t)*100) : 0;
-  const aggregated = Object.values(groups).map(g=>{
-    const totalNps = g.promoters + g.passives + g.detractors;
-    const npsScore = totalNps > 0 ? Math.round(((g.promoters - g.detractors) / totalNps) * 100) : 0;
-    // Auto-calculate week number
-    const [y,m,d] = (g.date||'').split('-').map(Number);
-    if(y && m && d){
-      const dt = new Date(y,m-1,d), st = new Date(y,0,1);
-      g.weekNo = Math.min(53, Math.max(1, Math.ceil(((dt-st)/86400000+st.getDay()+1)/7)));
-    }
-    return {...g, totalNps, npsScore,
-      pct5:calcPct(g.ovsat5,g.ovsatTotal), pct4:calcPct(g.ovsat4,g.ovsatTotal),
-      pct3:calcPct(g.ovsat3,g.ovsatTotal), pct2:calcPct(g.ovsat2,g.ovsatTotal),
-      pct1:calcPct(g.ovsat1,g.ovsatTotal)
-    };
-  });
-  const rowCount = _ndCsvRows.length;
-  const recCount = aggregated.length;
+  // One record per respondent row — no more date+channel aggregation, so a
+  // single verbatim/agent/demographic set maps to exactly one record, the
+  // same per-respondent shape survey-link responses already use.
+  const records = _ndCsvRows.map(r=>({
+    id: r.id, date: r.date, channel: r.channel,
+    promoters: r.score>=9?1:0, passives:(r.score>=7&&r.score<=8)?1:0, detractors: r.score<=6?1:0,
+    totalNps:1, npsScore: r.score>=9?100:(r.score>=7?0:-100),
+    comment: r.comment, sentiment: _npsClassifySentiment(r.comment),
+    agentId:r.agentId, agentName:r.agentName, storeCode:r.storeCode, storeRegion:r.storeRegion,
+    appVersion:r.appVersion, appScreen:r.appScreen, platform:r.platform,
+    resellerName:r.resellerName, resellerCode:r.resellerCode, resellerOutlet:r.resellerOutlet,
+    resellerRegion:r.resellerRegion, resellerTier:r.resellerTier, feedbackTopic:r.feedbackTopic,
+    productPurchased:r.productPurchased, transactionRef:r.transactionRef, paymentMethod:r.paymentMethod,
+    demographic: r.demographic,
+    source:'csv_import',
+    by:cu?.displayName||cu?.username||'Import', byRole:cu?.role||'', ts:Date.now()
+  }));
+  const rowCount = records.length;
   showConfirm({
     title: 'Confirm CSV Import',
-    message: `Import <strong>${rowCount} rows</strong> as <strong>${recCount} aggregated record(s)</strong>?`,
+    message: `Import <strong>${rowCount} response${rowCount>1?'s':''}</strong>?`,
     sub: 'Imported records will be added to the existing NPS data and cannot be undone.',
     icon: '📂',
     btnLabel: 'Import Records',
     btnClass: 'btn-primary',
     onConfirm: () => {
       const list = DB.get('npsInputData')||[];
-      aggregated.forEach(r=>list.unshift(r));
+      records.forEach(r=>list.unshift(r));
       DB.set('npsInputData', list);
-      logChange('NPS Data','CSV Import',`${rowCount} rows → ${recCount} aggregated record(s) imported`,'NPS');
-      toast(`${rowCount} rows imported as ${recCount} record(s).`,'success');
+      logChange('NPS Data','CSV Import',`${rowCount} response(s) imported`,'NPS');
+      toast(`${rowCount} response(s) imported.`,'success');
       _ndCsvRows=[];
       document.getElementById('ndUploadPreview').style.display='none';
       document.getElementById('ndUploadActions').style.display='none';
@@ -13753,15 +13749,21 @@ function npsConfirmCsvImport(){
 
 function npsDownloadCsvTemplate(){
   const today = new Date().toISOString().split('T')[0];
-  const header='date,respondent,score,channel,campaign,agent,comment';
+  const header = NPS_CSV_COLUMNS.join(',');
+  const blank = n => new Array(n).fill('').join(',');
   const samples=[
-    `${today},Customer A,9,Chat,FTTH,Agent001,Very helpful agent!`,
-    `${today},Customer B,7,Chat,FTTH,Agent001,Good but slow`,
-    `${today},Customer C,4,Hotline,Mobile,Agent002,Long wait time`,
-    `${today},Customer D,10,Chat,FTTH,Agent003,Excellent service`,
-    `${today},Customer E,6,Email,Mobile,Agent002,Issue not fully resolved`,
+    // Retail Store (agent-scored)
+    `${today},Retail Store,9,Very friendly staff and quick service,AGT001,Sok Dara,RS-042,Phnom Penh,${blank(3)},${blank(6)},${blank(3)},25-34,Female,Postpaid,Phnom Penh`,
+    // Hotline (agent-scored)
+    `${today},Hotline,6,Long wait time before an agent answered,AGT002,Chan Nary,,,${blank(3)},${blank(6)},${blank(3)},35-44,Male,Prepaid,Siem Reap`,
+    // Cellcard App (self-service)
+    `${today},Cellcard App,10,Smooth and convenient top-up,${blank(4)},4.2.1,Top-up,Android,${blank(6)},${blank(3)},25-34,Female,Prepaid,Battambang`,
+    // Reseller App (reseller self-feedback — no consumer demographics)
+    `${today},Reseller App,4,Onboarding process for new stock is confusing,${blank(7)},Golden Wing Trading,RSL-014,Battambang Branch,Battambang,Gold,Process,${blank(7)}`,
+    // Digital Sales Channel (automated, post-transaction)
+    `${today},Digital Sales Channel,9,Easy checkout process,${blank(13)},Data Bundle 20GB,TXN-88231,Cellcard Balance,25-34,Female,Prepaid,Phnom Penh`,
   ].join('\n');
-  const note='# score: 9-10=Promoter, 7-8=Passive, 0-6=Detractor. Rows are grouped by date+channel on import.';
+  const note='# score: 0-10 raw NPS rating (9-10=Promoter, 7-8=Passive, 0-6=Detractor). One row per respondent. channel must be one of: '+Object.keys(NPS_CHANNELS).join(', ')+'. Leave columns blank if not applicable to that channel.';
   const blob=new Blob([note+'\n'+header+'\n'+samples],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='nps_data_template.csv'; a.click();
