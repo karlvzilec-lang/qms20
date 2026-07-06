@@ -1547,6 +1547,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     <button class="rpt-tab" onclick="switchRptView('repeat-offenders',this)">🔁 Repeat Offenders</button>
     <button class="rpt-tab" onclick="switchRptView('coaching-compliance',this)">🎯 Coaching Compliance</button>
     <button class="rpt-tab" onclick="switchRptView('disputes',this)">⚠️ Disputes</button>
+    <button class="rpt-tab admin-only-tab" onclick="switchRptView('edit-requests',this)">✏️ Edit Requests</button>
     <button class="rpt-tab" onclick="switchRptView('pareto',this)">📐 Pareto Analysis</button>
     <button class="rpt-tab admin-only-tab" id="adminTimingTab" onclick="switchRptView('eval-timing',this)">⏱ Eval Timing</button>
   </div>
@@ -1949,6 +1950,24 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <div class="table-wrap"><table>
         <thead><tr><th>Agent</th><th>Eval Date</th><th>Original Score</th><th>TL / Reason</th><th>Suggested</th><th>Status</th><th>Final Score</th><th>Action</th></tr></thead>
         <tbody id="disputeReportBody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- ── EDIT REQUESTS ── -->
+  <div class="rpt-view" id="rptv-edit-requests">
+    <div class="kpi-grid" id="editReqKpi"></div>
+    <div class="card">
+      <div class="card-title">✏️ Edit Request Log
+        <div style="display:flex;gap:8px;">
+          <select id="editReqStatusFilter" onchange="renderEditRequestsReport()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;">
+            <option value="">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Agent</th><th>Eval Date</th><th>Score at Request</th><th>Requested By / Reason</th><th>Proposed</th><th>Status</th><th>Final Score</th><th>Action</th></tr></thead>
+        <tbody id="editReqReportBody"></tbody>
       </table></div>
     </div>
   </div>
@@ -18131,7 +18150,15 @@ function buildNotifications(){
         icon:'✏️',
         title:`${editReqs.length} Pending Edit Request${editReqs.length>1?'s':''}`,
         desc:'Evaluation records submitted for correction.',
-        action:()=>{ toggleNotifPanel(); showScreen('records', document.querySelector('.nav-btn[onclick*="records"]')); setTimeout(()=>{ const el=document.getElementById('showEditRequests'); if(el) el.click(); },200); }
+        action:()=>{
+          toggleNotifPanel();
+          if(isAdmin()){
+            showScreen('reports', document.querySelector('.nav-btn[onclick*="reports"]'));
+            setTimeout(()=>{ const t=document.querySelector('.rpt-tab[onclick*="edit-requests"]'); if(t) t.click(); },200);
+          } else {
+            showScreen('records', document.querySelector('.nav-btn[onclick*="records"]'));
+          }
+        }
       });
     }
   }
@@ -22262,6 +22289,52 @@ function renderDisputeReport(){
 }
 
 // ═══════════════════════════════════════════════════
+// REPORTS — EDIT REQUESTS
+// ═══════════════════════════════════════════════════
+function renderEditRequestsReport(){
+  const statusFilter = document.getElementById('editReqStatusFilter').value;
+  const all = getEditRequests();
+  let reqs = all;
+  if(statusFilter) reqs = reqs.filter(r=>r.status===statusFilter);
+
+  const total    = all.length;
+  const pending  = all.filter(r=>r.status==='pending').length;
+  const approved = all.filter(r=>r.status==='approved').length;
+  const rejected = all.filter(r=>r.status==='rejected').length;
+
+  document.getElementById('editReqKpi').innerHTML = `
+    <div class="kpi blue"><div class="kpi-val" style="color:var(--primary)">${total}</div><div class="kpi-lbl">Total Edit Requests</div></div>
+    <div class="kpi orange"><div class="kpi-val" style="color:var(--warning)">${pending}</div><div class="kpi-lbl">Pending</div></div>
+    <div class="kpi green"><div class="kpi-val" style="color:var(--success)">${approved}</div><div class="kpi-lbl">Approved</div></div>
+    <div class="kpi red"><div class="kpi-val" style="color:var(--danger)">${rejected}</div><div class="kpi-lbl">Rejected</div></div>
+  `;
+
+  const tbody = document.getElementById('editReqReportBody');
+  if(!reqs.length){ tbody.innerHTML='<tr class="empty-row"><td colspan="8">No edit requests found.</td></tr>'; return; }
+  const records = getRecords();
+  tbody.innerHTML = reqs.map(r=>{
+    const rec = records.find(x=>x.id===r.recordId);
+    const cl = r.status==='pending'?'var(--warning)':r.status==='approved'?'var(--success)':'var(--danger)';
+    const actionBtn = r.status==='pending'
+      ? '<button class="btn btn-xs btn-primary" onclick="openEditReview(\''+r.id+'\')">🔍 Review</button>'
+      : '';
+    const scoreAtRequest = r.oldScore!=null ? r.oldScore.toFixed(1)+'%' : (rec?rec.finalScore.toFixed(1)+'%':'—');
+    const proposedTxt = r.proposedAutoFail ? 'AUTO FAIL' : (r.proposedScore!=null ? r.proposedScore+'%' : '—');
+    const finalTxt = r.finalScoreAfter!=null ? r.finalScoreAfter.toFixed(1)+'%' : '—';
+    return '<tr>'
+      +'<td><strong>'+esc(rec?rec.agentName:'Unknown')+'</strong></td>'
+      +'<td>'+(rec?fmtDate(rec.evalDate):'—')+'</td>'
+      +'<td style="font-weight:700;">'+scoreAtRequest+'</td>'
+      +'<td><small>'+esc(r.requestedBy)+'</small><br><small style="color:#777">'+esc((r.reason||'').substring(0,60))+((r.reason||'').length>60?'...':'')+'</small></td>'
+      +'<td style="text-align:center">'+proposedTxt+'</td>'
+      +'<td><span style="font-weight:700;color:'+cl+'">'+r.status.toUpperCase()+'</span></td>'
+      +'<td style="text-align:center">'+finalTxt+'</td>'
+      +'<td>'+actionBtn+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
 // WIRE switchRptView FOR NEW VIEWS
 // ═══════════════════════════════════════════════════
 const _origSwitchRptView = switchRptView;
@@ -22270,6 +22343,7 @@ switchRptView = function(view, btn){
   if(view==='repeat-offenders'){ populateRepeatAgentFilter(); renderRepeatOffenders(); }
   else if(view==='coaching-compliance') renderCoachingCompliance();
   else if(view==='disputes') renderDisputeReport();
+  else if(view==='edit-requests') renderEditRequestsReport();
   else if(view==='pareto') renderPareto();
   else if(view==='eval-timing') renderEvalTiming();
 };
@@ -22739,19 +22813,81 @@ function openEditReview(reqId){
       <br><small style="color:var(--gray);">Requested by: ${esc(req.requestedBy)} on ${new Date(req.submittedAt).toLocaleString()}</small>
     </div>
     <div style="background:#fff3cd;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:12px;">
-      <strong>Change Requested:</strong><br>${esc(req.reason)}
-      ${req.proposedScore!=null?'<br><strong>Proposed Score:</strong> '+(req.proposedAutoFail?'AUTO FAIL (0%)':esc(String(req.proposedScore))+'%'):''}
-      ${req.proposedRemarks?'<br><strong>Proposed Remarks:</strong> '+esc(req.proposedRemarks):''}
+      <strong>Justification:</strong><br>${esc(req.reason)}
+      ${req.proposedScore!=null?'<br><strong>Originally Proposed Score:</strong> '+(req.proposedAutoFail?'AUTO FAIL (0%)':esc(String(req.proposedScore))+'%'):''}
     </div>
     <div style="margin-bottom:12px;">
-      <strong style="font-size:12px;">Full Evaluation Form — changed items highlighted:</strong>
-      <div style="margin-top:6px;">${rec?_renderFullFormWithChanges(rec, req.proposedAnswers||{}):'<div style="color:var(--gray);font-size:12px;">Original record not found.</div>'}</div>
+      <strong style="font-size:12px;">Attribute Details — current → requested (adjust if needed before deciding):</strong>
+      <div style="margin-top:6px;">${rec?_renderEditableReviewForm(rec, req.proposedAnswers||{}):'<div style="color:var(--gray);font-size:12px;">Original record not found.</div>'}</div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 14px;margin-top:8px;font-size:12px;">
+        <strong>Score if approved: </strong><span id="editReviewScorePreview" style="font-weight:800;color:var(--primary);">—</span>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Remarks <small style="color:var(--gray);font-weight:400;">— applied to the record if approved; edit as needed</small></label>
+      <textarea id="editReviewRemarks" style="min-height:50px;">${esc(req.proposedRemarks||(rec?rec.remarks:'')||'')}</textarea>
     </div>
     <div class="form-group">
       <label>Admin Note</label>
       <textarea id="adminEditNote" placeholder="Reason for approving/rejecting..." style="min-height:60px;"></textarea>
     </div>`;
+  if(rec) _editReviewRecalc();
   openModal('editReviewModal');
+}
+
+// Editable variant used only by the admin edit-request review. Unlike
+// _renderFullFormWithChanges (shared with the QA dispute review — stays
+// read-only there), this renders a live <select> per item, defaulted to the
+// QA/TL's proposed answer, so the admin can correct an item before approving
+// rather than only being able to accept-as-proposed or reject outright.
+function _renderEditableReviewForm(record, proposedAnswers){
+  proposedAnswers = proposedAnswers || {};
+  const formObj = record && record.formId ? getFormById(record.formId) : null;
+  const form = formObj ? formObj.sections : getForm();
+  if(!form || !form.length) return '<div style="color:var(--gray);font-size:12px;">Form structure unavailable.</div>';
+  let html = '<div style="max-height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;">';
+  form.forEach(function(sec){
+    html += '<div style="background:#f1f5f9;padding:7px 12px;font-weight:700;font-size:12px;color:#334155;">'+esc(sec.title)+'</div>';
+    sec.items.forEach(function(item){
+      const cur = (record.answers && record.answers[item.id]) || '—';
+      const proposed = Object.prototype.hasOwnProperty.call(proposedAnswers, item.id) ? proposedAnswers[item.id] : cur;
+      const curColor = cur==='Y'?'#16a34a':cur==='N'?'#dc2626':cur==='NA'?'#64748b':'#94a3b8';
+      html += '<div class="edit-review-row" data-current="'+esc(cur)+'" style="padding:8px 12px;border-top:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;">'
+        + '<div style="flex:1;font-size:12px;color:#334155;"><strong>'+esc(item.id)+'</strong> — '+esc(item.title)
+        + ' <span style="color:#94a3b8;font-size:11px;">('+esc(String(item.points))+'pt'+(item.autoFail?' ⚡AF':'')+')</span></div>'
+        + '<span style="color:'+curColor+';font-weight:700;font-size:12px;white-space:nowrap;" title="Current answer">'+esc(cur)+'</span>'
+        + '<span style="color:#94a3b8;">→</span>'
+        + '<select class="edit-review-ans" data-item="'+esc(item.id)+'" data-pts="'+esc(String(item.points))+'" data-af="'+(item.autoFail?1:0)+'" onchange="_editReviewRecalc()" '
+        + 'style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff;font-weight:700;">'
+        + '<option value="Y"'+(proposed==='Y'?' selected':'')+'>YES</option>'
+        + '<option value="N"'+(proposed==='N'?' selected':'')+'>NO</option>'
+        + '<option value="NA"'+(proposed==='NA'?' selected':'')+'>N/A</option>'
+        + '</select></div>';
+    });
+  });
+  html += '</div>';
+  return html;
+}
+
+function _editReviewRecalc(){
+  const selects = document.querySelectorAll('.edit-review-ans');
+  let earned=0, possible=0, autoFail=false;
+  selects.forEach(function(sel){
+    const pts = +sel.getAttribute('data-pts')||0;
+    const af  = sel.getAttribute('data-af')==='1';
+    const val = sel.value;
+    if(val!=='NA'){ possible += pts; }
+    if(val==='Y') earned += pts;
+    if(val==='N' && af) autoFail=true;
+    const row = sel.closest('.edit-review-row');
+    if(row) row.style.background = (val!==row.getAttribute('data-current')) ? '#fef9c3' : '#fff';
+  });
+  const pct = possible>0 ? (earned/possible*100).toFixed(1) : '0.0';
+  const preview = document.getElementById('editReviewScorePreview');
+  if(preview){
+    preview.textContent = autoFail ? 'AUTO FAIL (0%)' : pct + '%';
+    preview.style.color = autoFail ? 'var(--danger)' : (+pct>=80?'var(--success)':+pct>=60?'var(--warning)':'var(--danger)');
+  }
 }
 
 // Shared by editRequests approval, the 7-day direct-edit bypass, and dispute
@@ -22849,36 +22985,61 @@ function resolveEditRequest(status){
   const adminNote=document.getElementById('adminEditNote').value.trim();
   const reqs=getEditRequests();
   const idx=reqs.findIndex(r=>r.id===reqId); if(idx<0) return;
+
+  // Read the admin's final answers/remarks straight off the review form —
+  // these may differ from the QA/TL's original proposedAnswers if the admin
+  // corrected an item before approving. The original proposal fields are left
+  // untouched so the audit trail still shows exactly what was requested.
+  const reviewSelects = document.querySelectorAll('.edit-review-ans');
+  let finalAnswers = null;
+  if(reviewSelects.length){
+    finalAnswers = {};
+    reviewSelects.forEach(function(sel){ finalAnswers[sel.getAttribute('data-item')] = sel.value; });
+  }
+  const remarksEl = document.getElementById('editReviewRemarks');
+  const finalRemarks = remarksEl ? remarksEl.value.trim() : (reqs[idx].proposedRemarks||null);
+
+  const records=getRecords();
+  const ri=records.findIndex(r=>r.id===reqs[idx].recordId);
+  const oldScore  = ri>=0 ? records[ri].finalScore : null;
+  const oldResult = ri>=0 ? records[ri].result     : null;
+
   reqs[idx].status=status; reqs[idx].adminNote=adminNote; reqs[idx].resolvedAt=new Date().toISOString();
-  if(status==='approved'){
-    const records=getRecords();
-    const ri=records.findIndex(r=>r.id===reqs[idx].recordId);
-    if(ri>=0){
-      const passScore=+(getSettings().passScore||80);
-      const oldScore = records[ri].finalScore;
-      const oldResult = records[ri].result;
-      if(reqs[idx].proposedAnswers){
-        _applyAnswersAndRecalc(records[ri], reqs[idx].proposedAnswers);
-      } else if(reqs[idx].proposedScore!=null && reqs[idx].proposedScore!==''){
-        records[ri].finalScore=+reqs[idx].proposedScore;
-        records[ri].result=records[ri].finalScore>=passScore?'PASS':'FAIL';
-        // sectionScores cannot be reconstructed from score alone — mark as edited
-        records[ri].sectionScores = records[ri].sectionScores || {};
-      }
-      if(reqs[idx].proposedRemarks) records[ri].remarks=reqs[idx].proposedRemarks;
-      records[ri].editApproved=true;
-      records[ri].editApprovedAt=new Date().toISOString();
-      records[ri].editApprovedBy=(getCurrentUser()||{}).username||'admin';
-      DB.set('records',records);
-      // Audit trail — log the score change
-      logChange('evaluation','Edit Approved',
-        `Score changed ${oldScore}% → ${records[ri].finalScore}% (${oldResult} → ${records[ri].result}) for record ${reqs[idx].recordId} — approved by ${(getCurrentUser()||{}).username||'admin'}`,
-        'QMS');
+  reqs[idx].oldScore=oldScore;
+
+  if(status==='approved' && ri>=0){
+    const passScore=+(getSettings().passScore||80);
+    if(finalAnswers){
+      _applyAnswersAndRecalc(records[ri], finalAnswers);
+    } else if(reqs[idx].proposedScore!=null && reqs[idx].proposedScore!==''){
+      records[ri].finalScore=+reqs[idx].proposedScore;
+      records[ri].result=records[ri].finalScore>=passScore?'PASS':'FAIL';
+      // sectionScores cannot be reconstructed from score alone — mark as edited
+      records[ri].sectionScores = records[ri].sectionScores || {};
     }
+    if(finalRemarks) records[ri].remarks=finalRemarks;
+    records[ri].editApproved=true;
+    records[ri].editApprovedAt=new Date().toISOString();
+    records[ri].editApprovedBy=(getCurrentUser()||{}).username||'admin';
+    DB.set('records',records);
+    reqs[idx].finalAnswers=finalAnswers;
+    reqs[idx].finalRemarks=finalRemarks;
+    reqs[idx].finalScoreAfter=records[ri].finalScore;
+    // Audit trail — log the score change
+    logChange('evaluation','Edit Approved',
+      `Score changed ${oldScore}% → ${records[ri].finalScore}% (${oldResult} → ${records[ri].result}) for record ${reqs[idx].recordId} — approved by ${(getCurrentUser()||{}).username||'admin'}`,
+      'QMS');
+  } else if(status==='rejected'){
+    reqs[idx].finalScoreAfter=oldScore;
+    logChange('evaluation','Edit Rejected',
+      `Edit request for record ${reqs[idx].recordId} rejected — score unchanged at ${oldScore}%. By ${(getCurrentUser()||{}).username||'admin'}.`,
+      'QMS');
   }
   saveEditRequests(reqs);
   toast(status==='approved'?'Edit approved and applied!':'Edit request rejected.','success');
   closeModal('editReviewModal');
+  renderRecords();
+  if(document.getElementById('rptv-edit-requests')?.classList.contains('active')) renderEditRequestsReport();
 }
 
 // ═══════════════════════════════════════════════════
