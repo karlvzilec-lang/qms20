@@ -22894,6 +22894,7 @@ function renderDisputeReport(){
 // REPORTS — EDIT REQUESTS
 // ═══════════════════════════════════════════════════
 function renderEditRequestsReport(){
+  if(!isAdmin()){ document.getElementById('editReqReportBody').innerHTML='<tr class="empty-row"><td colspan="8">Admin only.</td></tr>'; return; }
   const statusFilter = document.getElementById('editReqStatusFilter').value;
   const all = getEditRequests();
   let reqs = all;
