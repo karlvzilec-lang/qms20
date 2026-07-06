@@ -6,6 +6,7 @@
 <title>Cellcard QAMS — Quality Assurance Monitoring System</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -15828,10 +15829,22 @@ function switchGatherTab(tab) {
 function _renderQrCode(text) {
   const container = document.getElementById('gatherQrContainer');
   if (!container) return;
-  // Build QR using Google Charts API (no external lib dependency)
+  // Rendered client-side via qrcodejs (no network call, no third-party image
+  // API — the old Google Image Charts endpoint this used to call was shut
+  // down years ago, and the CSP's img-src wouldn't allow an external image
+  // origin anyway). Draws into a detached canvas, then hands the resulting
+  // data: URL to a real <img id="qrImg"> so downloadQrCode()/printQrCode()
+  // keep working unchanged — they only ever read img.src as a URL string.
   const size = 200;
-  const encoded = encodeURIComponent(text);
-  container.innerHTML = `<img id="qrImg" src="https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encoded}&choe=UTF-8&chld=M|2" width="${size}" height="${size}" alt="QR Code" style="display:block;border-radius:8px;" onerror="this.parentNode.innerHTML='<div style=\'padding:20px;font-size:11px;color:#94a3b8;\'>QR generation requires internet connection.</div>'" />`;
+  try {
+    const tempHost = document.createElement('div');
+    new QRCode(tempHost, { text: text, width: size, height: size, correctLevel: QRCode.CorrectLevel.M });
+    const canvas = tempHost.querySelector('canvas');
+    const dataUrl = canvas.toDataURL('image/png');
+    container.innerHTML = `<img id="qrImg" src="${dataUrl}" width="${size}" height="${size}" alt="QR Code" style="display:block;border-radius:8px;" />`;
+  } catch (e) {
+    container.innerHTML = '<div style="padding:20px;font-size:11px;color:#94a3b8;">QR generation failed: ' + esc(e.message||'Unknown error') + '</div>';
+  }
 }
 
 function copySurveyLink() {
@@ -15889,7 +15902,11 @@ function printQrCode() {
     <p style="font-size:13px;color:#555;margin-bottom:16px;">Scan the QR code to share your feedback</p>
     <img src="${img.src}" style="width:220px;height:220px;border-radius:12px;" />
     <p style="font-size:9px;color:#999;margin-top:12px;word-break:break-all;">${link}</p>
-    <script>window.onload=()=>window.print();
+    <script>window.onload=()=>window.print();<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
 // ═══════════════════════════════════════════════════
 // SELF-SERVICE EXPORT — available to all roles
 // ═══════════════════════════════════════════════════
@@ -16062,12 +16079,6 @@ function _dlBlob(blob, filename){
   a.click();
   document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
-}
-
-
-<\/script>
-  </body></html>`);
-  win.document.close();
 }
 
 function downloadBatchTemplate() {
