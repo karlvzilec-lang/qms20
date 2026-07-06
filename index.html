@@ -1571,14 +1571,49 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <button class="rpt-side-item" data-rpt-view="coaching-compliance" onclick="switchRptView('coaching-compliance',this)">🎯 Coaching Compliance</button>
       <button class="rpt-side-item" data-rpt-view="disputes" onclick="switchRptView('disputes',this)">⚠️ Disputes</button>
       <button class="rpt-side-item admin-only-tab" data-rpt-view="edit-requests" onclick="switchRptView('edit-requests',this)">✏️ Edit Requests</button>
-      <div class="rpt-side-group-label">Summary</div>
-      <button class="rpt-side-item" data-rpt-view="executive" onclick="switchRptView('executive',this)">🤖 Executive Summary</button>
     </div>
 
     <div style="flex:1;min-width:0;">
 
   <!-- ── OVERVIEW ── -->
   <div class="rpt-view active" id="rptv-overview">
+
+    <!-- Executive Summary — folded in from its own former tab, which read
+         the exact same getFilteredRecords()/getAgents()/getSettings() data
+         Overview already shows and never auto-rendered (no switchRptView
+         case existed for it; you had to find a button inside a blank tab).
+         Collapsed by default so it doesn't compete with the KPIs below;
+         same generateClaudeSummary()/generateLocalSummary()/saveApiKey()
+         functions, unchanged, just re-homed here. -->
+    <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden;">
+      <button onclick="toggleExecSummarySection()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:none;border:none;cursor:pointer;text-align:left;">
+        <span style="font-weight:700;font-size:14px;color:#0f172a;display:flex;align-items:center;gap:8px;">🤖 Executive Summary <span style="font-size:11px;font-weight:600;color:#94a3b8;">— AI-powered or rule-based narrative of the numbers below</span></span>
+        <span id="execSummaryToggleIcon" style="font-size:12px;color:#94a3b8;">▸ Expand</span>
+      </button>
+      <div id="execSummarySection" style="display:none;padding:0 18px 18px;">
+        <div class="claude-box">
+          <div class="claude-box-icon">🤖</div>
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:15px;margin-bottom:4px;">AI Executive Summary — Powered by Claude</div>
+            <div style="font-size:13px;opacity:.85;">Enter your Claude API key to generate an intelligent executive summary, or use the rule-based summary below.</div>
+            <div class="claude-input-row">
+              <input type="password" id="claudeApiKey" placeholder="sk-ant-api03-..." oninput="saveApiKey(this.value)">
+              <button class="btn btn-accent" onclick="generateClaudeSummary()">✨ Generate AI Summary</button>
+              <button class="btn btn-gray btn-sm" onclick="generateLocalSummary()" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.3);">📋 Rule-Based Summary</button>
+            </div>
+          </div>
+        </div>
+        <div id="execSummaryLoading" style="display:none;text-align:center;padding:32px;">
+          <div style="font-size:32px;animation:spin 1s linear infinite;display:inline-block;">⏳</div>
+          <div style="margin-top:8px;color:var(--gray);">Generating executive summary...</div>
+        </div>
+        <div class="exec-summary" id="execSummaryContent">
+          <div style="color:var(--gray);font-style:italic;text-align:center;padding:32px;">
+            Click "Generate AI Summary" for Claude-powered insights, or "Rule-Based Summary" for an instant local summary.
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Section A: Core KPIs -->
     <div class="ov-section-hdr">
@@ -1878,30 +1913,6 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
   </div>
 
   <!-- ── EXECUTIVE SUMMARY ── -->
-  <div class="rpt-view" id="rptv-executive">
-    <div class="claude-box">
-      <div class="claude-box-icon">🤖</div>
-      <div style="flex:1;">
-        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">AI Executive Summary — Powered by Claude</div>
-        <div style="font-size:13px;opacity:.85;">Enter your Claude API key to generate an intelligent executive summary, or use the rule-based summary below.</div>
-        <div class="claude-input-row">
-          <input type="password" id="claudeApiKey" placeholder="sk-ant-api03-..." oninput="saveApiKey(this.value)">
-          <button class="btn btn-accent" onclick="generateClaudeSummary()">✨ Generate AI Summary</button>
-          <button class="btn btn-gray btn-sm" onclick="generateLocalSummary()" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.3);">📋 Rule-Based Summary</button>
-        </div>
-      </div>
-    </div>
-    <div id="execSummaryLoading" style="display:none;text-align:center;padding:32px;">
-      <div style="font-size:32px;animation:spin 1s linear infinite;display:inline-block;">⏳</div>
-      <div style="margin-top:8px;color:var(--gray);">Generating executive summary...</div>
-    </div>
-    <div class="exec-summary" id="execSummaryContent">
-      <div style="color:var(--gray);font-style:italic;text-align:center;padding:32px;">
-        Click "Generate AI Summary" for Claude-powered insights, or "Rule-Based Summary" for an instant local summary.
-      </div>
-    </div>
-  </div>
-
   <!-- ── REPEAT OFFENDERS ── -->
   <div class="rpt-view" id="rptv-repeat-offenders">
     <div class="corr-info" style="background:#fff3cd;border-color:#fcd34d;">
@@ -10663,6 +10674,15 @@ Write sections: Executive Overview, Key Highlights, Areas of Concern, Agent Perf
     document.getElementById('execSummaryLoading').style.display='none';
     document.getElementById('execSummaryContent').style.display='block';
   }
+}
+
+function toggleExecSummarySection(){
+  const sec = document.getElementById('execSummarySection');
+  const icon = document.getElementById('execSummaryToggleIcon');
+  if(!sec) return;
+  const expanded = sec.style.display !== 'none';
+  sec.style.display = expanded ? 'none' : 'block';
+  if(icon) icon.textContent = expanded ? '▸ Expand' : '▾ Collapse';
 }
 
 function generateLocalSummary(){
