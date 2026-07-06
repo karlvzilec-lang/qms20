@@ -5809,6 +5809,7 @@ function showScreen(name,btn){
     _rptFrom = ''; _rptTo = ''; // clear so _initRptRangeDropdowns re-seeds defaults
     document.querySelectorAll('[data-rpt-qp]').forEach(b=>b.classList.toggle('active', b.dataset.rptQp==='3'));
     renderReports();
+    _rptUpdateEmptyStates();
     switchRptView('overview',document.querySelector('.rpt-side-item'));
   }
   if(name==='settings')  renderSettings();
@@ -9503,6 +9504,43 @@ function importCSVAgents(){
 // REPORTS — Enhanced Multi-View
 // ═══════════════════════════════════════════════════
 let rCharts={};
+
+// Greys out (not hides — sidebar shouldn't jump size as data appears/disappears)
+// sidebar items whose underlying data source has never had anything in it,
+// checked unfiltered so a report-period change never wrongly flips this.
+function _rptUpdateEmptyStates(){
+  const records = getRecords();
+
+  const hasRepeatOffenders = (()=>{
+    const counts = {};
+    records.forEach(rec=>{
+      if(!rec.failedItems || !rec.failedItems.length) return;
+      rec.failedItems.forEach(fi=>{
+        const key = rec.agentId+'||'+fi.itemId;
+        counts[key] = (counts[key]||0)+1;
+      });
+    });
+    return Object.values(counts).some(n=>n>=2);
+  })();
+
+  const settings = getSettings();
+  const hasCoachingData = records.some(r=>r.finalScore<settings.passScore) || getCoachings().length>0;
+  const hasDisputes = getDisputes().length>0;
+  const hasEditRequests = getEditRequests().length>0;
+  const hasCorrelationData = records.some(r=>r.duration) || getAgents().some(a=>getTenureMonths(a.hired)!==null);
+
+  const map = {
+    'repeat-offenders': hasRepeatOffenders,
+    'coaching-compliance': hasCoachingData,
+    'disputes': hasDisputes,
+    'edit-requests': hasEditRequests,
+    'correlation': hasCorrelationData
+  };
+  Object.entries(map).forEach(([view,hasData])=>{
+    const btn = document.querySelector(`.rpt-side-item[data-rpt-view="${view}"]`);
+    if(btn) btn.classList.toggle('rpt-side-empty', !hasData);
+  });
+}
 
 function switchRptView(view, btn){
   document.querySelectorAll('.rpt-view').forEach(v=>v.classList.remove('active'));
