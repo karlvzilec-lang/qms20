@@ -982,7 +982,6 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 <nav class="nav" id="npsNav" style="display:none;border-bottom-color:#FF7900;">
   <button class="nav-btn nps-nav-btn active" data-nps="exec"    onclick="showNpsScreen('exec',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Executive Dashboard</button>
   <button class="nav-btn nps-nav-btn"        data-nps="records" onclick="showNpsScreen('records',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> NPS Records</button>
-  <button class="nav-btn nps-nav-btn"        data-nps="channels" onclick="showNpsScreen('channels',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Channels</button>
   <button class="nav-btn nps-nav-btn"        data-nps="surveys" onclick="showNpsScreen('surveys',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Survey Forms</button>
   <button class="nav-btn nps-nav-btn"        data-nps="roster"  onclick="showNpsScreen('roster',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Roster</button>
   <button class="nav-btn nps-nav-btn"        data-nps="settings" onclick="showNpsScreen('settings',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</button>
@@ -2905,6 +2904,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
   <div style="display:flex;gap:0;margin-bottom:16px;background:#f1f5f9;border-radius:12px;padding:4px;width:fit-content;">
     <button id="tabBtnNps" onclick="switchNpsDashTab('nps')" style="padding:8px 22px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;box-shadow:0 2px 8px rgba(255,121,0,.3);">📊 NPS Charts</button>
     <button id="tabBtnOvsat" onclick="switchNpsDashTab('ovsat')" style="padding:8px 22px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;box-shadow:none;">⭐ OVSAT Charts</button>
+    <button id="tabBtnChannel" onclick="switchNpsDashTab('channel')" style="padding:8px 22px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;box-shadow:none;">📡 By Channel</button>
   </div>
 
   <!-- ── NPS Charts Panel ── -->
@@ -3101,12 +3101,25 @@ CORS_ORIGIN=https://yourdomain.com</code>
     </div>
   </div><!-- /npsDashPanelOvsat -->
 
+  <!-- ── By-Channel drill-down panel ── -->
+  <div id="npsDashPanelChannel" style="display:none;">
+    <div style="display:flex;gap:0;margin-bottom:16px;background:#f1f5f9;border-radius:12px;padding:4px;width:fit-content;flex-wrap:wrap;">
+      <button class="nps-ch-tab-btn active" data-ch="Retail Store"          onclick="switchNpsChannelTab('Retail Store',this)"          style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;box-shadow:0 2px 8px rgba(255,121,0,.3);">🏬 Retail Store</button>
+      <button class="nps-ch-tab-btn"        data-ch="Hotline"               onclick="switchNpsChannelTab('Hotline',this)"               style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">☎️ Hotline</button>
+      <button class="nps-ch-tab-btn"        data-ch="Chat"                  onclick="switchNpsChannelTab('Chat',this)"                  style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">💬 Chat</button>
+      <button class="nps-ch-tab-btn"        data-ch="Cellcard App"          onclick="switchNpsChannelTab('Cellcard App',this)"          style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">📱 Cellcard App</button>
+      <button class="nps-ch-tab-btn"        data-ch="Reseller App"          onclick="switchNpsChannelTab('Reseller App',this)"          style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">🤝 Reseller App</button>
+      <button class="nps-ch-tab-btn"        data-ch="Digital Sales Channel" onclick="switchNpsChannelTab('Digital Sales Channel',this)" style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">🛒 Digital Sales</button>
+    </div>
+    <div id="npsChannelDashBody"></div>
+  </div><!-- /npsDashPanelChannel -->
+
   <!-- ── Auto AI Analysis + NPS-QA Correlation (always visible) ── -->
   <div id="npsAutoInsightPanel" style="margin-top:16px;"></div>
   <div id="npsQaCorrelPanel" style="margin-top:16px;"></div>
 
   <!-- Channel Distribution Chart (dual-mode: NPS gauges ↔ OVSAT stacked bars) -->
-  <div style="background:#0f172a;border-radius:16px;padding:22px 24px;box-shadow:0 4px 24px rgba(0,0,0,.18);">
+  <div id="npsChDistPanel" style="background:#0f172a;border-radius:16px;padding:22px 24px;box-shadow:0 4px 24px rgba(0,0,0,.18);">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <!-- Dynamic header -->
       <div style="display:flex;align-items:center;gap:10px;">
@@ -3192,34 +3205,6 @@ CORS_ORIGIN=https://yourdomain.com</code>
     </div>
   </div>
 </div><!-- /nps-screen-exec -->
-
-<!-- ══ NPS CHANNELS ══ -->
-<div class="nps-screen screen" id="nps-screen-channels" style="display:none;padding:24px 20px;background:#f8f9fb;">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
-    <div style="display:flex;align-items:center;gap:12px;">
-      <div style="width:40px;height:40px;background:linear-gradient(135deg,#FF7900,#E56A00);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(255,121,0,.35);">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-      </div>
-      <div>
-        <h2 style="margin:0;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-.3px;">NPS by Channel</h2>
-        <p style="margin:2px 0 0;font-size:12px;color:#64748b;">Per-channel performance — drill into any channel below</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Channel sub-tabs — same pill pattern as switchNpsDashTab -->
-  <div style="display:flex;gap:0;margin-bottom:18px;background:#f1f5f9;border-radius:12px;padding:4px;width:fit-content;flex-wrap:wrap;">
-    <button class="nps-ch-tab-btn active" data-ch="Retail Store"          onclick="switchNpsChannelTab('Retail Store',this)"          style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;box-shadow:0 2px 8px rgba(255,121,0,.3);">🏬 Retail Store</button>
-    <button class="nps-ch-tab-btn"        data-ch="Hotline"               onclick="switchNpsChannelTab('Hotline',this)"               style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">☎️ Hotline</button>
-    <button class="nps-ch-tab-btn"        data-ch="Chat"                  onclick="switchNpsChannelTab('Chat',this)"                  style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">💬 Chat</button>
-    <button class="nps-ch-tab-btn"        data-ch="Cellcard App"          onclick="switchNpsChannelTab('Cellcard App',this)"          style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">📱 Cellcard App</button>
-    <button class="nps-ch-tab-btn"        data-ch="Reseller App"          onclick="switchNpsChannelTab('Reseller App',this)"          style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">🤝 Reseller App</button>
-    <button class="nps-ch-tab-btn"        data-ch="Digital Sales Channel" onclick="switchNpsChannelTab('Digital Sales Channel',this)" style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">🛒 Digital Sales</button>
-  </div>
-
-  <div id="npsChannelDashBody"></div>
-</div>
-<!-- /nps-screen-channels -->
 
 <!-- ══ NPS Data Entry Modal ══ -->
 <!-- ══════════════════════════════════════════
@@ -11756,9 +11741,6 @@ function showNpsScreen(name, btn){
     if(deBtn) deBtn.style.display = isQA() ? 'inline-flex' : 'none';
     renderNdModalList();
   }
-  if(name==='channels'){
-    renderNpsChannelDashboard(_npsActiveChannelKey);
-  }
   if(name==='records'){
     // Always reload from DB so stale in-memory data doesn't show after imports/adds in another tab
     _npsRecordsData = DB.get('npsRecords')||[];
@@ -11830,12 +11812,15 @@ let _npsActiveTab = 'nps'; // track active tab globally
 
 function switchNpsDashTab(tab){
   _npsActiveTab = tab;
-  const panelNps  = document.getElementById('npsDashPanelNps');
-  const panelOvsat= document.getElementById('npsDashPanelOvsat');
-  const btnNps    = document.getElementById('tabBtnNps');
-  const btnOvsat  = document.getElementById('tabBtnOvsat');
-  if(panelNps)  panelNps.style.display  = tab==='nps'   ? '' : 'none';
-  if(panelOvsat)panelOvsat.style.display= tab==='ovsat' ? '' : 'none';
+  const panelNps    = document.getElementById('npsDashPanelNps');
+  const panelOvsat  = document.getElementById('npsDashPanelOvsat');
+  const panelChannel= document.getElementById('npsDashPanelChannel');
+  const btnNps      = document.getElementById('tabBtnNps');
+  const btnOvsat    = document.getElementById('tabBtnOvsat');
+  const btnChannel  = document.getElementById('tabBtnChannel');
+  if(panelNps)     panelNps.style.display     = tab==='nps'     ? '' : 'none';
+  if(panelOvsat)   panelOvsat.style.display   = tab==='ovsat'   ? '' : 'none';
+  if(panelChannel) panelChannel.style.display = tab==='channel' ? '' : 'none';
   if(btnNps){
     btnNps.style.background   = tab==='nps'   ? 'linear-gradient(135deg,#FF7900,#E56A00)' : 'transparent';
     btnNps.style.color        = tab==='nps'   ? '#fff' : '#64748b';
@@ -11846,9 +11831,24 @@ function switchNpsDashTab(tab){
     btnOvsat.style.color      = tab==='ovsat' ? '#fff' : '#64748b';
     btnOvsat.style.boxShadow  = tab==='ovsat' ? '0 2px 8px rgba(246,160,0,.35)' : 'none';
   }
-  // Toggle dark bottom panel between NPS gauges and OVSAT per-channel chart
+  if(btnChannel){
+    btnChannel.style.background = tab==='channel' ? 'linear-gradient(135deg,#0891b2,#0369a1)' : 'transparent';
+    btnChannel.style.color      = tab==='channel' ? '#fff' : '#64748b';
+    btnChannel.style.boxShadow  = tab==='channel' ? '0 2px 8px rgba(8,145,178,.3)' : 'none';
+  }
+  // The dark comparison panel (gauges / OVSAT bars) only applies to the
+  // 'nps'/'ovsat' tabs — the 'channel' tab is itself a drill-down into one
+  // channel already, so showing the all-channel comparison alongside it
+  // would just be the same information twice.
   const chNps  = document.getElementById('npsChPanelNps');
   const chOvsat= document.getElementById('npsChPanelOvsat');
+  const darkPanel = document.getElementById('npsChDistPanel');
+  if(tab==='channel'){
+    if(darkPanel) darkPanel.style.display = 'none';
+    renderNpsChannelDashboard(_npsActiveChannelKey);
+    return;
+  }
+  if(darkPanel) darkPanel.style.display = '';
   const panelIcon = document.getElementById('npsChPanelIcon');
   const panelTitle= document.getElementById('npsChPanelTitle');
   const panelSub  = document.getElementById('npsChPanelSub');
@@ -11865,7 +11865,7 @@ function switchNpsDashTab(tab){
     if(chOvsat) chOvsat.style.display= 'none';
     if(panelIcon)  panelIcon.style.background = 'linear-gradient(135deg,#FF7900,#E56A00)';
     if(panelTitle) panelTitle.textContent = 'NPS by Channel';
-    if(panelSub)   panelSub.textContent   = 'Promoter · Passive · Detractor breakdown';
+    if(panelSub)   panelSub.textContent   = 'Promoter · Passive · Detractor breakdown — click a gauge to drill in';
     setTimeout(renderNpsChannelChart, 60);
   }
 }
@@ -12980,6 +12980,15 @@ function switchNpsChannelTab(channelName, btn){
     b.style.boxShadow = active ? '0 2px 8px rgba(255,121,0,.3)' : 'none';
   });
   renderNpsChannelDashboard(channelName);
+}
+
+// Entry point from the all-channel gauge comparison panel — jump straight
+// to that channel's detail view on the "By Channel" tab.
+function _npsDrillIntoChannel(channelName){
+  _npsActiveChannelKey = channelName;
+  switchNpsDashTab('channel');
+  const btn = document.querySelector(`.nps-ch-tab-btn[data-ch="${CSS.escape(channelName)}"]`);
+  if(btn) switchNpsChannelTab(channelName, btn);
 }
 
 function setNpsChannelPeriod(period, btn){
@@ -19930,9 +19939,10 @@ function renderNpsChannelChart(){
 
     container.innerHTML = channels.map(ch=>{
       const cid = 'npsGaugeCh_' + ch.replace(/\s+/g,'_');
-      return `<div style="text-align:center;" data-ch="${esc(ch)}">
+      const drillable = !!_npsChannelConfig(ch);
+      return `<div style="text-align:center;${drillable?'cursor:pointer;':''}" data-ch="${esc(ch)}" ${drillable?`onclick="_npsDrillIntoChannel('${esc(ch)}')" title="Click to see ${esc(ch)} in detail"`:''}>
         <div style="font-weight:700;font-size:12px;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;justify-content:center;gap:6px;">
-          ${chIcon(ch)} ${esc(ch)}
+          ${chIcon(ch)} ${esc(ch)}${drillable?' <span style="font-size:9px;color:#0891b2;">›</span>':''}
         </div>
         <div style="position:relative;"><canvas id="${cid}"></canvas></div>
         <div id="${cid}_stats" style="margin-top:4px;"></div>
