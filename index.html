@@ -5281,7 +5281,7 @@ const _DbSync = (function(){
   // that exist on other devices — the server's GET picks "newest bucket wins"
   // between its two databases, which is a whole-document decision and does not
   // protect against a client overwriting both mirrors with an incomplete array.
-  var _MERGE_BUCKETS = new Set(['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','accessRequests','pwresets']);
+  var _MERGE_BUCKETS = new Set(['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','npsInputData','accessRequests','pwresets']);
 
   function _mergeBucket(bucket, remoteArr, localArr){
     // Union by id — remote wins on conflict (server copy takes precedence).
@@ -12769,6 +12769,40 @@ const _ND_SAT_DEFAULT  = ['Quick Resolution','Friendly & Professional Agent','Ea
 
 function _ndGetDsatReasons(){ return DB.get('npsDsatReasons') || _ND_DSAT_DEFAULT.slice(0,5); }
 function _ndGetSatReasons(){  return DB.get('npsSatReasons')  || _ND_SAT_DEFAULT.slice(0,5);  }
+
+/* ── NPS Channel Taxonomy ──────────────────────────────────────────
+   type: 'agent'    → agent-scored, capture agentId/agentName (Retail Store, Hotline, Chat)
+   type: 'app'      → self-service in-app, capture app/journey context (Cellcard App)
+   type: 'reseller' → reseller self-feedback about Cellcard, capture reseller identity (Reseller App)
+   type: 'auto'     → fully automated post-transaction, capture transaction context (Digital Sales Channel) */
+const NPS_CHANNELS = {
+  'Retail Store':          { key:'retail_store',  type:'agent',    legacyAliases:['Store'], extraFields:['agentId','agentName','storeCode','storeRegion'] },
+  'Hotline':               { key:'hotline',       type:'agent',    legacyAliases:['Hotline'], extraFields:['agentId','agentName'] },
+  'Chat':                  { key:'chat',          type:'agent',    legacyAliases:['Chat'], extraFields:['agentId','agentName'] },
+  'Cellcard App':          { key:'cellcard_app',  type:'app',      legacyAliases:[], extraFields:['appVersion','appScreen','platform'] },
+  'Reseller App':          { key:'reseller_app',  type:'reseller', legacyAliases:[], extraFields:['resellerName','resellerCode','resellerOutlet','resellerRegion','resellerTier','feedbackTopic'] },
+  'Digital Sales Channel': { key:'digital_sales', type:'auto',     legacyAliases:[], extraFields:['productPurchased','transactionRef','paymentMethod'] }
+};
+// Old free-text values with no dedicated tab — still visible in the consolidated Executive view.
+const NPS_LEGACY_CHANNELS = ['Email','Social Media','Other'];
+
+function _npsChannelConfig(channelName){ return NPS_CHANNELS[channelName] || null; }
+function _npsChannelKeys(){ return Object.keys(NPS_CHANNELS); }
+
+// Display/aggregation-only mapping from a raw stored channel string to its canonical
+// go-forward name — used by dashboards and exports, never to mutate stored records,
+// so old "Store" rows keep reading as "Store" in the database but roll up under
+// "Retail Store" wherever channel data is grouped/displayed.
+function _npsNormalizeChannelForDisplay(raw){
+  const r = (raw||'').trim();
+  if(NPS_CHANNELS[r]) return r;
+  for(const canon in NPS_CHANNELS){
+    if(NPS_CHANNELS[canon].legacyAliases.includes(r)) return canon;
+  }
+  return r || 'Other';
+}
+
+const NPS_PROVINCES = ['Phnom Penh','Banteay Meanchey','Battambang','Kampong Cham','Kampong Chhnang','Kampong Speu','Kampong Thom','Kampot','Kandal','Kep','Koh Kong','Kratie','Mondulkiri','Oddar Meanchey','Pailin','Preah Vihear','Prey Veng','Pursat','Ratanakiri','Siem Reap','Sihanoukville','Stung Treng','Svay Rieng','Takeo','Tboung Khmum'];
 
 function _ndRenderReasonRows(type){
   const reasons  = type==='dsat' ? _ndGetDsatReasons() : _ndGetSatReasons();
