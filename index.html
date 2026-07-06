@@ -22740,11 +22740,12 @@ function openDisputeReview(disputeId){
   const dispute = getDisputes().find(d=>d.id===disputeId);
   if(!dispute){ toast('Dispute not found','error'); return; }
   const r = getRecords().find(x=>x.id===dispute.recordId);
+  const _origScore = dispute.originalScore ?? r?.finalScore ?? 0;
   document.getElementById('disputeReviewBody').innerHTML = `
     <input type="hidden" id="reviewDisputeId" value="${dispute.id}">
     <div style="margin-bottom:14px;">
       <strong>${dispute.agentName}</strong> — Eval Date: ${fmtDate(dispute.evalDate)}<br>
-      <span style="font-size:22px;font-weight:800;color:var(--danger);">Original Score: ${dispute.originalScore.toFixed(1)}%</span>
+      <span style="font-size:22px;font-weight:800;color:var(--danger);">Original Score: ${_origScore.toFixed(1)}%</span>
       ${dispute.suggestedScore!=null?'<span style="font-size:13px;color:var(--gray);margin-left:10px;">TL Suggested: '+dispute.suggestedScore+'%</span>':''}
     </div>
     <div style="background:#fff3cd;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:14px;">
@@ -22757,7 +22758,7 @@ function openDisputeReview(disputeId){
     </div>
     <div class="form-group" style="margin-bottom:12px;">
       <label>Updated Score (if agreeing) <small style="color:var(--gray);font-weight:400;">— Leave blank to auto-calculate from recommended answers, or to keep original if none were given</small></label>
-      <input type="number" id="reviewNewScore" min="0" max="100" placeholder="${dispute.originalScore.toFixed(1)}" value="${dispute.suggestedScore||''}">
+      <input type="number" id="reviewNewScore" min="0" max="100" placeholder="${_origScore.toFixed(1)}" value="${dispute.suggestedScore||''}">
     </div>
     <div class="form-group">
       <label>QA Note / Resolution Comment</label>
@@ -22777,9 +22778,13 @@ function resolveDispute(status){
   dispute.status = status;
   dispute.qaNote = qaNote;
   dispute.resolvedAt = new Date().toISOString();
+  const records = getRecords();
+  const ri = records.findIndex(x=>x.id===dispute.recordId);
+  // originalScore should always be set at dispute creation, but guard anyway —
+  // a malformed/legacy record missing it must not silently turn finalScore into
+  // undefined for every "keep as-is" path below.
+  const _fallbackScore = dispute.originalScore ?? (ri>=0?records[ri].finalScore:null) ?? 0;
   if(status==='agreed'){
-    const records = getRecords();
-    const ri = records.findIndex(x=>x.id===dispute.recordId);
     if(ri>=0){
       if(dispute.recommendedAnswers && Object.keys(dispute.recommendedAnswers).length){
         // Per-attribute recommendations exist — merge and recalculate, same
@@ -22794,15 +22799,15 @@ function resolveDispute(status){
         records[ri].finalScore = fs;
         records[ri].result = fs>=(+getSettings().passScore||80)?'PASS':'FAIL';
       } else {
-        dispute.finalScore = dispute.originalScore;
+        dispute.finalScore = _fallbackScore;
       }
       records[ri].disputeResolved = true;
       DB.set('records',records);
     } else {
-      dispute.finalScore = dispute.originalScore;
+      dispute.finalScore = _fallbackScore;
     }
   } else {
-    dispute.finalScore = dispute.originalScore;
+    dispute.finalScore = _fallbackScore;
   }
   disputes[idx]=dispute;
   saveDisputes(disputes);
@@ -23015,15 +23020,19 @@ function renderDisputeReport(){
 
   const tbody = document.getElementById('disputeReportBody');
   if(!disputes.length){ tbody.innerHTML='<tr class="empty-row"><td colspan="8">No disputes found.</td></tr>'; return; }
+  const _records = getRecords();
   tbody.innerHTML = disputes.map(d=>{
     const cl = d.status==='pending'?'var(--warning)':d.status==='agreed'?'var(--success)':'var(--danger)';
     const actionBtn = (isQA() && d.status==='pending')
       ? '<button class="btn btn-xs btn-primary" onclick="openDisputeReview(\''+d.id+'\')">🔍 Review</button>'
       : '';
+    // originalScore should always be set at creation — guard anyway so one
+    // malformed/legacy dispute can't take down the whole report.
+    const origScore = d.originalScore ?? _records.find(r=>r.id===d.recordId)?.finalScore ?? 0;
     return '<tr>'
       +'<td><strong>'+d.agentName+'</strong></td>'
       +'<td>'+fmtDate(d.evalDate)+'</td>'
-      +'<td style="font-weight:700;color:var(--danger)">'+d.originalScore.toFixed(1)+'%</td>'
+      +'<td style="font-weight:700;color:var(--danger)">'+origScore.toFixed(1)+'%</td>'
       +'<td><small>'+d.tlUser+'</small><br><small style="color:#777">'+d.reason.substring(0,60)+(d.reason.length>60?'...':'')+'</small></td>'
       +'<td style="text-align:center">'+(d.suggestedScore!=null?d.suggestedScore+'%':'—')+'</td>'
       +'<td><span style="font-weight:700;color:'+cl+'">'+d.status.toUpperCase()+'</span></td>'
