@@ -972,6 +972,39 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         <div id="notifPanelFooter" style="padding:10px 18px;border-top:1px solid #f1f5f9;text-align:center;font-size:12px;color:#94a3b8;"></div>
       </div>
     </div>
+    <!-- Backup & Export (all roles — personal-scope, so it lives here rather than
+         in app Settings, which viewer/qa/tl cannot access) -->
+    <div style="position:relative;" id="backupPanelWrap">
+      <button id="backupBtn" onclick="toggleBackupPanel()" title="Save &amp; Backup My Data"
+        style="position:relative;background:none;border:none;cursor:pointer;padding:6px;border-radius:50%;transition:background .15s;line-height:1;"
+        onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='none'">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </button>
+
+      <!-- Backup Panel -->
+      <div id="backupPanel" style="display:none;position:absolute;right:-10px;top:calc(100% + 10px);width:300px;background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.18);z-index:9999;overflow:hidden;border:1px solid #e2e8f0;">
+        <div style="padding:14px 18px 12px;background:linear-gradient(135deg,#1a0800,#FF7900);display:flex;align-items:center;justify-content:space-between;">
+          <div style="color:#fff;font-weight:800;font-size:14px;">💾 Save &amp; Backup</div>
+          <button onclick="toggleBackupPanel()" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <div style="padding:14px 18px;">
+          <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Download your records as CSV or JSON for safekeeping.</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <button onclick="exportCSV('records')" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;text-align:left;">
+              ⬇ Records CSV
+            </button>
+            <button onclick="exportJSON('records')" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;text-align:left;">
+              ⬇ Records JSON
+            </button>
+            <button onclick="exportMyPersonalBackup()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:8px;font-size:12px;font-weight:700;color:#166534;cursor:pointer;text-align:left;">
+              📦 Full Backup (JSON)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1198,30 +1231,6 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
   <!-- Tab: Pending Review (TL only) -->
   <div id="dtab-pending" style="display:none;">
     <div id="pendingReviewContent"></div>
-  </div>
-</div>
-
-<!-- ═══ My Data Export — all roles ═══ -->
-<div id="myExportCard" style="margin:0 0 16px;padding:0 0 4px;">
-  <div class="card" style="border:1.5px solid #e2e8f0;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <span style="font-size:18px;">&#x1F4BE;</span>
-      <div>
-        <div style="font-weight:700;font-size:14px;color:#1e293b;">Save &amp; Backup My Data</div>
-        <div style="font-size:12px;color:#64748b;margin-top:1px;">Download your records as CSV or JSON for safekeeping.</div>
-      </div>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;">
-      <button onclick="exportCSV('records')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">
-        &#x2B07; Records CSV
-      </button>
-      <button onclick="exportJSON('records')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">
-        &#x2B07; Records JSON
-      </button>
-      <button onclick="exportMyPersonalBackup()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:8px;font-size:12px;font-weight:700;color:#166534;cursor:pointer;">
-        &#x1F4E6; Full Backup (JSON)
-      </button>
-    </div>
   </div>
 </div>
 
@@ -18994,6 +19003,30 @@ function _notifOutsideClick(e){
     if(panel) panel.style.display='none';
   } else if(_notifPanelOpen){
     setTimeout(()=>document.addEventListener('click',_notifOutsideClick,{once:true}),10);
+  }
+}
+
+let _backupPanelOpen = false;
+function toggleBackupPanel(){
+  _backupPanelOpen = !_backupPanelOpen;
+  const panel = document.getElementById('backupPanel');
+  if(!panel) return;
+  if(_backupPanelOpen){
+    panel.style.display='';
+    setTimeout(()=> document.addEventListener('click', _backupOutsideClick, {once:true}), 10);
+  } else {
+    panel.style.display='none';
+  }
+}
+
+function _backupOutsideClick(e){
+  const wrap = document.getElementById('backupPanelWrap');
+  if(wrap && !wrap.contains(e.target)){
+    _backupPanelOpen=false;
+    const panel=document.getElementById('backupPanel');
+    if(panel) panel.style.display='none';
+  } else if(_backupPanelOpen){
+    setTimeout(()=>document.addEventListener('click',_backupOutsideClick,{once:true}),10);
   }
 }
 
