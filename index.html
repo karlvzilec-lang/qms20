@@ -598,6 +598,14 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 .rpt-tab:hover{border-color:#FF7900;color:#FF7900;background:rgba(255,121,0,.04);}
 .rpt-tab.active{background:linear-gradient(135deg,#FF7900,#E56A00);border-color:transparent;color:#fff;box-shadow:0 2px 8px rgba(255,121,0,.3);}
 .rpt-view{display:none;}.rpt-view.active{display:block;}
+/* Report sidebar (replaces the old flat rpt-tabs bar) */
+.rpt-side-item{display:block;width:100%;box-sizing:border-box;text-align:left;padding:8px 12px;border:none;border-radius:8px;background:transparent;cursor:pointer;font-size:12.5px;font-weight:600;color:#64748b;transition:all var(--transition);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
+.rpt-side-item:hover{background:rgba(255,121,0,.06);color:#FF7900;}
+.rpt-side-item.active{background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;box-shadow:0 2px 8px rgba(255,121,0,.3);}
+.rpt-side-item.rpt-side-empty{opacity:.45;cursor:not-allowed;}
+.rpt-side-item.rpt-side-empty:hover{background:transparent;color:#64748b;}
+.rpt-side-group-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;padding:12px 12px 4px;}
+@media (max-width:900px){ .rpt-layout{flex-direction:column;} .rpt-sidebar{width:100%!important;display:flex;flex-wrap:wrap;gap:4px;} .rpt-side-group-label{width:100%;padding:6px 4px 2px;} }
 /* Rank table */
 .rank-1{background:linear-gradient(90deg,#fff9e6,#fff)!important;}.rank-2{background:linear-gradient(90deg,#f5f5f5,#fff)!important;}.rank-3{background:linear-gradient(90deg,#fff3ec,#fff)!important;}
 .tier-excellent{color:#15803d;font-weight:800;}.tier-good{color:var(--primary);font-weight:700;}.tier-avg{color:var(--warning);font-weight:700;}.tier-poor{color:var(--danger);font-weight:700;}
@@ -1535,26 +1543,39 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     </div>
   </div>
 
-  <!-- View Tabs -->
-  <div class="rpt-tabs">
-    <button class="rpt-tab active" onclick="switchRptView('overview',this)">📊 Overview</button>
-    <button class="rpt-tab" onclick="switchRptView('agent-rank',this)">🏆 Agent Ranking</button>
-    <button class="rpt-tab" onclick="switchRptView('team-rank',this)">👥 Team Ranking</button>
-    <button class="rpt-tab" onclick="switchRptView('tenure',this)">📅 By Tenure</button>
-    <button class="rpt-tab" onclick="switchRptView('dur-corr',this)">⏱ Duration vs Score</button>
-    <button class="rpt-tab" onclick="switchRptView('ten-corr',this)">📈 Tenure vs Score</button>
-    <button class="rpt-tab" onclick="switchRptView('weekly',this)">📅 Weekly Trend</button>
-    <button class="rpt-tab" onclick="switchRptView('executive',this)">🤖 Executive Summary</button>
-    <button class="rpt-tab" onclick="switchRptView('repeat-offenders',this)">🔁 Repeat Offenders</button>
-    <button class="rpt-tab" onclick="switchRptView('coaching-compliance',this)">🎯 Coaching Compliance</button>
-    <button class="rpt-tab" onclick="switchRptView('disputes',this)">⚠️ Disputes</button>
-    <button class="rpt-tab admin-only-tab" onclick="switchRptView('edit-requests',this)">✏️ Edit Requests</button>
-    <button class="rpt-tab" onclick="switchRptView('pareto',this)">📐 Pareto Analysis</button>
-    <button class="rpt-tab admin-only-tab" id="adminTimingTab" onclick="switchRptView('eval-timing',this)">⏱ Eval Timing</button>
-  </div>
-
   <!-- KPIs always visible -->
   <div class="kpi-grid" id="rptKpi"></div>
+
+  <div style="display:flex;gap:20px;align-items:flex-start;" class="rpt-layout">
+    <!-- Grouped sidebar nav — replaces the old flat rpt-tabs bar, which had
+         grown to 14 items and wrapped to two rows. Grouped by purpose
+         (verified against each render function's actual data source /
+         intent, not just guessed from the label), matching how analytics
+         tools with many report views (GA, Mixpanel, Looker, PowerBI) do
+         this: a left nav with section headers, not a horizontal strip. -->
+    <div class="rpt-sidebar" style="width:190px;flex-shrink:0;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1px solid #f1f5f9;padding:8px;">
+      <button class="rpt-side-item active" data-rpt-view="overview" onclick="switchRptView('overview',this)">📊 Overview</button>
+      <div class="rpt-side-group-label">Performance</div>
+      <button class="rpt-side-item" data-rpt-view="agent-rank" onclick="switchRptView('agent-rank',this)">🏆 Agent Ranking</button>
+      <button class="rpt-side-item" data-rpt-view="team-rank" onclick="switchRptView('team-rank',this)">👥 Team Ranking</button>
+      <button class="rpt-side-item" data-rpt-view="tenure" onclick="switchRptView('tenure',this)">📅 By Tenure</button>
+      <div class="rpt-side-group-label">Correlation</div>
+      <button class="rpt-side-item" data-rpt-view="dur-corr" onclick="switchRptView('dur-corr',this)">⏱ Duration vs Score</button>
+      <button class="rpt-side-item" data-rpt-view="ten-corr" onclick="switchRptView('ten-corr',this)">📈 Tenure vs Score</button>
+      <div class="rpt-side-group-label">Trends</div>
+      <button class="rpt-side-item" data-rpt-view="weekly" onclick="switchRptView('weekly',this)">📅 Weekly Trend</button>
+      <button class="rpt-side-item admin-only-tab" id="adminTimingTab" data-rpt-view="eval-timing" onclick="switchRptView('eval-timing',this)">⏱ Eval Timing</button>
+      <div class="rpt-side-group-label">Quality &amp; compliance</div>
+      <button class="rpt-side-item" data-rpt-view="repeat-offenders" onclick="switchRptView('repeat-offenders',this)">🔁 Repeat Offenders</button>
+      <button class="rpt-side-item" data-rpt-view="pareto" onclick="switchRptView('pareto',this)">📐 Pareto Analysis</button>
+      <button class="rpt-side-item" data-rpt-view="coaching-compliance" onclick="switchRptView('coaching-compliance',this)">🎯 Coaching Compliance</button>
+      <button class="rpt-side-item" data-rpt-view="disputes" onclick="switchRptView('disputes',this)">⚠️ Disputes</button>
+      <button class="rpt-side-item admin-only-tab" data-rpt-view="edit-requests" onclick="switchRptView('edit-requests',this)">✏️ Edit Requests</button>
+      <div class="rpt-side-group-label">Summary</div>
+      <button class="rpt-side-item" data-rpt-view="executive" onclick="switchRptView('executive',this)">🤖 Executive Summary</button>
+    </div>
+
+    <div style="flex:1;min-width:0;">
 
   <!-- ── OVERVIEW ── -->
   <div class="rpt-view active" id="rptv-overview">
@@ -2006,6 +2027,8 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       </table></div>
     </div>
   </div>
+    </div><!-- /rpt content column -->
+  </div><!-- /rpt-layout -->
 </div>
 
 <!-- ═══════════ SETTINGS ═══════════ -->
@@ -5781,7 +5804,7 @@ function showScreen(name,btn){
     _rptFrom = ''; _rptTo = ''; // clear so _initRptRangeDropdowns re-seeds defaults
     document.querySelectorAll('[data-rpt-qp]').forEach(b=>b.classList.toggle('active', b.dataset.rptQp==='3'));
     renderReports();
-    switchRptView('overview',document.querySelector('.rpt-tab'));
+    switchRptView('overview',document.querySelector('.rpt-side-item'));
   }
   if(name==='settings')  renderSettings();
 }
@@ -9478,7 +9501,7 @@ let rCharts={};
 
 function switchRptView(view, btn){
   document.querySelectorAll('.rpt-view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('.rpt-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.rpt-side-item').forEach(b=>b.classList.remove('active'));
   const el=document.getElementById('rptv-'+view);
   if(el) el.classList.add('active');
   if(btn) btn.classList.add('active');
@@ -18752,7 +18775,7 @@ function buildNotifications(){
           toggleNotifPanel();
           if(isAdmin()){
             showScreen('reports', document.querySelector('.nav-btn[onclick*="reports"]'));
-            setTimeout(()=>{ const t=document.querySelector('.rpt-tab[onclick*="edit-requests"]'); if(t) t.click(); },200);
+            setTimeout(()=>{ const t=document.querySelector('.rpt-side-item[onclick*="edit-requests"]'); if(t) t.click(); },200);
           } else {
             showScreen('records', document.querySelector('.nav-btn[onclick*="records"]'));
           }
