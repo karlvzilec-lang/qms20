@@ -9525,23 +9525,16 @@ function _initRptRangeDropdowns(){
   const now2 = new Date();
   const currentMon = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
 
-  // Detect earliest record month to apply forward-looking rule
-  const allRecs2 = getRecords();
-  const sortedMons = [...new Set(allRecs2.filter(r=>r.evalDate).map(r=>r.evalDate.slice(0,7)))].sort();
-  const earliestMon = sortedMons[0]||null;
-  const dataStartsNow = !earliestMon || earliestMon >= currentMon;
-
-  // Only reset defaults if not already set
+  // Only reset defaults if not already set. Always trail backward from the
+  // current month — the same convention every analytics tool uses ("last 3
+  // months") — regardless of when the earliest record falls. Defaulting
+  // forward into unarrived months (the previous behavior when the earliest
+  // record was at/after the current month) guarantees a populated system
+  // looks empty on first load.
   if(!_rptFrom || !_rptTo){
-    if(dataStartsNow){
-      _rptFrom = currentMon;
-      const toD = new Date(now2.getFullYear(), now2.getMonth()+2, 1);
-      _rptTo = `${toD.getFullYear()}-${String(toD.getMonth()+1).padStart(2,'0')}`;
-    } else {
-      const fromD = new Date(now2.getFullYear(), now2.getMonth()-2, 1);
-      _rptFrom = `${fromD.getFullYear()}-${String(fromD.getMonth()+1).padStart(2,'0')}`;
-      _rptTo   = currentMon;
-    }
+    const fromD = new Date(now2.getFullYear(), now2.getMonth()-2, 1);
+    _rptFrom = `${fromD.getFullYear()}-${String(fromD.getMonth()+1).padStart(2,'0')}`;
+    _rptTo   = currentMon;
     // Clamp
     if(_rptFrom < pool[0])  _rptFrom = pool[0];
     if(_rptTo   > pool[pool.length-1]) _rptTo = pool[pool.length-1];
@@ -9562,20 +9555,11 @@ function setRptRangePeriod(months, btn){
   const now2 = new Date();
   const pool = _buildRptMonthPool();
   const currentMon = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
-  const allRecs2 = getRecords();
-  const sortedMons2 = [...new Set(allRecs2.filter(r=>r.evalDate).map(r=>r.evalDate.slice(0,7)))].sort();
-  const earliestMon2 = sortedMons2[0]||null;
-  const dataStartsNow2 = !earliestMon2 || earliestMon2 >= currentMon;
 
-  if(dataStartsNow2){
-    _rptFrom = currentMon;
-    const toD = new Date(now2.getFullYear(), now2.getMonth()+(months-1), 1);
-    _rptTo = `${toD.getFullYear()}-${String(toD.getMonth()+1).padStart(2,'0')}`;
-  } else {
-    const fromD = new Date(now2.getFullYear(), now2.getMonth()-(months-1), 1);
-    _rptFrom = `${fromD.getFullYear()}-${String(fromD.getMonth()+1).padStart(2,'0')}`;
-    _rptTo   = currentMon;
-  }
+  // Always trail backward from the current month — see _initRptRangeDropdowns.
+  const fromD = new Date(now2.getFullYear(), now2.getMonth()-(months-1), 1);
+  _rptFrom = `${fromD.getFullYear()}-${String(fromD.getMonth()+1).padStart(2,'0')}`;
+  _rptTo   = currentMon;
   if(_rptFrom < pool[0]) _rptFrom = pool[0];
   if(_rptTo > pool[pool.length-1]) _rptTo = pool[pool.length-1];
 
