@@ -12804,6 +12804,27 @@ function _npsNormalizeChannelForDisplay(raw){
 
 const NPS_PROVINCES = ['Phnom Penh','Banteay Meanchey','Battambang','Kampong Cham','Kampong Chhnang','Kampong Speu','Kampong Thom','Kampot','Kandal','Kep','Koh Kong','Kratie','Mondulkiri','Oddar Meanchey','Pailin','Preah Vihear','Prey Veng','Pursat','Ratanakiri','Siem Reap','Sihanoukville','Stung Treng','Svay Rieng','Takeo','Tboung Khmum'];
 
+/* ── NPS Sentiment Tagging — deterministic keyword rules, no external
+   API call, same philosophy as the existing rule-based AI Insights
+   (renderDashAI). Computed once at write time and stored, not
+   recomputed on every dashboard render. ── */
+const _NPS_SENTIMENT_POSITIVE_WORDS = ['excellent','great','good','helpful','fast','quick','friendly','professional','satisfied','happy','easy','resolved','efficient','polite','amazing','love','best','smooth','convenient'];
+const _NPS_SENTIMENT_NEGATIVE_WORDS = ['bad','poor','slow','rude','unresolved','frustrated','angry','disappointed','terrible','worst','difficult','confusing','long wait','waste','unhelpful','ignored','complain','broken','error','fail'];
+
+function _npsClassifySentiment(text){
+  if(!text || !text.trim()) return null;
+  const t = text.toLowerCase();
+  let pos = _NPS_SENTIMENT_POSITIVE_WORDS.filter(w=>t.includes(w)).length;
+  let neg = _NPS_SENTIMENT_NEGATIVE_WORDS.filter(w=>t.includes(w)).length;
+  // Secondary signal: reuse the existing DSAT/SAT reason taxonomy so a comment
+  // mentioning an active reason nudges the same direction that reason implies.
+  const dsat = _ndGetDsatReasons(), sat = _ndGetSatReasons();
+  if(dsat.some(r=>t.includes(r.toLowerCase()))) neg++;
+  if(sat.some(r=>t.includes(r.toLowerCase()))) pos++;
+  if(pos===0 && neg===0) return 'Neutral';
+  return pos>neg ? 'Positive' : neg>pos ? 'Negative' : 'Neutral';
+}
+
 function _ndRenderReasonRows(type){
   const reasons  = type==='dsat' ? _ndGetDsatReasons() : _ndGetSatReasons();
   const containerId = type==='dsat' ? 'ndDsatReasonRows' : 'ndSatReasonRows';
@@ -21236,7 +21257,7 @@ function _pse_submitSurvey(){
     campaign: _PSE.survey?.campaign||'',
     channel: 'Online Survey',
     npsScore: score,
-    comment, promoters:p, passives:pa, detractors:d,
+    comment, sentiment: _npsClassifySentiment(comment), promoters:p, passives:pa, detractors:d,
     surveyId: _PSE.surveyId, sessionId: _PSE.sessionId,
     source: 'survey_link',
     completedInSec: elapsed,
