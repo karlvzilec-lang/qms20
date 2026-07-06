@@ -4343,6 +4343,14 @@ CORS_ORIGIN=https://yourdomain.com</code>
       <select id="sfbStatus" onchange="_sfb&&(_sfb.form.status=this.value)" style="background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;cursor:pointer;">
         <option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option>
       </select>
+      <select id="sfbChannel" onchange="_sfb&&(_sfb.form.channel=this.value)" title="Which channel do responses to this survey belong to?" style="background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;cursor:pointer;">
+        <option value="Cellcard App">Cellcard App</option>
+        <option value="Reseller App">Reseller App</option>
+        <option value="Digital Sales Channel">Digital Sales Channel</option>
+        <option value="Retail Store">Retail Store</option>
+        <option value="Hotline">Hotline</option>
+        <option value="Chat">Chat</option>
+      </select>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <div style="display:flex;background:rgba(255,255,255,.15);border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.25);">
@@ -16240,9 +16248,9 @@ function confirmBatchImport() {
           agentId: r['agent_id'] || '',
           agentName: r['agent_name'] || '',
           campaign: r['campaign'] || s.campaign || '',
-          channel: r['channel'] || '',
+          channel: r['channel'] || s.channel || '',
           npsScore: score,
-          comment: r['comment'] || '',
+          comment: r['comment'] || '', sentiment: _npsClassifySentiment(r['comment']||''),
           promoters: p, passives: pa, detractors: d,
           surveyId: _gatherSurveyId,
           source: 'batch_upload'
@@ -16316,7 +16324,7 @@ function _sfbBlankForm(){
   return {
     id:'survey_'+Date.now(), name:'', description:'', category:'NPS',
     owner:u?.displayName||u?.username||'', language:'English',
-    status:'draft', campaign:'', startDate:'', endDate:'',
+    status:'draft', channel:'Cellcard App', campaign:'', startDate:'', endDate:'',
     version:'1.0', progressBar:true, requireConsent:false,
     welcomeMessage:'', thankYouMessage:'Thank you for completing our survey!',
     consentText:'',
@@ -16351,6 +16359,7 @@ function openNpsSurveyModal(id){
   const ov=document.getElementById('sfbOverlay'); ov.style.display='flex';
   document.getElementById('sfbFormName').value=_sfb.form.name||'';
   document.getElementById('sfbStatus').value=_sfb.form.status||'draft';
+  document.getElementById('sfbChannel').value=_sfb.form.channel||'Cellcard App';
   sfbTab('builder');
 }
 
@@ -16796,6 +16805,7 @@ function saveNpsSurvey(){
   if(!_sfb){toast('No survey open.','error');return;}
   _sfb.form.name=(document.getElementById('sfbFormName')?.value||'').trim()||_sfb.form.name;
   _sfb.form.status=document.getElementById('sfbStatus')?.value||_sfb.form.status;
+  _sfb.form.channel=document.getElementById('sfbChannel')?.value||_sfb.form.channel;
   if(!_sfb.form.name){toast('Please enter a survey name.','error');return;}
   const surveys=getNpsSurveys();
   const ei=surveys.findIndex(s=>s.id===_sfb.form.id);
@@ -21255,7 +21265,10 @@ function _pse_submitSurvey(){
     date: new Date().toISOString().slice(0,10),
     agentId: _PSE.agentParam, agentName: '',
     campaign: _PSE.survey?.campaign||'',
-    channel: 'Online Survey',
+    // Inherits the channel set on the survey itself (added in this project);
+    // surveys created before this field existed fall back to Cellcard App,
+    // the most common self-service channel a public survey link maps to.
+    channel: _PSE.survey?.channel || 'Cellcard App',
     npsScore: score,
     comment, sentiment: _npsClassifySentiment(comment), promoters:p, passives:pa, detractors:d,
     surveyId: _PSE.surveyId, sessionId: _PSE.sessionId,
