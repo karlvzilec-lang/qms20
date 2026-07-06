@@ -982,6 +982,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 <nav class="nav" id="npsNav" style="display:none;border-bottom-color:#FF7900;">
   <button class="nav-btn nps-nav-btn active" data-nps="exec"    onclick="showNpsScreen('exec',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Executive Dashboard</button>
   <button class="nav-btn nps-nav-btn"        data-nps="records" onclick="showNpsScreen('records',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> NPS Records</button>
+  <button class="nav-btn nps-nav-btn"        data-nps="channels" onclick="showNpsScreen('channels',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Channels</button>
   <button class="nav-btn nps-nav-btn"        data-nps="surveys" onclick="showNpsScreen('surveys',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Survey Forms</button>
   <button class="nav-btn nps-nav-btn"        data-nps="roster"  onclick="showNpsScreen('roster',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Roster</button>
   <button class="nav-btn nps-nav-btn"        data-nps="settings" onclick="showNpsScreen('settings',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</button>
@@ -3192,6 +3193,34 @@ CORS_ORIGIN=https://yourdomain.com</code>
   </div>
 </div><!-- /nps-screen-exec -->
 
+<!-- ══ NPS CHANNELS ══ -->
+<div class="nps-screen screen" id="nps-screen-channels" style="display:none;padding:24px 20px;background:#f8f9fb;">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:40px;height:40px;background:linear-gradient(135deg,#FF7900,#E56A00);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(255,121,0,.35);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      </div>
+      <div>
+        <h2 style="margin:0;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-.3px;">NPS by Channel</h2>
+        <p style="margin:2px 0 0;font-size:12px;color:#64748b;">Per-channel performance — drill into any channel below</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Channel sub-tabs — same pill pattern as switchNpsDashTab -->
+  <div style="display:flex;gap:0;margin-bottom:18px;background:#f1f5f9;border-radius:12px;padding:4px;width:fit-content;flex-wrap:wrap;">
+    <button class="nps-ch-tab-btn active" data-ch="Retail Store"          onclick="switchNpsChannelTab('Retail Store',this)"          style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;box-shadow:0 2px 8px rgba(255,121,0,.3);">🏬 Retail Store</button>
+    <button class="nps-ch-tab-btn"        data-ch="Hotline"               onclick="switchNpsChannelTab('Hotline',this)"               style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">☎️ Hotline</button>
+    <button class="nps-ch-tab-btn"        data-ch="Chat"                  onclick="switchNpsChannelTab('Chat',this)"                  style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">💬 Chat</button>
+    <button class="nps-ch-tab-btn"        data-ch="Cellcard App"          onclick="switchNpsChannelTab('Cellcard App',this)"          style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">📱 Cellcard App</button>
+    <button class="nps-ch-tab-btn"        data-ch="Reseller App"          onclick="switchNpsChannelTab('Reseller App',this)"          style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">🤝 Reseller App</button>
+    <button class="nps-ch-tab-btn"        data-ch="Digital Sales Channel" onclick="switchNpsChannelTab('Digital Sales Channel',this)" style="padding:8px 18px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#64748b;">🛒 Digital Sales</button>
+  </div>
+
+  <div id="npsChannelDashBody"></div>
+</div>
+<!-- /nps-screen-channels -->
+
 <!-- ══ NPS Data Entry Modal ══ -->
 <!-- ══════════════════════════════════════════
      USER MANUAL SIDEBAR
@@ -3311,17 +3340,113 @@ CORS_ORIGIN=https://yourdomain.com</code>
             </div>
             <div>
               <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Channel <span style="color:#dc2626;">*</span></label>
-              <select id="ndChannel" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;transition:.15s;cursor:pointer;" onfocus="this.style.borderColor='#FF7900';this.style.boxShadow='0 0 0 3px rgba(255,121,0,.1)'" onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
+              <select id="ndChannel" onchange="ndOnChannelChange()" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;transition:.15s;cursor:pointer;" onfocus="this.style.borderColor='#FF7900';this.style.boxShadow='0 0 0 3px rgba(255,121,0,.1)'" onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
                 <option value="">Select…</option>
+                <option>Retail Store</option>
                 <option>Hotline</option>
-                <option>Store</option>
                 <option>Chat</option>
-                <option>Email</option>
-                <option>Social Media</option>
-                <option>Other</option>
+                <option>Cellcard App</option>
+                <option>Reseller App</option>
+                <option>Digital Sales Channel</option>
+                <optgroup label="Legacy (historical data only)">
+                  <option>Store</option>
+                  <option>Email</option>
+                  <option>Social Media</option>
+                  <option>Other</option>
+                </optgroup>
               </select>
             </div>
           </div>
+        </div>
+
+        <!-- ①b CHANNEL-SPECIFIC FIELDS (shown/hidden by ndOnChannelChange per NPS_CHANNELS[channel].type) -->
+        <div id="ndFieldsAgent" style="display:none;background:#fff;border-radius:12px;border:1px solid #e8edf2;border-left:4px solid #0891b2;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+          <div style="font-size:10px;font-weight:800;color:#0891b2;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">👤 Agent</div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Agent</label>
+              <div style="position:relative;">
+                <input type="text" id="ndAgentSearch" placeholder="Type name, staff ID or team…" autocomplete="off" spellcheck="false"
+                       oninput="_ndAgentFilter(this)" onfocus="_ndAgentFilter(this)" onblur="_ndAgentBlur()"
+                       style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;">
+                <input type="hidden" id="ndAgent">
+                <div id="ndAgentDrop" role="listbox" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;z-index:9999;background:#fff;border:1.5px solid #0891b2;border-radius:8px;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.14);"></div>
+              </div>
+            </div>
+            <div id="ndStoreCodeWrap" style="display:none;">
+              <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Store Code</label>
+              <input type="text" id="ndStoreCode" placeholder="e.g. RS-042" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;">
+            </div>
+            <div id="ndStoreRegionWrap" style="display:none;">
+              <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Store Region</label>
+              <select id="ndStoreRegion" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;">
+                <option value="">Select…</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="ndFieldsApp" style="display:none;background:#fff;border-radius:12px;border:1px solid #e8edf2;border-left:4px solid #FF7900;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+          <div style="font-size:10px;font-weight:800;color:#FF7900;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">📱 App Context</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">App Version</label><input type="text" id="ndAppVersion" placeholder="e.g. 4.2.1" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;"></div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Screen / Feature</label><input type="text" id="ndAppScreen" placeholder="e.g. Top-up, Bill Pay" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;"></div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Platform</label>
+              <select id="ndPlatform" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;"><option value="">Select…</option><option>iOS</option><option>Android</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div id="ndFieldsReseller" style="display:none;background:#fff;border-radius:12px;border:1px solid #e8edf2;border-left:4px solid #d97706;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+          <div style="font-size:10px;font-weight:800;color:#d97706;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">🤝 Reseller</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Reseller Name</label><input type="text" id="ndResellerName" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;"></div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Reseller Code</label><input type="text" id="ndResellerCode" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;"></div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Outlet</label><input type="text" id="ndResellerOutlet" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Region</label>
+              <select id="ndResellerRegion" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;"><option value="">Select…</option></select>
+            </div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tier</label>
+              <select id="ndResellerTier" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;"><option value="">Select…</option><option>Platinum</option><option>Gold</option><option>Silver</option><option>Standard</option></select>
+            </div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Feedback Topic</label>
+              <select id="ndFeedbackTopic" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;"><option value="">Select…</option><option>Product</option><option>Service</option><option>Process</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div id="ndFieldsAuto" style="display:none;background:#fff;border-radius:12px;border:1px solid #e8edf2;border-left:4px solid #319CDE;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+          <div style="font-size:10px;font-weight:800;color:#319CDE;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">🛒 Transaction</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Product Purchased</label><input type="text" id="ndProductPurchased" placeholder="e.g. Data Bundle 10GB" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;"></div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Transaction Ref</label><input type="text" id="ndTransactionRef" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;"></div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Payment Method</label>
+              <select id="ndPaymentMethod" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;"><option value="">Select…</option><option>Cellcard Balance</option><option>Card</option><option>Bank Transfer</option><option>Wing/Wallet</option></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ①c DEMOGRAPHICS + VERBATIM (universal, always shown) -->
+        <div style="background:#fff;border-radius:12px;border:1px solid #e8edf2;border-left:4px solid #7c3aed;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+          <div style="font-size:10px;font-weight:800;color:#7c3aed;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">Demographics &amp; Verbatim</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Age Bracket</label>
+              <select id="ndAgeBracket" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;"><option value="">Select…</option><option>18-24</option><option>25-34</option><option>35-44</option><option>45-54</option><option>55+</option></select>
+            </div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Gender</label>
+              <select id="ndGender" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;"><option value="">Select…</option><option>Male</option><option>Female</option><option>Other</option><option>Prefer not to say</option></select>
+            </div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Customer Segment</label>
+              <select id="ndCustomerSegment" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;"><option value="">Select…</option><option>Prepaid</option><option>Postpaid</option><option>Enterprise</option></select>
+            </div>
+            <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Region</label>
+              <select id="ndRegion" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;"><option value="">Select…</option></select>
+            </div>
+          </div>
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Customer Verbatim <span style="font-weight:400;color:#94a3b8;">— sentiment is tagged automatically</span></label>
+          <textarea id="ndVerbatim" placeholder="What the customer actually said…" style="width:100%;min-height:50px;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;font-family:inherit;"></textarea>
         </div>
 
         <!-- ② NPS COUNTS -->
@@ -11631,6 +11756,9 @@ function showNpsScreen(name, btn){
     if(deBtn) deBtn.style.display = isQA() ? 'inline-flex' : 'none';
     renderNdModalList();
   }
+  if(name==='channels'){
+    renderNpsChannelDashboard(_npsActiveChannelKey);
+  }
   if(name==='records'){
     // Always reload from DB so stale in-memory data doesn't show after imports/adds in another tab
     _npsRecordsData = DB.get('npsRecords')||[];
@@ -12833,6 +12961,225 @@ function _npsClassifySentiment(text){
   return pos>neg ? 'Positive' : neg>pos ? 'Negative' : 'Neutral';
 }
 
+/* ══════════════════════════════════════════════════════
+   NPS CHANNELS — per-channel dashboard
+   Reuses _npsGetPeriodRange/_npsCalcKpisFromRecords/_makeNpsGauge/
+   mkChart as-is; the only new logic is filtering npsInputData by
+   channel first and picking which type-specific panel to show.
+══════════════════════════════════════════════════════ */
+let _npsActiveChannelKey = 'Retail Store';
+let _npsChannelPeriod = 'month';
+
+function switchNpsChannelTab(channelName, btn){
+  _npsActiveChannelKey = channelName;
+  document.querySelectorAll('.nps-ch-tab-btn').forEach(b=>{
+    const active = b===btn;
+    b.classList.toggle('active', active);
+    b.style.background = active ? 'linear-gradient(135deg,#FF7900,#E56A00)' : 'transparent';
+    b.style.color = active ? '#fff' : '#64748b';
+    b.style.boxShadow = active ? '0 2px 8px rgba(255,121,0,.3)' : 'none';
+  });
+  renderNpsChannelDashboard(channelName);
+}
+
+function setNpsChannelPeriod(period, btn){
+  _npsChannelPeriod = period;
+  document.querySelectorAll('.nps-ch-period-pill').forEach(b=>{
+    const active=b===btn;
+    b.classList.toggle('active',active);
+    b.style.background = active ? '#FF7900' : 'transparent';
+    b.style.color = active ? '#fff' : '#64748b';
+  });
+  const customEl = document.getElementById('npsChCustomRange');
+  if(customEl) customEl.style.display = period==='custom' ? 'flex' : 'none';
+  if(period==='custom') _seedCustomRangeDefaults('npsChFromDate','npsChToDate');
+  renderNpsChannelDashboard(_npsActiveChannelKey);
+}
+
+function renderNpsChannelDashboard(channelName){
+  const cfg = _npsChannelConfig(channelName);
+  const body = document.getElementById('npsChannelDashBody');
+  if(!body || !cfg) return;
+
+  const range = _npsGetPeriodRange(_npsChannelPeriod);
+  const all = DB.get('npsInputData')||[];
+  const chanRecords = all.filter(r=>_npsNormalizeChannelForDisplay(r.channel)===channelName);
+  const currRecords = chanRecords.filter(r=>{ const d=_parseDate(r.date); return d>=range.curr.start&&d<range.curr.end; });
+  const prevRecords = chanRecords.filter(r=>{ const d=_parseDate(r.date); return d>=range.prev.start&&d<range.prev.end; });
+  const kpisCurr = _npsCalcKpisFromRecords(currRecords);
+  const kpisPrev = _npsCalcKpisFromRecords(prevRecords);
+
+  const typeIcon = {agent:'👤',app:'📱',reseller:'🤝',auto:'🛒'}[cfg.type];
+  const typeLabel = {agent:'Agent-scored',app:'Self-service (app)',reseller:'Reseller feedback',auto:'Automated (post-transaction)'}[cfg.type];
+
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div style="display:flex;background:#f1f5f9;border-radius:10px;padding:3px;gap:2px;">
+          <button class="nps-ch-period-pill${_npsChannelPeriod==='day'?' active':''}" onclick="setNpsChannelPeriod('day',this)" style="padding:6px 13px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:${_npsChannelPeriod==='day'?'#FF7900':'transparent'};color:${_npsChannelPeriod==='day'?'#fff':'#64748b'};">Day</button>
+          <button class="nps-ch-period-pill${_npsChannelPeriod==='week'?' active':''}" onclick="setNpsChannelPeriod('week',this)" style="padding:6px 13px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:${_npsChannelPeriod==='week'?'#FF7900':'transparent'};color:${_npsChannelPeriod==='week'?'#fff':'#64748b'};">Week</button>
+          <button class="nps-ch-period-pill${_npsChannelPeriod==='month'?' active':''}" onclick="setNpsChannelPeriod('month',this)" style="padding:6px 13px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:${_npsChannelPeriod==='month'?'#FF7900':'transparent'};color:${_npsChannelPeriod==='month'?'#fff':'#64748b'};">Month</button>
+          <button class="nps-ch-period-pill${_npsChannelPeriod==='quarter'?' active':''}" onclick="setNpsChannelPeriod('quarter',this)" style="padding:6px 13px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:${_npsChannelPeriod==='quarter'?'#FF7900':'transparent'};color:${_npsChannelPeriod==='quarter'?'#fff':'#64748b'};">Quarter</button>
+          <button class="nps-ch-period-pill${_npsChannelPeriod==='custom'?' active':''}" onclick="setNpsChannelPeriod('custom',this)" style="padding:6px 13px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:${_npsChannelPeriod==='custom'?'#FF7900':'transparent'};color:${_npsChannelPeriod==='custom'?'#fff':'#64748b'};">Custom</button>
+        </div>
+        <div id="npsChCustomRange" style="display:${_npsChannelPeriod==='custom'?'flex':'none'};align-items:center;gap:5px;">
+          <input type="date" id="npsChFromDate" onchange="renderNpsChannelDashboard(_npsActiveChannelKey)" style="padding:5px 9px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;">
+          <span style="font-size:11px;color:#94a3b8;">→</span>
+          <input type="date" id="npsChToDate" onchange="renderNpsChannelDashboard(_npsActiveChannelKey)" style="padding:5px 9px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;">
+        </div>
+      </div>
+      <span style="background:#f1f5f9;color:#374151;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;">${typeIcon} ${esc(typeLabel)} · ${range.periodLabel}</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
+      <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);text-align:center;">
+        <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">Overall NPS</div>
+        <canvas id="npsChGaugeCanvas"></canvas>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
+        <div style="background:#fff;border-radius:16px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid #f1f5f9;border-bottom:3px solid #FF7900;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.6px;">Promoters</div>
+          <div style="font-size:28px;font-weight:900;color:#FF7900;margin:4px 0 2px;">${kpisCurr.promoterPct!==null?kpisCurr.promoterPct+'%':'—'}</div>
+          <div>${_npsDeltaBadge(kpisCurr.promoterPct,kpisPrev.promoterPct,'%')}</div>
+        </div>
+        <div style="background:#fff;border-radius:16px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid #f1f5f9;border-bottom:3px solid #319CDE;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.6px;">Passives</div>
+          <div style="font-size:28px;font-weight:900;color:#319CDE;margin:4px 0 2px;">${kpisCurr.passivePct!==null?kpisCurr.passivePct+'%':'—'}</div>
+          <div>${_npsDeltaBadge(kpisCurr.passivePct,kpisPrev.passivePct,'%',false)}</div>
+        </div>
+        <div style="background:#fff;border-radius:16px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid #f1f5f9;border-bottom:3px solid #dc2626;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.6px;">Detractors</div>
+          <div style="font-size:28px;font-weight:900;color:#dc2626;margin:4px 0 2px;">${kpisCurr.detractorPct!==null?kpisCurr.detractorPct+'%':'—'}</div>
+          <div>${_npsDeltaBadge(kpisCurr.detractorPct,kpisPrev.detractorPct,'%',false)}</div>
+        </div>
+        <div style="background:#fff;border-radius:16px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid #f1f5f9;border-bottom:3px solid #319CDE;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.6px;">Total Responses</div>
+          <div style="font-size:28px;font-weight:900;color:#319CDE;margin:4px 0 2px;">${kpisCurr.totalResp.toLocaleString()}</div>
+          <div>${_npsDeltaBadge(kpisCurr.totalResp,kpisPrev.totalResp,'')}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
+      <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
+        <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">NPS Trend — ${esc(channelName)}</div>
+        <canvas id="npsChTrendCanvas" height="110"></canvas>
+      </div>
+      <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
+        <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">💬 Sentiment &amp; Verbatim</div>
+        <div id="npsChSentimentBody"></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="nps-grid-2col">
+      <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
+        <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">Respondent Demographics</div>
+        <canvas id="npsChDemoCanvas" height="140"></canvas>
+      </div>
+      <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
+        <div id="npsChTypePanelBody"></div>
+      </div>
+    </div>
+  `;
+
+  // Charts (canvases now exist in the DOM)
+  _makeNpsGauge('npsChGaugeCanvas', kpisCurr.npsScore, kpisCurr.promoterPct||0, kpisCurr.passivePct||0, kpisCurr.detractorPct||0);
+
+  const {buckets, bucketFn, bucketCount} = range;
+  const npsByBucket = new Array(bucketCount).fill(null);
+  const bucketAcc = Array.from({length:bucketCount},()=>({p:0,pa:0,d:0}));
+  chanRecords.forEach(r=>{
+    const d=_parseDate(r.date); const bi=bucketFn(d);
+    if(bi<0||bi>=bucketCount) return;
+    bucketAcc[bi].p+=(r.promoters||0); bucketAcc[bi].pa+=(r.passives||0); bucketAcc[bi].d+=(r.detractors||0);
+  });
+  bucketAcc.forEach((a,i)=>{ const t=a.p+a.pa+a.d; npsByBucket[i]=t>0?Math.round(((a.p-a.d)/t)*100):null; });
+  mkChart('npsChTrendCanvas','line',buckets,[{label:'NPS',data:npsByBucket,borderColor:'#FF7900',backgroundColor:'rgba(255,121,0,.08)',tension:.3,fill:true,spanGaps:true}]);
+
+  _npsRenderSentimentCard(currRecords);
+
+  // Demographics — grouped by customer segment for consumer channels, by
+  // reseller tier for Reseller App (no end-consumer demographics there).
+  const demoField = cfg.type==='reseller' ? 'resellerTier' : 'customerSegment';
+  const demoMap={};
+  currRecords.forEach(r=>{ const v=(r.demographic&&r.demographic[demoField])||r[demoField]||'Unknown'; demoMap[v]=(demoMap[v]||0)+1; });
+  const demoLabels=Object.keys(demoMap), demoData=Object.values(demoMap);
+  mkChart('npsChDemoCanvas','bar',demoLabels,[{label:'Responses',data:demoData,backgroundColor:'#FF7900',borderRadius:6}],{plugins:{legend:{display:false}}});
+
+  _npsRenderChannelTypePanel(cfg, currRecords);
+}
+
+// Sentiment donut + example verbatims, visually modeled on the existing
+// _renderNpsTop3 SAT/DSAT card family rather than a new visual language.
+function _npsRenderSentimentCard(records){
+  const el = document.getElementById('npsChSentimentBody');
+  if(!el) return;
+  const withSentiment = records.filter(r=>r.sentiment);
+  const counts = {Positive:0,Neutral:0,Negative:0};
+  withSentiment.forEach(r=>{ if(counts[r.sentiment]!==undefined) counts[r.sentiment]++; });
+  const total = withSentiment.length;
+  if(!total){
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">No verbatim comments with sentiment for this period yet.</div>';
+    return;
+  }
+  const pct = k => Math.round((counts[k]/total)*100);
+  const positives = withSentiment.filter(r=>r.sentiment==='Positive' && r.comment).slice(0,2);
+  const negatives = withSentiment.filter(r=>r.sentiment==='Negative' && r.comment).slice(0,2);
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <div style="flex:${counts.Positive||1};background:#16a34a;height:8px;border-radius:4px 0 0 4px;" title="Positive ${pct('Positive')}%"></div>
+      <div style="flex:${counts.Neutral||0.001};background:#94a3b8;height:8px;" title="Neutral ${pct('Neutral')}%"></div>
+      <div style="flex:${counts.Negative||0.001};background:#dc2626;height:8px;border-radius:0 4px 4px 0;" title="Negative ${pct('Negative')}%"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-bottom:14px;">
+      <span>🟢 ${pct('Positive')}% Positive</span><span>⚪ ${pct('Neutral')}% Neutral</span><span>🔴 ${pct('Negative')}% Negative</span>
+    </div>
+    ${positives.length?`<div style="font-size:11px;font-weight:700;color:#16a34a;margin-bottom:4px;">Top positive</div>${positives.map(r=>`<div style="font-size:11px;color:#374151;background:#f0fdf4;border-radius:6px;padding:6px 10px;margin-bottom:6px;">"${esc((r.comment||'').slice(0,120))}"</div>`).join('')}`:''}
+    ${negatives.length?`<div style="font-size:11px;font-weight:700;color:#dc2626;margin:8px 0 4px;">Top negative</div>${negatives.map(r=>`<div style="font-size:11px;color:#374151;background:#fef2f2;border-radius:6px;padding:6px 10px;margin-bottom:6px;">"${esc((r.comment||'').slice(0,120))}"</div>`).join('')}`:''}
+  `;
+}
+
+// Type-specific panel: agent leaderboard / app-screen breakdown /
+// reseller feedback-topic donut / product-purchased breakdown.
+function _npsRenderChannelTypePanel(cfg, records){
+  const el = document.getElementById('npsChTypePanelBody');
+  if(!el) return;
+  if(cfg.type==='agent'){
+    const byAgent={};
+    records.forEach(r=>{
+      const name=r.agentName||'Unassigned';
+      if(!byAgent[name]) byAgent[name]={p:0,pa:0,d:0};
+      byAgent[name].p+=(r.promoters||0); byAgent[name].pa+=(r.passives||0); byAgent[name].d+=(r.detractors||0);
+    });
+    const rows=Object.entries(byAgent).map(([name,a])=>{
+      const t=a.p+a.pa+a.d; return {name, nps:t>0?Math.round(((a.p-a.d)/t)*100):0, total:t};
+    }).sort((a,b)=>b.nps-a.nps).slice(0,8);
+    el.innerHTML = `<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">🏆 Agent Leaderboard</div>` +
+      (rows.length ? rows.map((r,i)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
+          <span style="color:#374151;"><strong>#${i+1}</strong> ${esc(r.name)}</span>
+          <span style="color:${r.nps>=50?'#16a34a':r.nps>=0?'#F6A000':'#dc2626'};font-weight:700;">${r.nps>0?'+':''}${r.nps} <span style="color:#94a3b8;font-weight:400;">(${r.total})</span></span>
+        </div>`).join('') : '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">No agent-attributed responses yet.</div>');
+  } else if(cfg.type==='app'){
+    const byScreen={};
+    records.forEach(r=>{ const s=r.appScreen||'Unspecified'; byScreen[s]=(byScreen[s]||0)+1; });
+    const labels=Object.keys(byScreen), data=Object.values(byScreen);
+    el.innerHTML = `<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">📱 Responses by App Screen</div><canvas id="npsChTypeCanvas" height="140"></canvas>`;
+    setTimeout(()=>mkChart('npsChTypeCanvas','bar',labels,[{label:'Responses',data,backgroundColor:'#0891b2',borderRadius:6}],{plugins:{legend:{display:false}}}),0);
+  } else if(cfg.type==='reseller'){
+    const byTopic={Product:0,Service:0,Process:0};
+    records.forEach(r=>{ const t=r.feedbackTopic; if(byTopic[t]!==undefined) byTopic[t]++; });
+    el.innerHTML = `<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">🤝 Feedback Topic</div><canvas id="npsChTypeCanvas" height="140"></canvas>`;
+    setTimeout(()=>mkChart('npsChTypeCanvas','doughnut',Object.keys(byTopic),[{data:Object.values(byTopic),backgroundColor:['#FF7900','#319CDE','#7c3aed'],borderWidth:2}]),0);
+  } else if(cfg.type==='auto'){
+    const byProduct={};
+    records.forEach(r=>{ const p=r.productPurchased||'Unspecified'; byProduct[p]=(byProduct[p]||0)+1; });
+    const labels=Object.keys(byProduct), data=Object.values(byProduct);
+    el.innerHTML = `<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">🛒 Responses by Product Purchased</div><canvas id="npsChTypeCanvas" height="140"></canvas>`;
+    setTimeout(()=>mkChart('npsChTypeCanvas','bar',labels,[{label:'Responses',data,backgroundColor:'#319CDE',borderRadius:6}],{plugins:{legend:{display:false}}}),0);
+  }
+}
+
 function _ndRenderReasonRows(type){
   const reasons  = type==='dsat' ? _ndGetDsatReasons() : _ndGetSatReasons();
   const containerId = type==='dsat' ? 'ndDsatReasonRows' : 'ndSatReasonRows';
@@ -12930,9 +13277,82 @@ function openNpsDataEntry(){
   if(d && !d.value){ d.value = new Date().toISOString().split('T')[0]; ndAutoWeek(); }
   _ndRenderReasonRows('dsat');
   _ndRenderReasonRows('sat');
+  _ndPopulateProvinceSelects();
+  ndOnChannelChange();
   renderNdModalList();
   const modal = document.getElementById('npsDataEntryModal');
   if(modal){ modal.style.display='flex'; }
+}
+
+function _ndPopulateProvinceSelects(){
+  const opts = NPS_PROVINCES.map(p=>`<option>${esc(p)}</option>`).join('');
+  ['ndStoreRegion','ndResellerRegion','ndRegion'].forEach(id=>{
+    const sel = document.getElementById(id);
+    if(sel && sel.options.length<=1) sel.insertAdjacentHTML('beforeend', opts);
+  });
+}
+
+// Shows/hides the channel-type-specific field group based on the selected
+// channel's NPS_CHANNELS[...].type — single source of truth is the config,
+// not a per-channel if/else chain.
+function ndOnChannelChange(){
+  const channel = document.getElementById('ndChannel')?.value;
+  const cfg = _npsChannelConfig(channel);
+  const type = cfg ? cfg.type : null;
+  document.getElementById('ndFieldsAgent').style.display    = type==='agent'    ? '' : 'none';
+  document.getElementById('ndFieldsApp').style.display      = type==='app'      ? '' : 'none';
+  document.getElementById('ndFieldsReseller').style.display = type==='reseller' ? '' : 'none';
+  document.getElementById('ndFieldsAuto').style.display     = type==='auto'     ? '' : 'none';
+  // Store code/region are only relevant for Retail Store specifically, not every agent channel.
+  const isRetailStore = channel==='Retail Store';
+  const scWrap = document.getElementById('ndStoreCodeWrap'), srWrap = document.getElementById('ndStoreRegionWrap');
+  if(scWrap) scWrap.style.display = isRetailStore ? '' : 'none';
+  if(srWrap) srWrap.style.display = isRetailStore ? '' : 'none';
+}
+
+function _ndAgentFilter(inp){
+  const q = (inp.value||'').trim().toLowerCase();
+  const drop = document.getElementById('ndAgentDrop');
+  const hiddenEl = document.getElementById('ndAgent');
+  if(!drop) return;
+  hiddenEl.value = '';
+  if(!q){ drop.style.display='none'; return; }
+  const matches = getAgents()
+    .filter(a=>a.status==='Active' && (
+      a.name.toLowerCase().includes(q) ||
+      (a.staffId||'').toLowerCase().includes(q) ||
+      (a.team||'').toLowerCase().includes(q)
+    ))
+    .slice(0,25);
+  drop.innerHTML = matches.length ? matches.map(a=>{
+    const safeId=esc(a.id), safeName=esc(a.name);
+    return `<div role="option" onmousedown="_ndAgentPick('${safeId}','${safeName.replace(/'/g,'&#39;')}')"
+      onmouseenter="this.style.background='#f0f9ff'" onmouseleave="this.style.background=''"
+      style="padding:9px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:13px;font-weight:600;color:#1e293b;">${safeName}</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:1px;">${esc(a.staffId||'')}${a.team?' · '+esc(a.team):''}</div>
+    </div>`;
+  }).join('') : '<div style="padding:10px 14px;font-size:12px;color:#94a3b8;text-align:center;">No agents found</div>';
+  drop.style.display='block';
+}
+
+function _ndAgentPick(id, name){
+  const searchEl=document.getElementById('ndAgentSearch'), hiddenEl=document.getElementById('ndAgent'), drop=document.getElementById('ndAgentDrop');
+  if(searchEl) searchEl.value=name;
+  if(hiddenEl) hiddenEl.value=id;
+  if(drop) drop.style.display='none';
+}
+
+function _ndAgentBlur(){
+  setTimeout(()=>{
+    const drop=document.getElementById('ndAgentDrop'), searchEl=document.getElementById('ndAgentSearch'), hiddenEl=document.getElementById('ndAgent');
+    if(drop) drop.style.display='none';
+    if(!searchEl||!hiddenEl) return;
+    if(searchEl.value && !hiddenEl.value){
+      const exact = getAgents().find(a=>a.status==='Active' && a.name.toLowerCase()===searchEl.value.trim().toLowerCase());
+      if(exact) hiddenEl.value = exact.id;
+    }
+  }, 200);
 }
 
 function closeNpsDataEntry(){
@@ -12956,10 +13376,16 @@ function npsDeTab(tab){
 }
 
 function npsDeResetManual(){
-  ['ndDate','ndWeekNo','ndPromoters','ndPassives','ndDetractors','ndOvsatTotal','ndOvsat5','ndOvsat4','ndOvsat3','ndOvsat2','ndOvsat1','ndRemarks'].forEach(id=>{
+  ['ndDate','ndWeekNo','ndPromoters','ndPassives','ndDetractors','ndOvsatTotal','ndOvsat5','ndOvsat4','ndOvsat3','ndOvsat2','ndOvsat1','ndRemarks',
+   'ndVerbatim','ndAgentSearch','ndAgent','ndStoreCode','ndAppVersion','ndAppScreen',
+   'ndResellerName','ndResellerCode','ndResellerOutlet','ndTransactionRef'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
-  const ch=document.getElementById('ndChannel'); if(ch) ch.value='';
+  ['ndChannel','ndAgeBracket','ndGender','ndCustomerSegment','ndRegion','ndStoreRegion','ndPlatform',
+   'ndResellerRegion','ndResellerTier','ndFeedbackTopic','ndPaymentMethod'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  ndOnChannelChange();
   const d=document.getElementById('ndDate'); if(d){ d.value=new Date().toISOString().split('T')[0]; ndAutoWeek(); }
   ndCalcNps(); ndCalcOvsat();
   // Reset reason count inputs
@@ -13010,6 +13436,44 @@ function submitNpsManualEntry(){
   const remarks = document.getElementById('ndRemarks')?.value?.trim()||'';
   const cu = getCurrentUser();
 
+  // Universal demographics + verbatim (all channels)
+  const verbatim = document.getElementById('ndVerbatim')?.value?.trim()||'';
+  const demographic = {
+    ageBracket: document.getElementById('ndAgeBracket')?.value||'',
+    gender: document.getElementById('ndGender')?.value||'',
+    customerSegment: document.getElementById('ndCustomerSegment')?.value||'',
+    region: document.getElementById('ndRegion')?.value||''
+  };
+
+  // Channel-type-specific fields — only the ones relevant to this channel's
+  // type are ever populated; the rest stay undefined rather than empty strings
+  // cluttering every record with fields that don't apply to it.
+  const chCfg = _npsChannelConfig(channel);
+  const typeFields = {};
+  if(chCfg && chCfg.type==='agent'){
+    typeFields.agentId = document.getElementById('ndAgent')?.value||'';
+    typeFields.agentName = document.getElementById('ndAgentSearch')?.value?.trim()||'';
+    if(channel==='Retail Store'){
+      typeFields.storeCode = document.getElementById('ndStoreCode')?.value?.trim()||'';
+      typeFields.storeRegion = document.getElementById('ndStoreRegion')?.value||'';
+    }
+  } else if(chCfg && chCfg.type==='app'){
+    typeFields.appVersion = document.getElementById('ndAppVersion')?.value?.trim()||'';
+    typeFields.appScreen = document.getElementById('ndAppScreen')?.value?.trim()||'';
+    typeFields.platform = document.getElementById('ndPlatform')?.value||'';
+  } else if(chCfg && chCfg.type==='reseller'){
+    typeFields.resellerName = document.getElementById('ndResellerName')?.value?.trim()||'';
+    typeFields.resellerCode = document.getElementById('ndResellerCode')?.value?.trim()||'';
+    typeFields.resellerOutlet = document.getElementById('ndResellerOutlet')?.value?.trim()||'';
+    typeFields.resellerRegion = document.getElementById('ndResellerRegion')?.value||'';
+    typeFields.resellerTier = document.getElementById('ndResellerTier')?.value||'';
+    typeFields.feedbackTopic = document.getElementById('ndFeedbackTopic')?.value||'';
+  } else if(chCfg && chCfg.type==='auto'){
+    typeFields.productPurchased = document.getElementById('ndProductPurchased')?.value?.trim()||'';
+    typeFields.transactionRef = document.getElementById('ndTransactionRef')?.value?.trim()||'';
+    typeFields.paymentMethod = document.getElementById('ndPaymentMethod')?.value||'';
+  }
+
   const record = {
     id: 'nd_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
     date, weekNo, channel,
@@ -13020,7 +13484,8 @@ function submitNpsManualEntry(){
     pct5:calcPct(o5,ovsatTot), pct4:calcPct(o4,ovsatTot), pct3:calcPct(o3,ovsatTot),
     pct2:calcPct(o2,ovsatTot), pct1:calcPct(o1,ovsatTot),
     dsatReasons: dsatData, satReasons: satData,
-    remarks,
+    remarks, comment: verbatim, sentiment: _npsClassifySentiment(verbatim), demographic,
+    ...typeFields,
     by: cu?.displayName||cu?.username||'Unknown',
     byRole: cu?.role||'', ts: Date.now()
   };
