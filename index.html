@@ -12573,6 +12573,31 @@ function toggleNpsCorrelSection(){
   if(icon) icon.textContent = expanded ? '▸ Expand' : '▾ Collapse';
 }
 
+// For a 2-card chart row: hides whichever card(s) have no data for the
+// current filter, expands a lone surviving card to fill the row (CSS Grid
+// reflow, not a manual width calc), and collapses the whole row — showing
+// one consolidated message instead of two redundant ones — when both cards
+// are empty. cardVisible is [bool,bool] for the row's two children in DOM
+// order; originalCols is the row's normal grid-template-columns when both
+// have data (e.g. '2fr 1fr'), used to restore the intentional ratio rather
+// than leaving it on whatever the 1-card fallback set it to.
+function _reflowChartPairRow(rowId, cardVisible, originalCols, emptyRowMsgHtml){
+  const row = document.getElementById(rowId);
+  if(!row) return;
+  const emptyEl = document.getElementById(rowId+'Empty');
+  const cards = Array.from(row.children);
+  cards.forEach((c,i)=>{ c.style.display = cardVisible[i] ? '' : 'none'; });
+  const visibleCount = cardVisible.filter(Boolean).length;
+  if(visibleCount === 0){
+    row.style.display = 'none';
+    if(emptyEl){ emptyEl.style.display=''; emptyEl.innerHTML = emptyRowMsgHtml; }
+  } else {
+    row.style.display = 'grid';
+    row.style.gridTemplateColumns = visibleCount === cards.length ? originalCols : '1fr';
+    if(emptyEl) emptyEl.style.display = 'none';
+  }
+}
+
 function _npsRenderQaCorrelation(allNpsRecords, currNpsRecords, period, range, buckets, bucketFn, bucketCount, npsByBucket) {
   const el = document.getElementById('npsQaCorrelPanel'); if(!el) return;
   const qaAll = typeof getRecords==='function' ? getRecords() : [];
@@ -13236,11 +13261,11 @@ function renderNpsChannelDashboard(channelName){
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
+    <div id="npsChRow1Empty" style="display:none;margin-bottom:16px;"></div>
+    <div id="npsChRow1" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">NPS Trend — ${esc(channelName)}</div>
         <canvas id="npsChTrendCanvas" height="110"></canvas>
-        <div id="npsChTrendEmpty" style="display:none;"></div>
       </div>
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">💬 Sentiment &amp; Verbatim</div>
@@ -13248,11 +13273,11 @@ function renderNpsChannelDashboard(channelName){
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="nps-grid-2col">
+    <div id="npsChRow2Empty" style="display:none;"></div>
+    <div id="npsChRow2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="nps-grid-2col">
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">Respondent Demographics</div>
         <canvas id="npsChDemoCanvas" height="140"></canvas>
-        <div id="npsChDemoEmpty" style="display:none;"></div>
       </div>
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div id="npsChTypePanelBody"></div>
@@ -13278,19 +13303,15 @@ function renderNpsChannelDashboard(channelName){
   // Executive Dashboard's equivalent chart already avoids this via
   // _npsComputeYAxis() (which itself falls back to a sane {min:0,max:80}
   // on empty input); this just brings the per-channel chart in line with it.
-  const trendCanvas = document.getElementById('npsChTrendCanvas');
-  const trendEmptyEl = document.getElementById('npsChTrendEmpty');
-  if(npsByBucket.every(v=>v===null)){
-    if(trendCanvas) trendCanvas.style.display='none';
-    if(trendEmptyEl){ trendEmptyEl.style.display=''; trendEmptyEl.innerHTML=emptyState('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>','No NPS data yet',`No ${esc(channelName)} responses in this period — try a wider date range or add data.`,null,null); }
-  } else {
-    if(trendCanvas) trendCanvas.style.display='';
-    if(trendEmptyEl) trendEmptyEl.style.display='none';
+  const trendHasData = !npsByBucket.every(v=>v===null);
+  if(trendHasData){
     const _npsYAxisCh = _npsComputeYAxis(npsByBucket, 50);
     mkChart('npsChTrendCanvas','line',buckets,[{label:'NPS',data:npsByBucket,borderColor:'#FF7900',backgroundColor:'rgba(255,121,0,.08)',tension:.3,fill:true,spanGaps:true}],{scales:{y:{min:_npsYAxisCh.min,max:_npsYAxisCh.max}}});
   }
 
-  _npsRenderSentimentCard(currRecords);
+  const sentimentHasData = _npsRenderSentimentCard(currRecords);
+  _reflowChartPairRow('npsChRow1', [trendHasData, sentimentHasData], '2fr 1fr',
+    emptyState('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>','No NPS data yet',`No ${esc(channelName)} responses in this period — try a wider date range or add data.`,null,null));
 
   // Demographics — grouped by customer segment for consumer channels, by
   // reseller tier for Reseller App (no end-consumer demographics there).
@@ -13298,32 +13319,28 @@ function renderNpsChannelDashboard(channelName){
   const demoMap={};
   currRecords.forEach(r=>{ const v=(r.demographic&&r.demographic[demoField])||r[demoField]||'Unknown'; demoMap[v]=(demoMap[v]||0)+1; });
   const demoLabels=Object.keys(demoMap), demoData=Object.values(demoMap);
-  const demoCanvas = document.getElementById('npsChDemoCanvas');
-  const demoEmptyEl = document.getElementById('npsChDemoEmpty');
-  if(!demoLabels.length){
-    if(demoCanvas) demoCanvas.style.display='none';
-    if(demoEmptyEl){ demoEmptyEl.style.display=''; demoEmptyEl.innerHTML=emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','No respondent data yet','Demographic breakdown appears once responses come in for this period.',null,null); }
-  } else {
-    if(demoCanvas) demoCanvas.style.display='';
-    if(demoEmptyEl) demoEmptyEl.style.display='none';
+  const demoHasData = demoLabels.length>0;
+  if(demoHasData){
     mkChart('npsChDemoCanvas','bar',demoLabels,[{label:'Responses',data:demoData,backgroundColor:'#FF7900',borderRadius:6}],{plugins:{legend:{display:false}}});
   }
 
-  _npsRenderChannelTypePanel(cfg, currRecords);
+  const typePanelHasData = _npsRenderChannelTypePanel(cfg, currRecords);
+  _reflowChartPairRow('npsChRow2', [demoHasData, typePanelHasData], '1fr 1fr',
+    emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','No respondent data yet','Demographic and detail breakdowns appear once responses come in for this period.',null,null));
 }
 
 // Sentiment donut + example verbatims, visually modeled on the existing
 // _renderNpsTop3 SAT/DSAT card family rather than a new visual language.
 function _npsRenderSentimentCard(records){
   const el = document.getElementById('npsChSentimentBody');
-  if(!el) return;
+  if(!el) return false;
   const withSentiment = records.filter(r=>r.sentiment);
   const counts = {Positive:0,Neutral:0,Negative:0};
   withSentiment.forEach(r=>{ if(counts[r.sentiment]!==undefined) counts[r.sentiment]++; });
   const total = withSentiment.length;
   if(!total){
-    el.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">No verbatim comments with sentiment for this period yet.</div>';
-    return;
+    el.innerHTML = '';
+    return false;
   }
   const pct = k => Math.round((counts[k]/total)*100);
   const positives = withSentiment.filter(r=>r.sentiment==='Positive' && r.comment).slice(0,2);
@@ -13340,13 +13357,14 @@ function _npsRenderSentimentCard(records){
     ${positives.length?`<div style="font-size:11px;font-weight:700;color:#16a34a;margin-bottom:4px;">Top positive</div>${positives.map(r=>`<div style="font-size:11px;color:#374151;background:#f0fdf4;border-radius:6px;padding:6px 10px;margin-bottom:6px;">"${esc((r.comment||'').slice(0,120))}"</div>`).join('')}`:''}
     ${negatives.length?`<div style="font-size:11px;font-weight:700;color:#dc2626;margin:8px 0 4px;">Top negative</div>${negatives.map(r=>`<div style="font-size:11px;color:#374151;background:#fef2f2;border-radius:6px;padding:6px 10px;margin-bottom:6px;">"${esc((r.comment||'').slice(0,120))}"</div>`).join('')}`:''}
   `;
+  return true;
 }
 
 // Type-specific panel: agent leaderboard / app-screen breakdown /
 // reseller feedback-topic donut / product-purchased breakdown.
 function _npsRenderChannelTypePanel(cfg, records){
   const el = document.getElementById('npsChTypePanelBody');
-  if(!el) return;
+  if(!el) return false;
   if(cfg.type==='agent'){
     const byAgent={};
     records.forEach(r=>{
@@ -13357,30 +13375,40 @@ function _npsRenderChannelTypePanel(cfg, records){
     const rows=Object.entries(byAgent).map(([name,a])=>{
       const t=a.p+a.pa+a.d; return {name, nps:t>0?Math.round(((a.p-a.d)/t)*100):0, total:t};
     }).sort((a,b)=>b.nps-a.nps).slice(0,8);
+    if(!rows.length){ el.innerHTML=''; return false; }
     el.innerHTML = `<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">🏆 Agent Leaderboard</div>` +
-      (rows.length ? rows.map((r,i)=>`
+      rows.map((r,i)=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
           <span style="color:#374151;"><strong>#${i+1}</strong> ${esc(r.name)}</span>
           <span style="color:${r.nps>=50?'#16a34a':r.nps>=0?'#F6A000':'#dc2626'};font-weight:700;">${r.nps>0?'+':''}${r.nps} <span style="color:#94a3b8;font-weight:400;">(${r.total})</span></span>
-        </div>`).join('') : '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">No agent-attributed responses yet.</div>');
+        </div>`).join('');
+    return true;
   } else if(cfg.type==='app'){
     const byScreen={};
     records.forEach(r=>{ const s=r.appScreen||'Unspecified'; byScreen[s]=(byScreen[s]||0)+1; });
     const labels=Object.keys(byScreen), data=Object.values(byScreen);
+    if(!labels.length){ el.innerHTML=''; return false; }
     el.innerHTML = `<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">📱 Responses by App Screen</div><canvas id="npsChTypeCanvas" height="140"></canvas>`;
     setTimeout(()=>mkChart('npsChTypeCanvas','bar',labels,[{label:'Responses',data,backgroundColor:'#0891b2',borderRadius:6}],{plugins:{legend:{display:false}}}),0);
+    return true;
   } else if(cfg.type==='reseller'){
     const byTopic={Product:0,Service:0,Process:0};
     records.forEach(r=>{ const t=r.feedbackTopic; if(byTopic[t]!==undefined) byTopic[t]++; });
+    const topicTotal = Object.values(byTopic).reduce((a,b)=>a+b,0);
+    if(!topicTotal){ el.innerHTML=''; return false; }
     el.innerHTML = `<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">🤝 Feedback Topic</div><canvas id="npsChTypeCanvas" height="140"></canvas>`;
     setTimeout(()=>mkChart('npsChTypeCanvas','doughnut',Object.keys(byTopic),[{data:Object.values(byTopic),backgroundColor:['#FF7900','#319CDE','#7c3aed'],borderWidth:2}]),0);
+    return true;
   } else if(cfg.type==='auto'){
     const byProduct={};
     records.forEach(r=>{ const p=r.productPurchased||'Unspecified'; byProduct[p]=(byProduct[p]||0)+1; });
     const labels=Object.keys(byProduct), data=Object.values(byProduct);
+    if(!labels.length){ el.innerHTML=''; return false; }
     el.innerHTML = `<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">🛒 Responses by Product Purchased</div><canvas id="npsChTypeCanvas" height="140"></canvas>`;
     setTimeout(()=>mkChart('npsChTypeCanvas','bar',labels,[{label:'Responses',data,backgroundColor:'#319CDE',borderRadius:6}],{plugins:{legend:{display:false}}}),0);
+    return true;
   }
+  return false;
 }
 
 function _ndRenderReasonRows(type){
