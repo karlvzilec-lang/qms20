@@ -13237,6 +13237,7 @@ function renderNpsChannelDashboard(channelName){
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">NPS Trend — ${esc(channelName)}</div>
         <canvas id="npsChTrendCanvas" height="110"></canvas>
+        <div id="npsChTrendEmpty" style="display:none;"></div>
       </div>
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">💬 Sentiment &amp; Verbatim</div>
@@ -13248,6 +13249,7 @@ function renderNpsChannelDashboard(channelName){
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">Respondent Demographics</div>
         <canvas id="npsChDemoCanvas" height="140"></canvas>
+        <div id="npsChDemoEmpty" style="display:none;"></div>
       </div>
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div id="npsChTypePanelBody"></div>
@@ -13267,7 +13269,23 @@ function renderNpsChannelDashboard(channelName){
     bucketAcc[bi].p+=(r.promoters||0); bucketAcc[bi].pa+=(r.passives||0); bucketAcc[bi].d+=(r.detractors||0);
   });
   bucketAcc.forEach((a,i)=>{ const t=a.p+a.pa+a.d; npsByBucket[i]=t>0?Math.round(((a.p-a.d)/t)*100):null; });
-  mkChart('npsChTrendCanvas','line',buckets,[{label:'NPS',data:npsByBucket,borderColor:'#FF7900',backgroundColor:'rgba(255,121,0,.08)',tension:.3,fill:true,spanGaps:true}]);
+  // Was missing both an empty-state guard and any explicit y-axis bounds —
+  // with zero data every value is null and Chart.js's auto-scale has
+  // nothing to compute a range from, producing a meaningless 0-1 axis. The
+  // Executive Dashboard's equivalent chart already avoids this via
+  // _npsComputeYAxis() (which itself falls back to a sane {min:0,max:80}
+  // on empty input); this just brings the per-channel chart in line with it.
+  const trendCanvas = document.getElementById('npsChTrendCanvas');
+  const trendEmptyEl = document.getElementById('npsChTrendEmpty');
+  if(npsByBucket.every(v=>v===null)){
+    if(trendCanvas) trendCanvas.style.display='none';
+    if(trendEmptyEl){ trendEmptyEl.style.display=''; trendEmptyEl.innerHTML=emptyState('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>','No NPS data yet',`No ${esc(channelName)} responses in this period — try a wider date range or add data.`,null,null); }
+  } else {
+    if(trendCanvas) trendCanvas.style.display='';
+    if(trendEmptyEl) trendEmptyEl.style.display='none';
+    const _npsYAxisCh = _npsComputeYAxis(npsByBucket, 50);
+    mkChart('npsChTrendCanvas','line',buckets,[{label:'NPS',data:npsByBucket,borderColor:'#FF7900',backgroundColor:'rgba(255,121,0,.08)',tension:.3,fill:true,spanGaps:true}],{scales:{y:{min:_npsYAxisCh.min,max:_npsYAxisCh.max}}});
+  }
 
   _npsRenderSentimentCard(currRecords);
 
@@ -13277,7 +13295,16 @@ function renderNpsChannelDashboard(channelName){
   const demoMap={};
   currRecords.forEach(r=>{ const v=(r.demographic&&r.demographic[demoField])||r[demoField]||'Unknown'; demoMap[v]=(demoMap[v]||0)+1; });
   const demoLabels=Object.keys(demoMap), demoData=Object.values(demoMap);
-  mkChart('npsChDemoCanvas','bar',demoLabels,[{label:'Responses',data:demoData,backgroundColor:'#FF7900',borderRadius:6}],{plugins:{legend:{display:false}}});
+  const demoCanvas = document.getElementById('npsChDemoCanvas');
+  const demoEmptyEl = document.getElementById('npsChDemoEmpty');
+  if(!demoLabels.length){
+    if(demoCanvas) demoCanvas.style.display='none';
+    if(demoEmptyEl){ demoEmptyEl.style.display=''; demoEmptyEl.innerHTML=emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','No respondent data yet','Demographic breakdown appears once responses come in for this period.',null,null); }
+  } else {
+    if(demoCanvas) demoCanvas.style.display='';
+    if(demoEmptyEl) demoEmptyEl.style.display='none';
+    mkChart('npsChDemoCanvas','bar',demoLabels,[{label:'Responses',data:demoData,backgroundColor:'#FF7900',borderRadius:6}],{plugins:{legend:{display:false}}});
+  }
 
   _npsRenderChannelTypePanel(cfg, currRecords);
 }
@@ -20067,6 +20094,28 @@ function _makeNpsGauge(canvasId, npsScore, promoter, passive, detractor){
   ctx.fillStyle = '#0f172a';
   ctx.fill();
   ctx.restore();
+
+  // No responses at all — P+Pa+D can only sum to 0 when there were zero
+  // records to begin with (a real dataset always sums to 100%). Previously
+  // this fell through to the zones logic below, which draws a full green
+  // ring from 0-100 when det=pas=0 — reading as "100% promoters" instead of
+  // "no data", the opposite of what's true.
+  if(promoter + passive + detractor === 0){
+    ctx.strokeStyle = 'rgba(255,255,255,.15)';
+    ctx.lineWidth = arcW;
+    ctx.beginPath();
+    ctx.arc(cx, cy, midR, -Math.PI, 0);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.font = '600 12px Inter,system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('No data yet', cx, cy - 8);
+    ctx.font = '11px Inter,system-ui,sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    ctx.fillText('for this period', cx, cy + 10);
+    return;
+  }
 
   // Scale: 0–100. Zones: Detractors | Passives | Promoters (left→right)
   // Standard NPS traffic-light convention (red/amber/green) — matches
