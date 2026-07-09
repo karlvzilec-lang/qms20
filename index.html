@@ -1090,7 +1090,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         <div id="dashRecent"></div>
       </div>
       <div class="card">
-        <div class="card-title">Top Performers <small style="color:var(--gray);font-weight:400">(This Month)</small></div>
+        <div class="card-title">Top Performers <small id="dashTopPeriodLabel" style="color:var(--gray);font-weight:400">(This Month)</small></div>
         <div id="dashTop"></div>
       </div>
     </div>
@@ -5971,7 +5971,9 @@ function renderDashboard(){
   let tlKpiHtml='';
   if(isTLUser){
     const myAgentCount=getTLAgents().length;
-    const periodLabel=_dashPeriod==='day'?'Today':_dashPeriod==='week'?'This Week':'This Month';
+    const periodLabel=_dashPeriod==='day'?'Today':_dashPeriod==='week'?'This Week':_dashPeriod==='custom'
+      ?('Custom: '+(document.getElementById('tlCustomFrom')?.value||'')+' → '+(document.getElementById('tlCustomTo')?.value||''))
+      :'This Month';
     const pendingReview=teamRecords.filter(r=>(r.result==='FAIL'||r.result==='AUTO FAIL')&&!getCoachings().find(c=>c.recordId===r.id)).length;
     const settings2=getSettings();
     const passScore=settings2.passScore||80;
@@ -6073,6 +6075,12 @@ function renderDashboard(){
     const byAgent={};
     teamRecords.forEach(r=>{ if(!byAgent[r.agentName])byAgent[r.agentName]=[]; byAgent[r.agentName].push(_fs(r)); });
     const top=Object.entries(byAgent).map(([n,s])=>({name:n,avg:s.reduce((a,b)=>a+b,0)/s.length,count:s.length})).sort((a,b)=>b.avg-a.avg).slice(0,5);
+    // "Top Performers" here always reflects full team history, not the active
+    // period filter above — label it accordingly instead of leaving the
+    // static "(This Month)" text, which was wrong for every period including
+    // the default (This Week).
+    const dashTopLabelEl0=document.getElementById('dashTopPeriodLabel');
+    if(dashTopLabelEl0) dashTopLabelEl0.textContent='(All-Time)';
     document.getElementById('dashTop').innerHTML=!top.length
       ?emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','No performers yet','Submit evaluations to see top-scoring agents here.',null,null)
       :top.map((a,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
@@ -6092,6 +6100,7 @@ function renderDashboard(){
   if(qaDashWrap) qaDashWrap.style.display = isQAUser ? '' : 'none';
 
   let qaKpiExtra='';
+  let qaPeriodLabel='';
   if(isQAUser){
     let varHtml='';
     if(avg!=='—'&&siteAvg!=='—'){
@@ -6115,7 +6124,9 @@ function renderDashboard(){
     document.getElementById('dashKpi').innerHTML = qaKpiExtra;
     // Render QA sub-panels
     // chart/agents panels use full unfiltered history (teamRecords); KPI period label
-    const qaPeriodLabel = _qaDashPeriod==='day'?'Today':_qaDashPeriod==='week'?'This Week':'Month to Date';
+    qaPeriodLabel = _qaDashPeriod==='day'?'Today':_qaDashPeriod==='week'?'This Week':_qaDashPeriod==='custom'
+      ?('Custom: '+(document.getElementById('qaCustomFrom')?.value||'')+' → '+(document.getElementById('qaCustomTo')?.value||''))
+      :'Month to Date';
     renderQADashPanels(teamRecords, allRecords, user, qaPeriodLabel);
   } else {
     document.getElementById('dashKpi').innerHTML=`
@@ -6141,6 +6152,13 @@ function renderDashboard(){
   const byAgent={};
   records.forEach(r=>{ if(!byAgent[r.agentName])byAgent[r.agentName]=[]; byAgent[r.agentName].push(_fs(r)); });
   const top=Object.entries(byAgent).map(([n,s])=>({name:n,avg:s.reduce((a,b)=>a+b,0)/s.length,count:s.length})).sort((a,b)=>b.avg-a.avg).slice(0,5);
+  // Reflect whichever period filter actually produced `records` above —
+  // was previously a static "(This Month)" regardless of role or selection.
+  const dashTopLabelEl=document.getElementById('dashTopPeriodLabel');
+  if(dashTopLabelEl){
+    const topLbl = isQAUser ? qaPeriodLabel : isAMUser ? _amPeriodRange(_amDashPeriod).label : 'All-Time';
+    dashTopLabelEl.textContent = '('+topLbl+')';
+  }
   document.getElementById('dashTop').innerHTML=!top.length
     ?emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','No performers yet','Submit evaluations to see top-scoring agents here.',null,null)
     :top.map((a,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
@@ -6555,7 +6573,8 @@ function _amPeriodRange(period){
     const s=fromStr?new Date(fromStr+'T00:00:00'):new Date(now.getFullYear(),now.getMonth(),1);
     // Upper bound is exclusive-of-next-day, so the "To" date itself is fully included.
     const e=toStr?new Date(toStr+'T00:00:00'):new Date(now); e.setDate(e.getDate()+1);
-    return {start:s, end:e, label:'Custom'};
+    const cLabel = (fromStr&&toStr) ? ('Custom: '+fromStr+' → '+toStr) : 'Custom';
+    return {start:s, end:e, label:cLabel};
   }
   // month (default)
   return {start:new Date(now.getFullYear(),now.getMonth(),1), end:null, label:'This Month'};
