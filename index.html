@@ -2852,97 +2852,6 @@ CORS_ORIGIN=https://yourdomain.com</code>
     </div>
   </div>
 
-  <!-- ══ OVSAT EXECUTIVE KPI SECTION ══ -->
-  <div style="background:linear-gradient(135deg,#3d1800 0%,#F6A000 100%);border-radius:18px;padding:18px 20px 14px;margin-bottom:14px;box-shadow:0 6px 24px rgba(61,24,0,.45);position:relative;overflow:hidden;">
-    <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:rgba(255,255,255,.04);border-radius:50%;pointer-events:none;"></div>
-    <div style="position:absolute;bottom:-30px;left:60px;width:120px;height:120px;background:rgba(255,255,255,.03);border-radius:50%;pointer-events:none;"></div>
-    <!-- Section header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:36px;height:36px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">⭐</div>
-        <div>
-          <div style="font-size:14px;font-weight:900;color:#fff;letter-spacing:-.2px;">OVSAT Executive Summary</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:1px;">Overall Satisfaction · 5-Point Scale · Live Data</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span id="ovsatActivePeriodChip" style="background:rgba(255,255,255,.22);color:#fff;font-size:10px;font-weight:800;padding:4px 11px;border-radius:20px;border:1px solid rgba(255,255,255,.38);letter-spacing:.3px;">📅 Month</span>
-        <div style="display:flex;align-items:center;gap:5px;">
-          <div style="font-size:10px;color:rgba(255,255,255,.8);">Benchmark:</div>
-          <div id="ovsatBenchmarkLabel" style="font-size:12px;font-weight:800;color:#fff;">4.2 / 5 ⭐</div>
-        </div>
-      </div>
-    </div>
-    <!-- Hero OVSAT score + meta -->
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;margin-bottom:14px;">
-      <div style="text-align:center;background:rgba(255,255,255,.22);border-radius:14px;padding:14px 22px;border:1px solid rgba(255,255,255,.35);">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.9);letter-spacing:.8px;margin-bottom:4px;">Overall Satisfaction</div>
-        <div id="ovsatKpiAvg" style="font-size:44px;font-weight:900;color:#fff;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,.2);">—</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:4px;">out of 5.0 ⭐</div>
-        <div id="ovsatKpiAvgDelta" style="min-height:20px;display:flex;align-items:center;justify-content:center;margin-top:4px;"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div style="background:rgba(255,255,255,.2);border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.3);">
-          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Previous Period</div>
-          <div id="ovsatKpiPrevScore" style="font-size:20px;font-weight:900;color:#fff;">—</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.7);">vs now</div>
-        </div>
-        <div style="background:rgba(255,255,255,.2);border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.3);">
-          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">MoM Change</div>
-          <div id="ovsatKpiMomChange" style="font-size:20px;font-weight:900;color:#fff;">—</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.7);">month-on-month</div>
-        </div>
-        <div style="background:rgba(255,255,255,.2);border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.3);">
-          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">YTD Average</div>
-          <div id="ovsatKpiYtd" style="font-size:20px;font-weight:900;color:#fff;">—</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.7);">year-to-date</div>
-        </div>
-        <div style="background:rgba(255,255,255,.2);border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.3);">
-          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Benchmark</div>
-          <div id="ovsatKpiBenchmark" style="font-size:20px;font-weight:900;color:#fff;">4.2</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.7);">internal target</div>
-        </div>
-      </div>
-    </div>
-    <!-- Secondary KPI strip -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-      <div style="background:rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;border:1px solid rgba(255,255,255,.28);text-align:center;">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Sample Size</div>
-        <div id="ovsatKpiTotal" style="font-size:18px;font-weight:900;color:#fff;">—</div>
-        <div id="ovsatKpiTotalDelta" style="min-height:14px;display:flex;align-items:center;justify-content:center;margin-top:2px;"></div>
-      </div>
-      <div style="background:rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;border:1px solid rgba(255,255,255,.28);text-align:center;">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Top-2 Box</div>
-        <div id="ovsatKpiTop2Box" style="font-size:18px;font-weight:900;color:#fff;">—</div>
-        <div id="ovsatKpiTop2BoxDelta" style="min-height:14px;display:flex;align-items:center;justify-content:center;margin-top:2px;"></div>
-      </div>
-      <div style="background:rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;border:1px solid rgba(255,255,255,.28);text-align:center;">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">5-Star Rate</div>
-        <div id="ovsatKpi5Star" style="font-size:18px;font-weight:900;color:#fff;">—</div>
-        <div id="ovsatKpi5StarDelta" style="min-height:14px;display:flex;align-items:center;justify-content:center;margin-top:2px;"></div>
-      </div>
-      <div style="background:rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;border:1px solid rgba(255,255,255,.28);text-align:center;">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Confidence</div>
-        <div id="ovsatKpiConfidence" style="font-size:18px;font-weight:900;color:#fff;">—</div>
-        <div style="font-size:9px;color:rgba(255,255,255,.7);margin-top:2px;">stat. reliability</div>
-      </div>
-    </div>
-    <!-- vs Benchmark progress bar -->
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.25);">
-      <div style="display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,.8);margin-bottom:5px;">
-        <span>0</span><span id="ovsatBenchmarkBarLabel">vs Benchmark (4.2 / 5.0)</span><span>5</span>
-      </div>
-      <div style="background:rgba(255,255,255,.25);border-radius:20px;height:8px;overflow:hidden;position:relative;">
-        <div id="ovsatBenchmarkBar" style="height:100%;background:linear-gradient(90deg,#78350f,#92400e);border-radius:20px;transition:width .6s ease;width:0%;"></div>
-        <div id="ovsatBenchmarkMarker" style="position:absolute;top:0;bottom:0;width:2px;background:#fff;border-radius:1px;" title="Benchmark 4.2"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px;">
-        <div id="ovsatKpiSatRate" style="font-size:10px;font-weight:700;color:#fff;">Sat. Rate: —</div>
-        <div id="ovsatKpiSatRateDelta" style="font-size:10px;"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- Chart Tab Switcher -->
   <div style="display:flex;gap:0;margin-bottom:16px;background:#f1f5f9;border-radius:12px;padding:4px;width:fit-content;">
     <button id="tabBtnNps" onclick="switchNpsDashTab('nps')" style="padding:8px 22px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;box-shadow:0 2px 8px rgba(255,121,0,.3);">📊 NPS Charts</button>
@@ -3016,6 +2925,100 @@ CORS_ORIGIN=https://yourdomain.com</code>
 
   <!-- ── OVSAT Charts Panel ── -->
   <div id="npsDashPanelOvsat" style="display:none;">
+    <!-- ══ OVSAT EXECUTIVE KPI SECTION ══ (moved from always-visible-above-tabs —
+         was duplicating page height on every tab even though it's OVSAT-only
+         content; this is the only place these 8 numbers exist, so it moved
+         rather than being deleted) -->
+    <div style="background:linear-gradient(135deg,#3d1800 0%,#F6A000 100%);border-radius:18px;padding:18px 20px 14px;margin-bottom:14px;box-shadow:0 6px 24px rgba(61,24,0,.45);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:rgba(255,255,255,.04);border-radius:50%;pointer-events:none;"></div>
+      <div style="position:absolute;bottom:-30px;left:60px;width:120px;height:120px;background:rgba(255,255,255,.03);border-radius:50%;pointer-events:none;"></div>
+      <!-- Section header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">⭐</div>
+          <div>
+            <div style="font-size:14px;font-weight:900;color:#fff;letter-spacing:-.2px;">OVSAT Executive Summary</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:1px;">Overall Satisfaction · 5-Point Scale · Live Data</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span id="ovsatActivePeriodChip" style="background:rgba(255,255,255,.22);color:#fff;font-size:10px;font-weight:800;padding:4px 11px;border-radius:20px;border:1px solid rgba(255,255,255,.38);letter-spacing:.3px;">📅 Month</span>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div style="font-size:10px;color:rgba(255,255,255,.8);">Benchmark:</div>
+            <div id="ovsatBenchmarkLabel" style="font-size:12px;font-weight:800;color:#fff;">4.2 / 5 ⭐</div>
+          </div>
+        </div>
+      </div>
+      <!-- Hero OVSAT score + meta -->
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;margin-bottom:14px;">
+        <div style="text-align:center;background:rgba(255,255,255,.22);border-radius:14px;padding:14px 22px;border:1px solid rgba(255,255,255,.35);">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.9);letter-spacing:.8px;margin-bottom:4px;">Overall Satisfaction</div>
+          <div id="ovsatKpiAvg" style="font-size:44px;font-weight:900;color:#fff;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,.2);">—</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:4px;">out of 5.0 ⭐</div>
+          <div id="ovsatKpiAvgDelta" style="min-height:20px;display:flex;align-items:center;justify-content:center;margin-top:4px;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="background:rgba(255,255,255,.2);border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.3);">
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Previous Period</div>
+            <div id="ovsatKpiPrevScore" style="font-size:20px;font-weight:900;color:#fff;">—</div>
+            <div style="font-size:9px;color:rgba(255,255,255,.7);">vs now</div>
+          </div>
+          <div style="background:rgba(255,255,255,.2);border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.3);">
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">MoM Change</div>
+            <div id="ovsatKpiMomChange" style="font-size:20px;font-weight:900;color:#fff;">—</div>
+            <div style="font-size:9px;color:rgba(255,255,255,.7);">month-on-month</div>
+          </div>
+          <div style="background:rgba(255,255,255,.2);border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.3);">
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">YTD Average</div>
+            <div id="ovsatKpiYtd" style="font-size:20px;font-weight:900;color:#fff;">—</div>
+            <div style="font-size:9px;color:rgba(255,255,255,.7);">year-to-date</div>
+          </div>
+          <div style="background:rgba(255,255,255,.2);border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.3);">
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Benchmark</div>
+            <div id="ovsatKpiBenchmark" style="font-size:20px;font-weight:900;color:#fff;">4.2</div>
+            <div style="font-size:9px;color:rgba(255,255,255,.7);">internal target</div>
+          </div>
+        </div>
+      </div>
+      <!-- Secondary KPI strip -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+        <div style="background:rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;border:1px solid rgba(255,255,255,.28);text-align:center;">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Sample Size</div>
+          <div id="ovsatKpiTotal" style="font-size:18px;font-weight:900;color:#fff;">—</div>
+          <div id="ovsatKpiTotalDelta" style="min-height:14px;display:flex;align-items:center;justify-content:center;margin-top:2px;"></div>
+        </div>
+        <div style="background:rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;border:1px solid rgba(255,255,255,.28);text-align:center;">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Top-2 Box</div>
+          <div id="ovsatKpiTop2Box" style="font-size:18px;font-weight:900;color:#fff;">—</div>
+          <div id="ovsatKpiTop2BoxDelta" style="min-height:14px;display:flex;align-items:center;justify-content:center;margin-top:2px;"></div>
+        </div>
+        <div style="background:rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;border:1px solid rgba(255,255,255,.28);text-align:center;">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">5-Star Rate</div>
+          <div id="ovsatKpi5Star" style="font-size:18px;font-weight:900;color:#fff;">—</div>
+          <div id="ovsatKpi5StarDelta" style="min-height:14px;display:flex;align-items:center;justify-content:center;margin-top:2px;"></div>
+        </div>
+        <div style="background:rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;border:1px solid rgba(255,255,255,.28);text-align:center;">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Confidence</div>
+          <div id="ovsatKpiConfidence" style="font-size:18px;font-weight:900;color:#fff;">—</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.7);margin-top:2px;">stat. reliability</div>
+        </div>
+      </div>
+      <!-- vs Benchmark progress bar -->
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.25);">
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,.8);margin-bottom:5px;">
+          <span>0</span><span id="ovsatBenchmarkBarLabel">vs Benchmark (4.2 / 5.0)</span><span>5</span>
+        </div>
+        <div style="background:rgba(255,255,255,.25);border-radius:20px;height:8px;overflow:hidden;position:relative;">
+          <div id="ovsatBenchmarkBar" style="height:100%;background:linear-gradient(90deg,#78350f,#92400e);border-radius:20px;transition:width .6s ease;width:0%;"></div>
+          <div id="ovsatBenchmarkMarker" style="position:absolute;top:0;bottom:0;width:2px;background:#fff;border-radius:1px;" title="Benchmark 4.2"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;">
+          <div id="ovsatKpiSatRate" style="font-size:10px;font-weight:700;color:#fff;">Sat. Rate: —</div>
+          <div id="ovsatKpiSatRateDelta" style="font-size:10px;"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Row 1: OVSAT Trend + Satisfaction Distribution Donut -->
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
@@ -3157,9 +3160,19 @@ CORS_ORIGIN=https://yourdomain.com</code>
     <div id="npsChannelDashBody"></div>
   </div><!-- /npsDashPanelChannel -->
 
-  <!-- ── Auto AI Analysis + NPS-QA Correlation (always visible) ── -->
+  <!-- ── Auto AI Analysis (always visible) + NPS-QA Correlation (collapsed by
+       default — at ~1400px rendered this was over a third of the entire
+       page height on every load, regardless of which chart tab was open) ── -->
   <div id="npsAutoInsightPanel" style="margin-top:16px;"></div>
-  <div id="npsQaCorrelPanel" style="margin-top:16px;"></div>
+  <div class="card" style="margin-top:16px;padding:0;overflow:hidden;border-radius:16px;">
+    <button onclick="toggleNpsCorrelSection()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:none;border:none;cursor:pointer;text-align:left;">
+      <span style="font-weight:700;font-size:14px;color:#0f172a;display:flex;align-items:center;gap:8px;">🔗 NPS ↔ QA Score Correlation <span style="font-size:11px;font-weight:600;color:#94a3b8;">— how QA performance relates to customer satisfaction</span></span>
+      <span id="npsCorrelToggleIcon" style="font-size:12px;color:#94a3b8;">▸ Expand</span>
+    </button>
+    <div id="npsCorrelSection" style="display:none;">
+      <div id="npsQaCorrelPanel" style="margin-top:0;"></div>
+    </div>
+  </div>
 
   <!-- Channel Distribution Chart (dual-mode: NPS gauges ↔ OVSAT stacked bars) -->
   <div id="npsChDistPanel" style="background:#0f172a;border-radius:16px;padding:22px 24px;box-shadow:0 4px 24px rgba(0,0,0,.18);">
@@ -12549,6 +12562,15 @@ function _npsRenderAutoInsights(allRecords, npsByBucket, buckets, kpisCurr, kpis
       <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">📌 Observations</div>
       ${obsv.map(o=>`<div style="font-size:11px;color:rgba(255,255,255,.62);line-height:1.6;margin-bottom:4px;">→ ${o}</div>`).join('')}</div>`:''}
   </div>`;
+}
+
+function toggleNpsCorrelSection(){
+  const sec = document.getElementById('npsCorrelSection');
+  const icon = document.getElementById('npsCorrelToggleIcon');
+  if(!sec) return;
+  const expanded = sec.style.display !== 'none';
+  sec.style.display = expanded ? 'none' : 'block';
+  if(icon) icon.textContent = expanded ? '▸ Expand' : '▾ Collapse';
 }
 
 function _npsRenderQaCorrelation(allNpsRecords, currNpsRecords, period, range, buckets, bucketFn, bucketCount, npsByBucket) {
