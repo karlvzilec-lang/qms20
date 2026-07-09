@@ -2862,7 +2862,8 @@ CORS_ORIGIN=https://yourdomain.com</code>
   <!-- ── NPS Charts Panel ── -->
   <div id="npsDashPanelNps">
     <!-- Charts Row 1 -->
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
+    <div id="npsChartsRow1Empty" style="display:none;margin-bottom:16px;"></div>
+    <div id="npsChartsRow1" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
           <div style="width:3px;height:16px;background:linear-gradient(180deg,#FF7900,#E56A00);border-radius:2px;"></div>
@@ -2893,7 +2894,8 @@ CORS_ORIGIN=https://yourdomain.com</code>
     </div>
 
     <!-- Charts Row 2 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
+    <div id="npsChartsRow2Empty" style="display:none;margin-bottom:16px;"></div>
+    <div id="npsChartsRow2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
           <div style="width:3px;height:16px;background:linear-gradient(180deg,#FF7900,#E56A00);border-radius:2px;"></div>
@@ -2917,6 +2919,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
     </div>
 
     <!-- Top 3 SAT / DSAT Row -->
+    <div id="npsSatDsatRowEmpty" style="display:none;margin-bottom:16px;"></div>
     <div id="npsSatDsatRow" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
       <div id="npsTop3Sat" style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);border-bottom:3px solid #16a34a;"></div>
       <div id="npsTop3Dsat" style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);border-bottom:3px solid #dc2626;"></div>
@@ -3020,7 +3023,8 @@ CORS_ORIGIN=https://yourdomain.com</code>
     </div>
 
     <!-- Row 1: OVSAT Trend + Satisfaction Distribution Donut -->
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
+    <div id="ovsatRow1Empty" style="display:none;margin-bottom:16px;"></div>
+    <div id="ovsatRow1" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
           <div style="width:3px;height:16px;background:linear-gradient(180deg,#1d4ed8,#1e40af);border-radius:2px;"></div>
@@ -3053,7 +3057,8 @@ CORS_ORIGIN=https://yourdomain.com</code>
     </div>
 
     <!-- Row 2: Key Drivers of Satisfaction + Channel Satisfaction -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
+    <div id="ovsatRow2Empty" style="display:none;margin-bottom:16px;"></div>
+    <div id="ovsatRow2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
           <div style="width:3px;height:16px;background:linear-gradient(180deg,#16a34a,#15803d);border-radius:2px;"></div>
@@ -3063,7 +3068,6 @@ CORS_ORIGIN=https://yourdomain.com</code>
           </div>
         </div>
         <canvas id="ovsatChartDrivers" height="140"></canvas>
-        <div id="ovsatDriversEmpty" style="display:none;text-align:center;padding:24px;color:#94a3b8;font-size:11px;">No SAT reason data yet.<br>Add SAT reasons in Data Entry.</div>
       </div>
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
@@ -3078,7 +3082,8 @@ CORS_ORIGIN=https://yourdomain.com</code>
     </div>
 
     <!-- Row 3: Detractor Hotspots (Pareto) + Top-2-Box Trend -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
+    <div id="ovsatRow3Empty" style="display:none;margin-bottom:16px;"></div>
+    <div id="ovsatRow3" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="nps-grid-2col">
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
           <div style="width:3px;height:16px;background:linear-gradient(180deg,#dc2626,#b91c1c);border-radius:2px;"></div>
@@ -3091,7 +3096,6 @@ CORS_ORIGIN=https://yourdomain.com</code>
           </div>
         </div>
         <canvas id="ovsatChartPareto" height="140"></canvas>
-        <div id="ovsatParetoEmpty" style="display:none;text-align:center;padding:24px;color:#94a3b8;font-size:11px;">No DSAT reason data yet.<br>Add DSAT reasons in Data Entry.</div>
       </div>
       <div style="background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.04);">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
@@ -12171,11 +12175,10 @@ function _renderNpsTop3(records){
   const dsatEntries=Object.entries(dsatMap).sort((a,b)=>b[1]-a[1]).slice(0,3);
   const satEl=document.getElementById('npsTop3Sat');
   const dsatEl=document.getElementById('npsTop3Dsat');
-  const satRow=document.getElementById('npsSatDsatRow');
   if(!satEl||!dsatEl) return;
-  // Hide entire row if no data
-  if(!satEntries.length&&!dsatEntries.length){ if(satRow) satRow.style.display='none'; return; }
-  if(satRow) satRow.style.display='';
+  _reflowChartPairRow('npsSatDsatRow', [satEntries.length>0, dsatEntries.length>0], '1fr 1fr',
+    emptyState('<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>','No SAT/DSAT reasons yet','Top drivers appear once evaluations record satisfaction or dissatisfaction reasons.',null,null));
+  if(!satEntries.length&&!dsatEntries.length) return;
 
   const renderList=(entries, icon, color, label)=>{
     if(!entries.length) return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><div style="width:3px;height:16px;background:${color};border-radius:2px;"></div><div style="font-weight:700;font-size:13px;color:#0f172a;">${label}</div></div><div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px 0;">No data for this period</div>`;
@@ -12215,58 +12218,60 @@ function _renderOvsatCharts(){
   const BENCHMARK = 4.2;
 
   // ── 1. OVSAT Trend ──────────────────────────────────────────
-  mkNps('ovsatChartTrend',{type:'line',data:{labels:buckets,datasets:[
-    {label:'OVSAT',data:ovsatByBucket,borderColor:'#1d4ed8',borderWidth:2.5,pointBackgroundColor:'#1d4ed8',pointRadius:5,pointHoverRadius:7,pointBorderColor:'#fff',pointBorderWidth:2,tension:.4,fill:true,spanGaps:true,
-      backgroundColor:(ctx)=>{ const c=ctx.chart; if(!c.chartArea) return 'rgba(29,78,216,.08)'; return _chartGradient(c.ctx,c.chartArea,'rgba(29,78,216,.22)','rgba(29,78,216,.01)'); }},
-    {label:'Benchmark ('+BENCHMARK+')',data:buckets.map(()=>BENCHMARK),borderColor:'#f59e0b',borderDash:[6,4],borderWidth:2,pointRadius:0,fill:false}
-  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}`}}},scales:{y:{...baseScale,min:0,max:5,ticks:{...baseScale.ticks,callback:v=>v+' ⭐'}},x:{...baseScale,grid:{display:false}}}}});
+  const trendHasData = !ovsatByBucket.every(v=>v===null||v===undefined);
+  if(trendHasData){
+    mkNps('ovsatChartTrend',{type:'line',data:{labels:buckets,datasets:[
+      {label:'OVSAT',data:ovsatByBucket,borderColor:'#1d4ed8',borderWidth:2.5,pointBackgroundColor:'#1d4ed8',pointRadius:5,pointHoverRadius:7,pointBorderColor:'#fff',pointBorderWidth:2,tension:.4,fill:true,spanGaps:true,
+        backgroundColor:(ctx)=>{ const c=ctx.chart; if(!c.chartArea) return 'rgba(29,78,216,.08)'; return _chartGradient(c.ctx,c.chartArea,'rgba(29,78,216,.22)','rgba(29,78,216,.01)'); }},
+      {label:'Benchmark ('+BENCHMARK+')',data:buckets.map(()=>BENCHMARK),borderColor:'#f59e0b',borderDash:[6,4],borderWidth:2,pointRadius:0,fill:false}
+    ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}`}}},scales:{y:{...baseScale,min:0,max:5,ticks:{...baseScale.ticks,callback:v=>v+' ⭐'}},x:{...baseScale,grid:{display:false}}}}});
 
-  // Executive insight for trend
-  (()=>{
-    const el=document.getElementById('ovsatTrendInsight'); if(!el) return;
-    const valid=ovsatByBucket.filter(v=>v!==null);
-    if(valid.length<2){ el.style.display='none'; return; }
-    const first=valid[0], last=valid[valid.length-1];
-    const diff=Math.round((last-first)*10)/10;
-    const trend=diff>0?'📈 Improving':diff<0?'📉 Declining':'➡️ Stable';
-    const aboveBench=last>=BENCHMARK;
-    el.innerHTML=`${trend}: OVSAT moved from <strong>${first}⭐</strong> to <strong>${last}⭐</strong> this period. ${aboveBench?'✅ Above benchmark ('+BENCHMARK+').':'⚠️ Below benchmark ('+BENCHMARK+') — action needed.'}`;
-    el.style.display='';
-  })();
+    // Executive insight for trend
+    (()=>{
+      const el=document.getElementById('ovsatTrendInsight'); if(!el) return;
+      const valid=ovsatByBucket.filter(v=>v!==null);
+      if(valid.length<2){ el.style.display='none'; return; }
+      const first=valid[0], last=valid[valid.length-1];
+      const diff=Math.round((last-first)*10)/10;
+      const trend=diff>0?'📈 Improving':diff<0?'📉 Declining':'➡️ Stable';
+      const aboveBench=last>=BENCHMARK;
+      el.innerHTML=`${trend}: OVSAT moved from <strong>${first}⭐</strong> to <strong>${last}⭐</strong> this period. ${aboveBench?'✅ Above benchmark ('+BENCHMARK+').':'⚠️ Below benchmark ('+BENCHMARK+') — action needed.'}`;
+      el.style.display='';
+    })();
+  }
 
   // ── 2. Satisfaction Distribution Donut ─────────────────────
   const sentLabels=['Very Satisfied (5⭐)','Satisfied (4⭐)','Neutral (3⭐)','Dissatisfied (2⭐)','Very Dissatisfied (1⭐)'];
   const sentColors=['#16a34a','#84cc16','#64748b','#f97316','#dc2626'];
   const sentData=[kpis.ovsat5,kpis.ovsat4,kpis.ovsat3,kpis.ovsat2,kpis.ovsat1];
-  const sentTotal=kpis.ovsatTotal||1;
-  mkNps('ovsatChartStarDist',{type:'doughnut',data:{labels:sentLabels,datasets:[{data:sentData,backgroundColor:sentColors,borderWidth:2,borderColor:'#fff',hoverBorderWidth:3,hoverOffset:6}]},
-    options:{responsive:true,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.raw/sentTotal*100)}%)`}}}}});
-  // Render legend with % bars
-  const legendEl=document.getElementById('ovsatSentLegend');
-  if(legendEl){
-    legendEl.innerHTML=sentLabels.map((l,i)=>{
-      const pct=Math.round((sentData[i]||0)/sentTotal*100);
-      return `<div style="display:flex;align-items:center;gap:8px;">
-        <div style="width:10px;height:10px;border-radius:2px;background:${sentColors[i]};flex-shrink:0;"></div>
-        <div style="flex:1;font-size:10px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l}</div>
-        <div style="width:60px;background:#f1f5f9;border-radius:4px;height:6px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${sentColors[i]};border-radius:4px;"></div></div>
-        <div style="font-size:10px;font-weight:700;color:${sentColors[i]};width:30px;text-align:right;">${pct}%</div>
-      </div>`;
-    }).join('');
+  const starDistHasData = (kpis.ovsatTotal||0) > 0;
+  if(starDistHasData){
+    const sentTotal=kpis.ovsatTotal;
+    mkNps('ovsatChartStarDist',{type:'doughnut',data:{labels:sentLabels,datasets:[{data:sentData,backgroundColor:sentColors,borderWidth:2,borderColor:'#fff',hoverBorderWidth:3,hoverOffset:6}]},
+      options:{responsive:true,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.raw/sentTotal*100)}%)`}}}}});
+    // Render legend with % bars
+    const legendEl=document.getElementById('ovsatSentLegend');
+    if(legendEl){
+      legendEl.innerHTML=sentLabels.map((l,i)=>{
+        const pct=Math.round((sentData[i]||0)/sentTotal*100);
+        return `<div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:10px;height:10px;border-radius:2px;background:${sentColors[i]};flex-shrink:0;"></div>
+          <div style="flex:1;font-size:10px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l}</div>
+          <div style="width:60px;background:#f1f5f9;border-radius:4px;height:6px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${sentColors[i]};border-radius:4px;"></div></div>
+          <div style="font-size:10px;font-weight:700;color:${sentColors[i]};width:30px;text-align:right;">${pct}%</div>
+        </div>`;
+      }).join('');
+    }
   }
+  _reflowChartPairRow('ovsatRow1', [trendHasData, starDistHasData], '2fr 1fr',
+    emptyState('<path d="M12 2a5 5 0 0 0-5 5c0 2 1 3 2 4l3 6 3-6c1-1 2-2 2-4a5 5 0 0 0-5-5z"/>','No OVSAT data yet','Satisfaction trend and rating distribution appear once responses come in.',null,null));
 
   // ── 3. Key Drivers of Satisfaction (SAT reasons horizontal bar) ──
   const satAgg={};
   if(currRecords) currRecords.forEach(r=>{ if(r.satReasons) Object.entries(r.satReasons).forEach(([k,v])=>{ satAgg[k]=(satAgg[k]||0)+(Number(v)||0); }); });
   const satEntries=Object.entries(satAgg).sort((a,b)=>b[1]-a[1]).slice(0,7);
-  const driverEmpty=document.getElementById('ovsatDriversEmpty');
-  const driverCanvas=document.getElementById('ovsatChartDrivers');
-  if(satEntries.length===0){
-    if(driverEmpty) driverEmpty.style.display='';
-    if(driverCanvas) driverCanvas.style.display='none';
-  } else {
-    if(driverEmpty) driverEmpty.style.display='none';
-    if(driverCanvas) driverCanvas.style.display='';
+  const driversHasData = satEntries.length>0;
+  if(driversHasData){
     const satTotal=satEntries.reduce((s,[,v])=>s+v,0)||1;
     mkNps('ovsatChartDrivers',{type:'bar',data:{labels:satEntries.map(([k])=>k),datasets:[{label:'Impact %',data:satEntries.map(([,v])=>Math.round(v/satTotal*100)),
       backgroundColor:satEntries.map((_,i)=>['#16a34a','#22c55e','#4ade80','#86efac','#bbf7d0','#d1fae5','#ecfdf5'][i]||'#16a34a'),
@@ -12276,22 +12281,21 @@ function _renderOvsatCharts(){
   }
 
   // ── 4. Channel Satisfaction bar ─────────────────────────────
-  mkNps('ovsatChartByChannel',{type:'bar',data:{labels:byChannel.length?byChannel.map(c=>c.ch):['—'],datasets:[{label:'Avg OVSAT',data:byChannel.length?byChannel.map(c=>c.avg):[0],
-    backgroundColor:(ctx)=>{ const c=ctx.chart; if(!c.chartArea) return '#1d4ed8'; return _chartGradient(c.ctx,c.chartArea,'#1d4ed8','rgba(29,78,216,.4)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#1e40af'}]},
-    options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` Avg OVSAT: ${ctx.parsed.y} ⭐`}}},scales:{y:{...baseScale,min:0,max:5,ticks:{...baseScale.ticks,callback:v=>v+' ⭐'}},x:{...baseScale,grid:{display:false}}}}});
+  const byChannelHasData = byChannel.length>0;
+  if(byChannelHasData){
+    mkNps('ovsatChartByChannel',{type:'bar',data:{labels:byChannel.map(c=>c.ch),datasets:[{label:'Avg OVSAT',data:byChannel.map(c=>c.avg),
+      backgroundColor:(ctx)=>{ const c=ctx.chart; if(!c.chartArea) return '#1d4ed8'; return _chartGradient(c.ctx,c.chartArea,'#1d4ed8','rgba(29,78,216,.4)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#1e40af'}]},
+      options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` Avg OVSAT: ${ctx.parsed.y} ⭐`}}},scales:{y:{...baseScale,min:0,max:5,ticks:{...baseScale.ticks,callback:v=>v+' ⭐'}},x:{...baseScale,grid:{display:false}}}}});
+  }
+  _reflowChartPairRow('ovsatRow2', [driversHasData, byChannelHasData], '1fr 1fr',
+    emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>','No driver data yet','Satisfaction drivers and per-channel comparison appear once SAT reasons are recorded.',null,null));
 
   // ── 5. Detractor Hotspots — Pareto Chart ────────────────────
   const dsatAgg={};
   if(currRecords) currRecords.forEach(r=>{ if(r.dsatReasons) Object.entries(r.dsatReasons).forEach(([k,v])=>{ dsatAgg[k]=(dsatAgg[k]||0)+(Number(v)||0); }); });
   const dsatEntries=Object.entries(dsatAgg).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  const paretoEmpty=document.getElementById('ovsatParetoEmpty');
-  const paretoCanvas=document.getElementById('ovsatChartPareto');
-  if(dsatEntries.length===0){
-    if(paretoEmpty) paretoEmpty.style.display='';
-    if(paretoCanvas) paretoCanvas.style.display='none';
-  } else {
-    if(paretoEmpty) paretoEmpty.style.display='none';
-    if(paretoCanvas) paretoCanvas.style.display='';
+  const paretoHasData = dsatEntries.length>0;
+  if(paretoHasData){
     const dsatTotal=dsatEntries.reduce((s,[,v])=>s+v,0)||1;
     const dsatPcts=dsatEntries.map(([,v])=>Math.round(v/dsatTotal*100));
     // Running cumulative for Pareto line
@@ -12302,7 +12306,6 @@ function _renderOvsatCharts(){
     ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{font:{size:10},padding:10}},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?` ${ctx.parsed.y}% of DSAT mentions`:` Cumulative: ${ctx.parsed.y}%`}}},
       scales:{y:{...baseScale,min:0,max:100,position:'left',ticks:{...baseScale.ticks,callback:v=>v+'%'}},y2:{...baseScale,min:0,max:100,position:'right',grid:{display:false},ticks:{...baseScale.ticks,callback:v=>v+'%'}},x:{...baseScale,grid:{display:false},ticks:{color:tickColor,font:{size:10}}}}}});
     (()=>{
-      if(!dsatEntries.length) return;
       const items=[];
       const top=dsatEntries[0]; const topPct=dsatPcts[0];
       items.push({text:`🔴 Top DSAT driver: "${top[0]}" — ${topPct}% of complaints`,type:'bad'});
@@ -12315,22 +12318,27 @@ function _renderOvsatCharts(){
   }
 
   // ── 6. Top-2-Box Trend ──────────────────────────────────────
-  mkNps('ovsatChartTop2Box',{type:'bar',data:{labels:buckets,datasets:[{label:'Top-2-Box %',data:top2ByBucket,
-    backgroundColor:(ctx)=>{ const c=ctx.chart; if(!c.chartArea) return '#16a34a'; return _chartGradient(c.ctx,c.chartArea,'#16a34a','rgba(22,163,74,.4)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#15803d',spanGaps:true}]},
-    options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y}%`}}},scales:{y:{...baseScale,min:0,max:100,ticks:{...baseScale.ticks,callback:v=>v+'%'}},x:{...baseScale,grid:{display:false}}}}});
+  const top2BoxHasData = !top2ByBucket.every(v=>v===null||v===undefined);
+  if(top2BoxHasData){
+    mkNps('ovsatChartTop2Box',{type:'bar',data:{labels:buckets,datasets:[{label:'Top-2-Box %',data:top2ByBucket,
+      backgroundColor:(ctx)=>{ const c=ctx.chart; if(!c.chartArea) return '#16a34a'; return _chartGradient(c.ctx,c.chartArea,'#16a34a','rgba(22,163,74,.4)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#15803d',spanGaps:true}]},
+      options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y}%`}}},scales:{y:{...baseScale,min:0,max:100,ticks:{...baseScale.ticks,callback:v=>v+'%'}},x:{...baseScale,grid:{display:false}}}}});
 
-  (()=>{
-    const valid2 = top2ByBucket.filter(v=>v!==null&&v!==undefined);
-    if(!valid2.length) return;
-    const T2B_TARGET = 70;
-    const last2 = valid2[valid2.length-1];
-    const prev2 = valid2.length>1?valid2[valid2.length-2]:null;
-    const items = [];
-    const diff2 = prev2!==null?+(last2-prev2).toFixed(1):null;
-    items.push(last2>=T2B_TARGET ? {text:`✅ Top-2-Box at ${last2}% — above ${T2B_TARGET}% industry benchmark`,type:'good'} : {text:`⚠️ Top-2-Box at ${last2}% — ${T2B_TARGET-last2}pts below the ${T2B_TARGET}% industry benchmark`,type:'bad'});
-    if(diff2!==null) items.push(diff2>0?{text:`📈 Up ${diff2}pts period-on-period`,type:'good'}:diff2<0?{text:`📉 Down ${Math.abs(diff2)}pts period-on-period — investigate satisfaction drivers`,type:'warn'}:{text:`➡️ Stable period-on-period`,type:'info'});
-    setTimeout(()=>_chartHeadline('ovsatChartTop2Box', items), 150);
-  })();
+    (()=>{
+      const valid2 = top2ByBucket.filter(v=>v!==null&&v!==undefined);
+      if(!valid2.length) return;
+      const T2B_TARGET = 70;
+      const last2 = valid2[valid2.length-1];
+      const prev2 = valid2.length>1?valid2[valid2.length-2]:null;
+      const items = [];
+      const diff2 = prev2!==null?+(last2-prev2).toFixed(1):null;
+      items.push(last2>=T2B_TARGET ? {text:`✅ Top-2-Box at ${last2}% — above ${T2B_TARGET}% industry benchmark`,type:'good'} : {text:`⚠️ Top-2-Box at ${last2}% — ${T2B_TARGET-last2}pts below the ${T2B_TARGET}% industry benchmark`,type:'bad'});
+      if(diff2!==null) items.push(diff2>0?{text:`📈 Up ${diff2}pts period-on-period`,type:'good'}:diff2<0?{text:`📉 Down ${Math.abs(diff2)}pts period-on-period — investigate satisfaction drivers`,type:'warn'}:{text:`➡️ Stable period-on-period`,type:'info'});
+      setTimeout(()=>_chartHeadline('ovsatChartTop2Box', items), 150);
+    })();
+  }
+  _reflowChartPairRow('ovsatRow3', [paretoHasData, top2BoxHasData], '1fr 1fr',
+    emptyState('<path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"/>','No trend data yet','Detractor hotspots and top-2-box trend appear once responses come in.',null,null));
 
   // ── 7. Word Cloud (CSS-based) ────────────────────────────────
   (()=>{
@@ -13019,20 +13027,22 @@ function renderNpsExecDashboard(){
   const baseScaleOpts={ grid:{color:gridColor,drawBorder:false}, ticks:{color:tickColor,font:{size:11}} };
 
   // — NPS Score Trend (dynamic Y-axis)
-  const _npsYAxisTrend = _npsComputeYAxis(npsByBucket, 50);
-  mkNps('npsChartTrend',{type:'line',data:{labels:buckets,datasets:[
-    {label:'NPS Score',data:npsByBucket,borderColor:'#FF7900',borderWidth:2.5,pointBackgroundColor:'#FF7900',pointRadius:5,pointHoverRadius:7,pointBorderColor:'#fff',pointBorderWidth:2,tension:.4,fill:true,
-      backgroundColor:(ctx)=>{ const chart=ctx.chart; if(!chart.chartArea) return 'rgba(255,121,0,0.08)'; return _chartGradient(chart.ctx,chart.chartArea,'rgba(255,121,0,0.25)','rgba(255,121,0,0.01)'); },
-      spanGaps:true},
-    {label:'Target (50)',data:buckets.map(()=>50),borderColor:'#319CDE',borderDash:[6,4],borderWidth:1.8,pointRadius:0,fill:false}
-  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}`}}},scales:{y:{...baseScaleOpts,min:_npsYAxisTrend.min,max:_npsYAxisTrend.max,ticks:{...baseScaleOpts.ticks,callback:v=>v}},x:{...baseScaleOpts,grid:{display:false},ticks:{color:tickColor,font:{size:11}}}}}});
+  const trendHasData = !npsByBucket.every(v=>v===null);
+  if(trendHasData){
+    const _npsYAxisTrend = _npsComputeYAxis(npsByBucket, 50);
+    mkNps('npsChartTrend',{type:'line',data:{labels:buckets,datasets:[
+      {label:'NPS Score',data:npsByBucket,borderColor:'#FF7900',borderWidth:2.5,pointBackgroundColor:'#FF7900',pointRadius:5,pointHoverRadius:7,pointBorderColor:'#fff',pointBorderWidth:2,tension:.4,fill:true,
+        backgroundColor:(ctx)=>{ const chart=ctx.chart; if(!chart.chartArea) return 'rgba(255,121,0,0.08)'; return _chartGradient(chart.ctx,chart.chartArea,'rgba(255,121,0,0.25)','rgba(255,121,0,0.01)'); },
+        spanGaps:true},
+      {label:'Target (50)',data:buckets.map(()=>50),borderColor:'#319CDE',borderDash:[6,4],borderWidth:1.8,pointRadius:0,fill:false}
+    ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}`}}},scales:{y:{...baseScaleOpts,min:_npsYAxisTrend.min,max:_npsYAxisTrend.max,ticks:{...baseScaleOpts.ticks,callback:v=>v}},x:{...baseScaleOpts,grid:{display:false},ticks:{color:tickColor,font:{size:11}}}}}});
+  }
 
   // — Score Distribution speedometer (use current period data)
-  if(kpisCurr.npsScore!==null){
-    _drawNpsDistSpeedometer(kpisCurr.promoterPct||0, kpisCurr.passivePct||0, kpisCurr.detractorPct||0);
-  } else {
-    _drawNpsDistSpeedometer(0, 0, 0);
-  }
+  const distHasData = kpisCurr.totalResp > 0;
+  if(distHasData) _drawNpsDistSpeedometer(kpisCurr.promoterPct||0, kpisCurr.passivePct||0, kpisCurr.detractorPct||0);
+  _reflowChartPairRow('npsChartsRow1', [trendHasData, distHasData], '2fr 1fr',
+    emptyState('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>','No NPS data yet','No responses recorded for this period yet — try a wider date range or add data.',null,null));
 
   // — NPS by Channel (from curr records)
   const chNpsMap={};
@@ -13042,17 +13052,25 @@ function renderNpsExecDashboard(){
     const c=chNpsMap[ch]; c.p+=(r.promoters||0);c.pa+=(r.passives||0);c.d+=(r.detractors||0);
   }
   const chNpsEntries=Object.entries(chNpsMap).map(([ch,a])=>({ch,nps:Math.round(((a.p-a.d)/(a.p+a.pa+a.d||1))*100)})).sort((a,b)=>b.nps-a.nps);
-  const chNpsLabels=chNpsEntries.length?chNpsEntries.map(c=>c.ch):['Chat','Hotline','Store'];
-  const chNpsData=chNpsEntries.length?chNpsEntries.map(c=>c.nps):[0,0,0];
-  const _npsYAxisCh = _npsComputeYAxis(chNpsData, 0);
-  mkNps('npsChartByCampaign',{type:'bar',data:{labels:chNpsLabels,datasets:[{label:'NPS',data:chNpsData,
-    backgroundColor:(ctx)=>{ const chart=ctx.chart; if(!chart.chartArea) return '#FF7900'; return _chartGradient(chart.ctx,chart.chartArea,'#FF7900','rgba(255,121,0,0.5)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#E56A00'}]},
-    options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` NPS: ${ctx.parsed.y}`}}},scales:{y:{...baseScaleOpts,min:_npsYAxisCh.min,max:_npsYAxisCh.max,ticks:{...baseScaleOpts.ticks,callback:v=>v}},x:{...baseScaleOpts,grid:{display:false},ticks:{color:tickColor,font:{size:11}}}}}});
+  const byChannelHasData = chNpsEntries.length>0;
+  if(byChannelHasData){
+    const chNpsLabels=chNpsEntries.map(c=>c.ch), chNpsData=chNpsEntries.map(c=>c.nps);
+    const _npsYAxisCh = _npsComputeYAxis(chNpsData, 0);
+    mkNps('npsChartByCampaign',{type:'bar',data:{labels:chNpsLabels,datasets:[{label:'NPS',data:chNpsData,
+      backgroundColor:(ctx)=>{ const chart=ctx.chart; if(!chart.chartArea) return '#FF7900'; return _chartGradient(chart.ctx,chart.chartArea,'#FF7900','rgba(255,121,0,0.5)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#E56A00'}]},
+      options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` NPS: ${ctx.parsed.y}`}}},scales:{y:{...baseScaleOpts,min:_npsYAxisCh.min,max:_npsYAxisCh.max,ticks:{...baseScaleOpts.ticks,callback:v=>v}},x:{...baseScaleOpts,grid:{display:false},ticks:{color:tickColor,font:{size:11}}}}}});
+  }
 
   // — Response Volume
-  mkNps('npsChartVolume',{type:'bar',data:{labels:buckets,datasets:[{label:'Responses',data:volByBucket,
-    backgroundColor:(ctx)=>{ const chart=ctx.chart; if(!chart.chartArea) return '#319CDE'; return _chartGradient(chart.ctx,chart.chartArea,'#319CDE','rgba(49,156,222,0.4)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#0284c7'}]},
-    options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y} responses`}}},scales:{y:{...baseScaleOpts},x:{...baseScaleOpts,grid:{display:false},ticks:{color:tickColor,font:{size:11}}}}}});
+  const volumeHasData = !volByBucket.every(v=>v===0);
+  if(volumeHasData){
+    const _npsYAxisVol = _npsComputeYAxis(volByBucket, 0);
+    mkNps('npsChartVolume',{type:'bar',data:{labels:buckets,datasets:[{label:'Responses',data:volByBucket,
+      backgroundColor:(ctx)=>{ const chart=ctx.chart; if(!chart.chartArea) return '#319CDE'; return _chartGradient(chart.ctx,chart.chartArea,'#319CDE','rgba(49,156,222,0.4)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#0284c7'}]},
+      options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y} responses`}}},scales:{y:{...baseScaleOpts,min:0,max:Math.max(_npsYAxisVol.max,5)},x:{...baseScaleOpts,grid:{display:false},ticks:{color:tickColor,font:{size:11}}}}}});
+  }
+  _reflowChartPairRow('npsChartsRow2', [byChannelHasData, volumeHasData], '1fr 1fr',
+    emptyState('<path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"/>','No channel data yet','Channel comparison and response volume appear once responses come in.',null,null));
 
   // — Top 3 SAT / DSAT (from curr records)
   _renderNpsTop3(currRecords);
