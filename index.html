@@ -12576,7 +12576,10 @@ function toggleNpsCorrelSection(){
 function _npsRenderQaCorrelation(allNpsRecords, currNpsRecords, period, range, buckets, bucketFn, bucketCount, npsByBucket) {
   const el = document.getElementById('npsQaCorrelPanel'); if(!el) return;
   const qaAll = typeof getRecords==='function' ? getRecords() : [];
-  if(!qaAll.length && !allNpsRecords.length){ el.innerHTML=''; return; }
+  if(!qaAll.length && !allNpsRecords.length){
+    el.innerHTML = emptyState('<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>','No correlation data yet','Needs both QA evaluations and NPS responses to compare — check back once both are recorded.',null,null);
+    return;
+  }
 
   // Period QA buckets (same as NPS buckets)
   const qaBkt=Array.from({length:bucketCount},()=>({tot:0,cnt:0,pass:0}));
@@ -15573,6 +15576,27 @@ function _drawNpsDistSpeedometer(promoter, passive, detractor){
   ctx.lineWidth = arcW;
   ctx.lineCap = 'butt';
   ctx.stroke();
+
+  // No responses — same fix as _makeNpsGauge(): P+Pa+D can only sum to 0
+  // when there were zero records, but the zone math below draws a full
+  // green ring (0-100) whenever detractor+passive are both 0, since that
+  // leaves the whole range to the promoter zone — reading as "100%
+  // promoters" instead of "no data". Missed this here when the twin bug
+  // was fixed in _makeNpsGauge() earlier, despite editing this function's
+  // colors in that same pass — should have re-checked every caller then.
+  if(promoter + passive + detractor === 0){
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '600 13px Inter,system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('No data yet', cx, cy - 10);
+    ctx.font = '11px Inter,system-ui,sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText('for this period', cx, cy + 8);
+    const barEl = document.getElementById('npsDistBar');
+    if(barEl) barEl.innerHTML = '<div style="text-align:center;padding:8px 0;color:#94a3b8;font-size:11px;">No responses in this period yet.</div>';
+    return;
+  }
 
   // Zone arcs: left→right = Detractors | Passives | Promoters. Colors follow
   // the standard NPS traffic-light convention (red/amber/green), matching
