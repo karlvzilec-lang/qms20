@@ -12176,12 +12176,13 @@ function _renderNpsTop3(records){
   const satEl=document.getElementById('npsTop3Sat');
   const dsatEl=document.getElementById('npsTop3Dsat');
   if(!satEl||!dsatEl) return;
-  _reflowChartPairRow('npsSatDsatRow', [satEntries.length>0, dsatEntries.length>0], '1fr 1fr',
-    emptyState('<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>','No SAT/DSAT reasons yet','Top drivers appear once evaluations record satisfaction or dissatisfaction reasons.',null,null));
-  if(!satEntries.length&&!dsatEntries.length) return;
+  const satHasData = satEntries.length>0, dsatHasData = dsatEntries.length>0;
+  _reflowChartPairRow('npsSatDsatRow', [satHasData, dsatHasData], '1fr 1fr',
+    emptyState('<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>','No SAT/DSAT reasons yet','Top drivers appear once evaluations record satisfaction or dissatisfaction reasons.',null,null),
+    [satHasData?null:'No SAT reasons for this period', dsatHasData?null:'No DSAT reasons for this period']);
+  if(!satHasData&&!dsatHasData) return;
 
   const renderList=(entries, icon, color, label)=>{
-    if(!entries.length) return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><div style="width:3px;height:16px;background:${color};border-radius:2px;"></div><div style="font-weight:700;font-size:13px;color:#0f172a;">${label}</div></div><div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px 0;">No data for this period</div>`;
     const total=entries.reduce((s,[,v])=>s+v,0);
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
       <div style="width:3px;height:16px;background:${color};border-radius:2px;"></div>
@@ -12202,8 +12203,8 @@ function _renderNpsTop3(records){
       </div>`;
     }).join('')}`;
   };
-  satEl.innerHTML = renderList(satEntries,'😊','#16a34a','Top 3 SAT Drivers');
-  dsatEl.innerHTML= renderList(dsatEntries,'😞','#dc2626','Top 3 DSAT Drivers');
+  if(satHasData) satEl.innerHTML = renderList(satEntries,'😊','#16a34a','Top 3 SAT Drivers');
+  if(dsatHasData) dsatEl.innerHTML = renderList(dsatEntries,'😞','#dc2626','Top 3 DSAT Drivers');
 }
 
 // Cache of OVSAT chart data for tab switch
@@ -12218,7 +12219,13 @@ function _renderOvsatCharts(){
   const BENCHMARK = 4.2;
 
   // ── 1. OVSAT Trend ──────────────────────────────────────────
+  // hasData for both cards is computed up front and the row reflowed before
+  // either chart is constructed — see the comment on _reflowChartPairRow.
   const trendHasData = !ovsatByBucket.every(v=>v===null||v===undefined);
+  const starDistHasData = (kpis.ovsatTotal||0) > 0;
+  _reflowChartPairRow('ovsatRow1', [trendHasData, starDistHasData], '2fr 1fr',
+    emptyState('<path d="M12 2a5 5 0 0 0-5 5c0 2 1 3 2 4l3 6 3-6c1-1 2-2 2-4a5 5 0 0 0-5-5z"/>','No OVSAT data yet','Satisfaction trend and rating distribution appear once responses come in.',null,null),
+    [trendHasData?null:'Trend has no data for this period', starDistHasData?null:'Rating distribution has no data for this period']);
   if(trendHasData){
     mkNps('ovsatChartTrend',{type:'line',data:{labels:buckets,datasets:[
       {label:'OVSAT',data:ovsatByBucket,borderColor:'#1d4ed8',borderWidth:2.5,pointBackgroundColor:'#1d4ed8',pointRadius:5,pointHoverRadius:7,pointBorderColor:'#fff',pointBorderWidth:2,tension:.4,fill:true,spanGaps:true,
@@ -12244,7 +12251,6 @@ function _renderOvsatCharts(){
   const sentLabels=['Very Satisfied (5⭐)','Satisfied (4⭐)','Neutral (3⭐)','Dissatisfied (2⭐)','Very Dissatisfied (1⭐)'];
   const sentColors=['#16a34a','#84cc16','#64748b','#f97316','#dc2626'];
   const sentData=[kpis.ovsat5,kpis.ovsat4,kpis.ovsat3,kpis.ovsat2,kpis.ovsat1];
-  const starDistHasData = (kpis.ovsatTotal||0) > 0;
   if(starDistHasData){
     const sentTotal=kpis.ovsatTotal;
     mkNps('ovsatChartStarDist',{type:'doughnut',data:{labels:sentLabels,datasets:[{data:sentData,backgroundColor:sentColors,borderWidth:2,borderColor:'#fff',hoverBorderWidth:3,hoverOffset:6}]},
@@ -12263,14 +12269,20 @@ function _renderOvsatCharts(){
       }).join('');
     }
   }
-  _reflowChartPairRow('ovsatRow1', [trendHasData, starDistHasData], '2fr 1fr',
-    emptyState('<path d="M12 2a5 5 0 0 0-5 5c0 2 1 3 2 4l3 6 3-6c1-1 2-2 2-4a5 5 0 0 0-5-5z"/>','No OVSAT data yet','Satisfaction trend and rating distribution appear once responses come in.',null,null));
 
   // ── 3. Key Drivers of Satisfaction (SAT reasons horizontal bar) ──
   const satAgg={};
   if(currRecords) currRecords.forEach(r=>{ if(r.satReasons) Object.entries(r.satReasons).forEach(([k,v])=>{ satAgg[k]=(satAgg[k]||0)+(Number(v)||0); }); });
   const satEntries=Object.entries(satAgg).sort((a,b)=>b[1]-a[1]).slice(0,7);
   const driversHasData = satEntries.length>0;
+
+  // ── 4. Channel Satisfaction bar ─────────────────────────────
+  const byChannelHasData = byChannel.length>0;
+
+  _reflowChartPairRow('ovsatRow2', [driversHasData, byChannelHasData], '1fr 1fr',
+    emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>','No driver data yet','Satisfaction drivers and per-channel comparison appear once SAT reasons are recorded.',null,null),
+    [driversHasData?null:'No SAT reason data yet — add SAT reasons in Data Entry', byChannelHasData?null:'No per-channel OVSAT data for this period']);
+
   if(driversHasData){
     const satTotal=satEntries.reduce((s,[,v])=>s+v,0)||1;
     mkNps('ovsatChartDrivers',{type:'bar',data:{labels:satEntries.map(([k])=>k),datasets:[{label:'Impact %',data:satEntries.map(([,v])=>Math.round(v/satTotal*100)),
@@ -12279,22 +12291,25 @@ function _renderOvsatCharts(){
       options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x}% of satisfaction mentions`}}},
       scales:{x:{...baseScale,min:0,max:100,ticks:{...baseScale.ticks,callback:v=>v+'%'}},y:{...baseScale,grid:{display:false},ticks:{...baseScale.ticks,font:{size:11}}}}}});
   }
-
-  // ── 4. Channel Satisfaction bar ─────────────────────────────
-  const byChannelHasData = byChannel.length>0;
   if(byChannelHasData){
     mkNps('ovsatChartByChannel',{type:'bar',data:{labels:byChannel.map(c=>c.ch),datasets:[{label:'Avg OVSAT',data:byChannel.map(c=>c.avg),
       backgroundColor:(ctx)=>{ const c=ctx.chart; if(!c.chartArea) return '#1d4ed8'; return _chartGradient(c.ctx,c.chartArea,'#1d4ed8','rgba(29,78,216,.4)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#1e40af'}]},
       options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` Avg OVSAT: ${ctx.parsed.y} ⭐`}}},scales:{y:{...baseScale,min:0,max:5,ticks:{...baseScale.ticks,callback:v=>v+' ⭐'}},x:{...baseScale,grid:{display:false}}}}});
   }
-  _reflowChartPairRow('ovsatRow2', [driversHasData, byChannelHasData], '1fr 1fr',
-    emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>','No driver data yet','Satisfaction drivers and per-channel comparison appear once SAT reasons are recorded.',null,null));
 
   // ── 5. Detractor Hotspots — Pareto Chart ────────────────────
   const dsatAgg={};
   if(currRecords) currRecords.forEach(r=>{ if(r.dsatReasons) Object.entries(r.dsatReasons).forEach(([k,v])=>{ dsatAgg[k]=(dsatAgg[k]||0)+(Number(v)||0); }); });
   const dsatEntries=Object.entries(dsatAgg).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const paretoHasData = dsatEntries.length>0;
+
+  // ── 6. Top-2-Box Trend (hasData computed here, row reflowed before either
+  // chart in this pair is constructed — see _reflowChartPairRow) ──────────
+  const top2BoxHasData = !top2ByBucket.every(v=>v===null||v===undefined);
+  _reflowChartPairRow('ovsatRow3', [paretoHasData, top2BoxHasData], '1fr 1fr',
+    emptyState('<path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"/>','No trend data yet','Detractor hotspots and top-2-box trend appear once responses come in.',null,null),
+    [paretoHasData?null:'No DSAT reason data yet — add DSAT reasons in Data Entry', top2BoxHasData?null:'No trend data for Top-2-Box this period']);
+
   if(paretoHasData){
     const dsatTotal=dsatEntries.reduce((s,[,v])=>s+v,0)||1;
     const dsatPcts=dsatEntries.map(([,v])=>Math.round(v/dsatTotal*100));
@@ -12317,8 +12332,6 @@ function _renderOvsatCharts(){
     })();
   }
 
-  // ── 6. Top-2-Box Trend ──────────────────────────────────────
-  const top2BoxHasData = !top2ByBucket.every(v=>v===null||v===undefined);
   if(top2BoxHasData){
     mkNps('ovsatChartTop2Box',{type:'bar',data:{labels:buckets,datasets:[{label:'Top-2-Box %',data:top2ByBucket,
       backgroundColor:(ctx)=>{ const c=ctx.chart; if(!c.chartArea) return '#16a34a'; return _chartGradient(c.ctx,c.chartArea,'#16a34a','rgba(22,163,74,.4)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#15803d',spanGaps:true}]},
@@ -12337,8 +12350,6 @@ function _renderOvsatCharts(){
       setTimeout(()=>_chartHeadline('ovsatChartTop2Box', items), 150);
     })();
   }
-  _reflowChartPairRow('ovsatRow3', [paretoHasData, top2BoxHasData], '1fr 1fr',
-    emptyState('<path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"/>','No trend data yet','Detractor hotspots and top-2-box trend appear once responses come in.',null,null));
 
   // ── 7. Word Cloud (CSS-based) ────────────────────────────────
   (()=>{
@@ -12588,8 +12599,18 @@ function toggleNpsCorrelSection(){
 // are empty. cardVisible is [bool,bool] for the row's two children in DOM
 // order; originalCols is the row's normal grid-template-columns when both
 // have data (e.g. '2fr 1fr'), used to restore the intentional ratio rather
-// than leaving it on whatever the 1-card fallback set it to.
-function _reflowChartPairRow(rowId, cardVisible, originalCols, emptyRowMsgHtml){
+// than leaving it on whatever the 1-card fallback set it to. Callers MUST
+// call this before constructing/drawing either card's chart, not after —
+// Chart.js measures its container at construction time, and a canvas built
+// while its row is still display:none from a prior empty-data render gets
+// pinned at 0x0 with no reliable self-correction later.
+//
+// optional partialMsgs is [strOrNull,strOrNull], one short label per card
+// naming what that specific card needed — shown as a small note above the
+// row when exactly one (not both) card is hidden, so the surviving card's
+// expansion to fill the row doesn't read as the other chart having silently
+// vanished with no explanation.
+function _reflowChartPairRow(rowId, cardVisible, originalCols, emptyRowMsgHtml, partialMsgs){
   const row = document.getElementById(rowId);
   if(!row) return;
   const emptyEl = document.getElementById(rowId+'Empty');
@@ -12602,7 +12623,15 @@ function _reflowChartPairRow(rowId, cardVisible, originalCols, emptyRowMsgHtml){
   } else {
     row.style.display = 'grid';
     row.style.gridTemplateColumns = visibleCount === cards.length ? originalCols : '1fr';
-    if(emptyEl) emptyEl.style.display = 'none';
+    if(emptyEl){
+      const missing = (visibleCount < cards.length && partialMsgs) ? cardVisible.map((v,i)=>v?null:partialMsgs[i]).filter(Boolean) : [];
+      if(missing.length){
+        emptyEl.style.display = '';
+        emptyEl.innerHTML = `<div style="font-size:11px;color:#94a3b8;padding:0 2px 8px;">ℹ️ ${missing.join(' · ')}</div>`;
+      } else {
+        emptyEl.style.display = 'none';
+      }
+    }
   }
 }
 
@@ -12951,7 +12980,7 @@ function renderNpsExecDashboard(){
     const c=chMap[ch];
     c.ov5+=(r.ovsat5||0);c.ov4+=(r.ovsat4||0);c.ov3+=(r.ovsat3||0);c.ov2+=(r.ovsat2||0);c.ov1+=(r.ovsat1||0);c.ovsatT+=(r.ovsatTotal||0);
   }
-  const byChannel=Object.entries(chMap).map(([ch,a])=>({ch, avg:a.ovsatT>0?Math.round(((5*a.ov5+4*a.ov4+3*a.ov3+2*a.ov2+1*a.ov1)/a.ovsatT)*10)/10:0})).sort((a,b)=>b.avg-a.avg);
+  const byChannel=Object.entries(chMap).filter(([,a])=>a.ovsatT>0).map(([ch,a])=>({ch, avg:Math.round(((5*a.ov5+4*a.ov4+3*a.ov3+2*a.ov2+1*a.ov1)/a.ovsatT)*10)/10})).sort((a,b)=>b.avg-a.avg);
 
   // Cache OVSAT data for tab (include currRecords for reason charts)
   _ovsatChartData = {buckets, ovsatByBucket, top2ByBucket, byChannel, kpis:kpisCurr, currRecords};
@@ -13026,8 +13055,18 @@ function renderNpsExecDashboard(){
   const gridColor='rgba(0,0,0,0.05)', tickColor='#9ca3af';
   const baseScaleOpts={ grid:{color:gridColor,drawBorder:false}, ticks:{color:tickColor,font:{size:11}} };
 
-  // — NPS Score Trend (dynamic Y-axis)
+  // — NPS Score Trend (dynamic Y-axis) + Score Distribution speedometer.
+  // Reflow the row BEFORE constructing/drawing either chart: Chart.js
+  // measures its container at construction time, and a canvas built while
+  // its row is still display:none from a prior empty-data render gets
+  // pinned at 0x0 (ResizeObserver doesn't reliably recover a chart that was
+  // never given a real initial size). Same reasoning applies to every other
+  // _reflowChartPairRow call site below and in _renderOvsatCharts /
+  // renderNpsChannelDashboard.
   const trendHasData = !npsByBucket.every(v=>v===null);
+  const distHasData = kpisCurr.totalResp > 0;
+  _reflowChartPairRow('npsChartsRow1', [trendHasData, distHasData], '2fr 1fr',
+    emptyState('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>','No NPS data yet','No responses recorded for this period yet — try a wider date range or add data.',null,null));
   if(trendHasData){
     const _npsYAxisTrend = _npsComputeYAxis(npsByBucket, 50);
     mkNps('npsChartTrend',{type:'line',data:{labels:buckets,datasets:[
@@ -13037,22 +13076,28 @@ function renderNpsExecDashboard(){
       {label:'Target (50)',data:buckets.map(()=>50),borderColor:'#319CDE',borderDash:[6,4],borderWidth:1.8,pointRadius:0,fill:false}
     ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y}`}}},scales:{y:{...baseScaleOpts,min:_npsYAxisTrend.min,max:_npsYAxisTrend.max,ticks:{...baseScaleOpts.ticks,callback:v=>v}},x:{...baseScaleOpts,grid:{display:false},ticks:{color:tickColor,font:{size:11}}}}}});
   }
-
-  // — Score Distribution speedometer (use current period data)
-  const distHasData = kpisCurr.totalResp > 0;
   if(distHasData) _drawNpsDistSpeedometer(kpisCurr.promoterPct||0, kpisCurr.passivePct||0, kpisCurr.detractorPct||0);
-  _reflowChartPairRow('npsChartsRow1', [trendHasData, distHasData], '2fr 1fr',
-    emptyState('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>','No NPS data yet','No responses recorded for this period yet — try a wider date range or add data.',null,null));
 
-  // — NPS by Channel (from curr records)
+  // — NPS by Channel (from curr records). Channels are only included once
+  // they have at least one promoter/passive/detractor-classified response —
+  // otherwise a channel whose records this period are all missing NPS
+  // classification (e.g. OVSAT-only import rows) would fall back to a
+  // fabricated 0 via the old ||1 divisor, indistinguishable from a real tie.
   const chNpsMap={};
   for(const r of currRecords){
     const ch=_npsNormalizeChannelForDisplay(r.channel);
     if(!chNpsMap[ch]) chNpsMap[ch]={p:0,pa:0,d:0};
     const c=chNpsMap[ch]; c.p+=(r.promoters||0);c.pa+=(r.passives||0);c.d+=(r.detractors||0);
   }
-  const chNpsEntries=Object.entries(chNpsMap).map(([ch,a])=>({ch,nps:Math.round(((a.p-a.d)/(a.p+a.pa+a.d||1))*100)})).sort((a,b)=>b.nps-a.nps);
+  const chNpsEntries=Object.entries(chNpsMap).filter(([,a])=>(a.p+a.pa+a.d)>0).map(([ch,a])=>({ch,nps:Math.round(((a.p-a.d)/(a.p+a.pa+a.d))*100)})).sort((a,b)=>b.nps-a.nps);
   const byChannelHasData = chNpsEntries.length>0;
+
+  // — Response Volume
+  const volumeHasData = !volByBucket.every(v=>v===0);
+
+  _reflowChartPairRow('npsChartsRow2', [byChannelHasData, volumeHasData], '1fr 1fr',
+    emptyState('<path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"/>','No channel data yet','Channel comparison and response volume appear once responses come in.',null,null));
+
   if(byChannelHasData){
     const chNpsLabels=chNpsEntries.map(c=>c.ch), chNpsData=chNpsEntries.map(c=>c.nps);
     const _npsYAxisCh = _npsComputeYAxis(chNpsData, 0);
@@ -13060,17 +13105,17 @@ function renderNpsExecDashboard(){
       backgroundColor:(ctx)=>{ const chart=ctx.chart; if(!chart.chartArea) return '#FF7900'; return _chartGradient(chart.ctx,chart.chartArea,'#FF7900','rgba(255,121,0,0.5)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#E56A00'}]},
       options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` NPS: ${ctx.parsed.y}`}}},scales:{y:{...baseScaleOpts,min:_npsYAxisCh.min,max:_npsYAxisCh.max,ticks:{...baseScaleOpts.ticks,callback:v=>v}},x:{...baseScaleOpts,grid:{display:false},ticks:{color:tickColor,font:{size:11}}}}}});
   }
-
-  // — Response Volume
-  const volumeHasData = !volByBucket.every(v=>v===0);
   if(volumeHasData){
-    const _npsYAxisVol = _npsComputeYAxis(volByBucket, 0);
+    // No _npsComputeYAxis here on purpose — it's tuned for NPS-score data
+    // (minimum 10-point range/padding around a target), which forces an
+    // oversized ceiling on raw response counts (e.g. a single real response
+    // would render at 5% of the chart height). Let Chart.js auto-fit the
+    // top of the range to the real data, same as before this chart had any
+    // empty-state handling at all.
     mkNps('npsChartVolume',{type:'bar',data:{labels:buckets,datasets:[{label:'Responses',data:volByBucket,
       backgroundColor:(ctx)=>{ const chart=ctx.chart; if(!chart.chartArea) return '#319CDE'; return _chartGradient(chart.ctx,chart.chartArea,'#319CDE','rgba(49,156,222,0.4)'); },borderRadius:8,borderSkipped:false,hoverBackgroundColor:'#0284c7'}]},
-      options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y} responses`}}},scales:{y:{...baseScaleOpts,min:0,max:Math.max(_npsYAxisVol.max,5)},x:{...baseScaleOpts,grid:{display:false},ticks:{color:tickColor,font:{size:11}}}}}});
+      options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y} responses`}}},scales:{y:{...baseScaleOpts,min:0},x:{...baseScaleOpts,grid:{display:false},ticks:{color:tickColor,font:{size:11}}}}}});
   }
-  _reflowChartPairRow('npsChartsRow2', [byChannelHasData, volumeHasData], '1fr 1fr',
-    emptyState('<path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"/>','No channel data yet','Channel comparison and response volume appear once responses come in.',null,null));
 
   // — Top 3 SAT / DSAT (from curr records)
   _renderNpsTop3(currRecords);
@@ -13322,14 +13367,18 @@ function renderNpsChannelDashboard(channelName){
   // _npsComputeYAxis() (which itself falls back to a sane {min:0,max:80}
   // on empty input); this just brings the per-channel chart in line with it.
   const trendHasData = !npsByBucket.every(v=>v===null);
+  // sentimentHasData is known as soon as _npsRenderSentimentCard returns (it
+  // only writes text/HTML, not a Chart.js canvas, so it's not sensitive to
+  // being called before the row is unhidden) — compute both booleans and
+  // reflow the row before constructing npsChTrendCanvas, which is.
+  const sentimentHasData = _npsRenderSentimentCard(currRecords);
+  _reflowChartPairRow('npsChRow1', [trendHasData, sentimentHasData], '2fr 1fr',
+    emptyState('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>','No NPS data yet',`No ${esc(channelName)} responses in this period — try a wider date range or add data.`,null,null),
+    [trendHasData?null:'No trend data for this period', sentimentHasData?null:'No verbatim comments with sentiment for this period']);
   if(trendHasData){
     const _npsYAxisCh = _npsComputeYAxis(npsByBucket, 50);
     mkChart('npsChTrendCanvas','line',buckets,[{label:'NPS',data:npsByBucket,borderColor:'#FF7900',backgroundColor:'rgba(255,121,0,.08)',tension:.3,fill:true,spanGaps:true}],{scales:{y:{min:_npsYAxisCh.min,max:_npsYAxisCh.max}}});
   }
-
-  const sentimentHasData = _npsRenderSentimentCard(currRecords);
-  _reflowChartPairRow('npsChRow1', [trendHasData, sentimentHasData], '2fr 1fr',
-    emptyState('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>','No NPS data yet',`No ${esc(channelName)} responses in this period — try a wider date range or add data.`,null,null));
 
   // Demographics — grouped by customer segment for consumer channels, by
   // reseller tier for Reseller App (no end-consumer demographics there).
@@ -13338,13 +13387,17 @@ function renderNpsChannelDashboard(channelName){
   currRecords.forEach(r=>{ const v=(r.demographic&&r.demographic[demoField])||r[demoField]||'Unknown'; demoMap[v]=(demoMap[v]||0)+1; });
   const demoLabels=Object.keys(demoMap), demoData=Object.values(demoMap);
   const demoHasData = demoLabels.length>0;
+  // _npsRenderChannelTypePanel's own canvas draw (app/reseller/auto
+  // branches) is already deferred via setTimeout(...,0), so it's safe
+  // regardless of call order here — only npsChDemoCanvas's direct,
+  // synchronous mkChart call below needs to happen after the reflow.
+  const typePanelHasData = _npsRenderChannelTypePanel(cfg, currRecords);
+  _reflowChartPairRow('npsChRow2', [demoHasData, typePanelHasData], '1fr 1fr',
+    emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','No respondent data yet','Demographic and detail breakdowns appear once responses come in for this period.',null,null),
+    [demoHasData?null:'No demographic data for this period', typePanelHasData?null:'No detail breakdown for this period']);
   if(demoHasData){
     mkChart('npsChDemoCanvas','bar',demoLabels,[{label:'Responses',data:demoData,backgroundColor:'#FF7900',borderRadius:6}],{plugins:{legend:{display:false}}});
   }
-
-  const typePanelHasData = _npsRenderChannelTypePanel(cfg, currRecords);
-  _reflowChartPairRow('npsChRow2', [demoHasData, typePanelHasData], '1fr 1fr',
-    emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','No respondent data yet','Demographic and detail breakdowns appear once responses come in for this period.',null,null));
 }
 
 // Sentiment donut + example verbatims, visually modeled on the existing
@@ -13383,12 +13436,19 @@ function _npsRenderSentimentCard(records){
 function _npsRenderChannelTypePanel(cfg, records){
   const el = document.getElementById('npsChTypePanelBody');
   if(!el) return false;
+  // This panel reuses one canvas id (npsChTypeCanvas) across the app/
+  // reseller/auto branches and across channel switches. Every branch below
+  // replaces el's innerHTML unconditionally (success or empty), which would
+  // detach a previous npsChTypeCanvas from the DOM without ever calling
+  // .destroy() on its Chart.js instance — destroying it up front, once,
+  // covers every path instead of patching each branch/guard separately.
+  if(rCharts['npsChTypeCanvas']){ rCharts['npsChTypeCanvas'].destroy(); delete rCharts['npsChTypeCanvas']; }
   if(cfg.type==='agent'){
     const byAgent={};
     records.forEach(r=>{
-      const name=r.agentName||'Unassigned';
-      if(!byAgent[name]) byAgent[name]={p:0,pa:0,d:0};
-      byAgent[name].p+=(r.promoters||0); byAgent[name].pa+=(r.passives||0); byAgent[name].d+=(r.detractors||0);
+      if(!r.agentName) return; // exclude unattributed responses rather than bucketing them into a fake 'Unassigned' leaderboard entry that defeats the empty-state guard below
+      if(!byAgent[r.agentName]) byAgent[r.agentName]={p:0,pa:0,d:0};
+      byAgent[r.agentName].p+=(r.promoters||0); byAgent[r.agentName].pa+=(r.passives||0); byAgent[r.agentName].d+=(r.detractors||0);
     });
     const rows=Object.entries(byAgent).map(([name,a])=>{
       const t=a.p+a.pa+a.d; return {name, nps:t>0?Math.round(((a.p-a.d)/t)*100):0, total:t};
@@ -13403,7 +13463,7 @@ function _npsRenderChannelTypePanel(cfg, records){
     return true;
   } else if(cfg.type==='app'){
     const byScreen={};
-    records.forEach(r=>{ const s=r.appScreen||'Unspecified'; byScreen[s]=(byScreen[s]||0)+1; });
+    records.forEach(r=>{ if(!r.appScreen) return; byScreen[r.appScreen]=(byScreen[r.appScreen]||0)+1; });
     const labels=Object.keys(byScreen), data=Object.values(byScreen);
     if(!labels.length){ el.innerHTML=''; return false; }
     el.innerHTML = `<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">📱 Responses by App Screen</div><canvas id="npsChTypeCanvas" height="140"></canvas>`;
@@ -13419,7 +13479,7 @@ function _npsRenderChannelTypePanel(cfg, records){
     return true;
   } else if(cfg.type==='auto'){
     const byProduct={};
-    records.forEach(r=>{ const p=r.productPurchased||'Unspecified'; byProduct[p]=(byProduct[p]||0)+1; });
+    records.forEach(r=>{ if(!r.productPurchased) return; byProduct[r.productPurchased]=(byProduct[r.productPurchased]||0)+1; });
     const labels=Object.keys(byProduct), data=Object.values(byProduct);
     if(!labels.length){ el.innerHTML=''; return false; }
     el.innerHTML = `<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:12px;">🛒 Responses by Product Purchased</div><canvas id="npsChTypeCanvas" height="140"></canvas>`;
@@ -20109,11 +20169,15 @@ function _getNpsChannelData(){
       map[ch].d  += r.detractors || 0;
     });
     Object.keys(map).forEach(ch=>{
-      const t = (map[ch].p + map[ch].pa + map[ch].d) || 1;
-      map[ch].total = t;
-      map[ch].pPct  = Math.round(map[ch].p  / t * 100);
-      map[ch].paPct = Math.round(map[ch].pa / t * 100);
-      map[ch].dPct  = Math.round(map[ch].d  / t * 100);
+      // total must stay the real (possibly 0) count -- it feeds the
+      // downstream "no data" check in renderNpsChannelChart. Only the
+      // percentage math needs a non-zero divisor to avoid NaN.
+      const total = map[ch].p + map[ch].pa + map[ch].d;
+      const divisor = total || 1;
+      map[ch].total = total;
+      map[ch].pPct  = Math.round(map[ch].p  / divisor * 100);
+      map[ch].paPct = Math.round(map[ch].pa / divisor * 100);
+      map[ch].dPct  = Math.round(map[ch].d  / divisor * 100);
       map[ch].nps   = map[ch].pPct - map[ch].dPct;
     });
     return map;
