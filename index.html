@@ -5717,6 +5717,11 @@ function getRecords() {
   return recs;
 }
 function getSettings(){ return DB.get('settings') || { passScore:80, autoFailMode:'zero', globalScoringMode:'per-section' }; }
+// Null-safe score accessor -- getRecords() backfills finalScore from the
+// legacy `score` field, but a record missing BOTH (malformed import, direct
+// DB edit) survives that backfill; every render path that does r.finalScore
+// arithmetic/formatting should go through this instead of raw property access.
+function _fs(r){ return +(r?.finalScore ?? r?.score ?? 0) || 0; }
 
 function uuid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2); }
 
@@ -6090,7 +6095,7 @@ function renderDashboard(){
           <div style="font-weight:600;font-size:13px;">${esc(r.agentName)}</div>
           <div style="font-size:11px;color:var(--gray);">${fmtDate(r.evalDate)} · QA: ${esc(r.qaOfficer)}${r.campaign?' · '+esc(r.campaign):''}</div>
         </div>
-        <div style="font-weight:800;font-size:15px;color:${r.finalScore>=(getSettings().passScore||80)?'var(--success)':r.finalScore>=60?'var(--warning)':'var(--danger)'};">${r.finalScore.toFixed(1)}%</div>
+        <div style="font-weight:800;font-size:15px;color:${_fs(r)>=(getSettings().passScore||80)?'var(--success)':_fs(r)>=60?'var(--warning)':'var(--danger)'};">${_fs(r).toFixed(1)}%</div>
         ${resultBadge(r.result)}
       </div>`).join('');
 
@@ -7538,7 +7543,7 @@ function renderPendingReviewTab(){
       const days=daysSince(r.evalDate);
       const isFailed=r.result==='FAIL'||r.result==='AUTO FAIL';
       const isUrgent=isFailed&&days>=3;
-      const scoreColor=r.finalScore>=passScore?'var(--success)':r.finalScore>=60?'var(--warning)':'var(--danger)';
+      const scoreColor=_fs(r)>=passScore?'var(--success)':_fs(r)>=60?'var(--warning)':'var(--danger)';
       const dispute=disputes.find(d=>d.recordId===r.id);
       html+=`<div class="pr-card${isUrgent?' urgent':''}">
         <div class="pr-card-head">
@@ -7553,7 +7558,7 @@ function renderPendingReviewTab(){
             </div>
           </div>
           <div style="text-align:right;">
-            <div class="pr-score" style="color:${scoreColor};">${r.finalScore.toFixed(1)}%</div>
+            <div class="pr-score" style="color:${scoreColor};">${_fs(r).toFixed(1)}%</div>
             ${resultBadge(r.result)}
           </div>
         </div>
@@ -7704,7 +7709,14 @@ function setRating(itemId, val, btn){
 }
 
 function updateScore(){
-  const form = getForm();
+  // Must resolve the form the same way buildEvalForm() (line ~7601) and
+  // _doSubmitEval() (activeFormObj) do -- getForm() alone always returns the
+  // FIRST published form, so with 2+ forms published, scoring a non-first
+  // selected form against getForm()'s sections/points/autoFail rules would
+  // silently score against the wrong rule set while the answers themselves
+  // are correctly keyed to the selected form's item IDs.
+  const _activeFormObj = _selectedFormId ? getFormById(_selectedFormId) : null;
+  const form = _activeFormObj ? _activeFormObj.sections : getForm();
   const settings = getSettings();
   const globalMode = settings.globalScoringMode || 'per-section';
   let totalEarned=0, totalPossible=0;
@@ -7774,7 +7786,13 @@ function updateScore(){
   let finalScore = totalPossible > 0 ? (totalEarned / totalPossible * 100) : 0;
   if(autoFailTriggered && settings.autoFailMode==='zero') finalScore = 0;
 
-  const color = finalScore>=80?'var(--success)':finalScore>=60?'var(--warning)':'var(--danger)';
+  // Same threshold resolution _doSubmitEval() uses for the actual saved
+  // result -- was hardcoded 80/60 plus global-only settings.passScore below,
+  // which could show a contradictory "below passing score" warning (or the
+  // reverse) against a form with its own passScore, right before the record
+  // saves with the correct, different, per-form result.
+  const _liveThreshold = (_activeFormObj && _activeFormObj.settings && _activeFormObj.settings.passScore) || settings.passScore || 80;
+  const color = finalScore>=_liveThreshold?'var(--success)':finalScore>=_liveThreshold-20?'var(--warning)':'var(--danger)';
   document.getElementById('scoreBig').textContent = finalScore.toFixed(1)+'%';
   document.getElementById('scoreBig').style.color = color;
   document.getElementById('scoreBarFill').style.width  = finalScore+'%';
@@ -7790,8 +7808,8 @@ function updateScore(){
   if(aonFails.length){
     alertHTML += `<div class="fail-alert" style="margin-top:6px;background:#fff0f0">❌ Section(s) scored 0 (All or Nothing):<br><small>${aonFails.join(', ')}</small></div>`;
   }
-  if(!alertHTML && finalScore < settings.passScore && totalPossible > 0){
-    alertHTML = `<div class="fail-alert" style="background:#fff3cd;border-color:#fcd34d;color:#92400e;">⚠️ Below passing score (${settings.passScore}%)</div>`;
+  if(!alertHTML && finalScore < _liveThreshold && totalPossible > 0){
+    alertHTML = `<div class="fail-alert" style="background:#fff3cd;border-color:#fcd34d;color:#92400e;">⚠️ Below passing score (${_liveThreshold}%)</div>`;
   }
   faEl.innerHTML = alertHTML;
 
@@ -7985,6 +8003,12 @@ function submitEval(){
   if(!date){ _markErr('evalDate','Please select an evaluation date.'); return; }
   const campaign = document.getElementById('evalCampaign')?.value;
   if(!campaign){ _markErr('evalCampaign','Please select a campaign / queue.'); return; }
+  // Zero items answered -> totalPossible stays 0, so the "below passing
+  // score" alert in updateScore() never fires (its own guard requires
+  // totalPossible>0) and a completely unscored evaluation would otherwise
+  // save silently as a normal FAIL (finalScore 0), indistinguishable from a
+  // genuinely scored zero in every downstream average/report.
+  if(updateScore().totalPossible===0){ toast('Please answer at least one scoring item before submitting.','error'); return; }
 
   // ── 48-Hour Evaluation Cooldown Check ────────────────
   // Superadmin can lift this rule system-wide (Settings > Evaluation, or the
@@ -8247,7 +8271,12 @@ function renderRecords(){
 function viewRecord(id){
   _currentViewRecordId = id;
   const r=getRecords().find(x=>x.id===id); if(!r) return;
-  const form=getForm();
+  // Resolve the form THIS record was actually scored against, not whatever
+  // form is currently first-published/live -- editing the form later (item
+  // reorder/rename/delete, or a new form auto-numbering the same item id)
+  // would otherwise silently reattach old answers to the wrong item, or show
+  // blanks, with no error.
+  const form=(r.formId && getFormById(r.formId)?.sections) || getForm();
   document.getElementById('viewEvalTitle').textContent=`Evaluation — ${r.agentName} · ${fmtDate(r.evalDate)}`;
   document.getElementById('viewDeleteBtn').setAttribute('data-rec-id', id);
   document.getElementById('viewDeleteBtn').onclick=()=>confirmDelete('records',id,()=>closeModal('viewEvalModal'));
@@ -8313,7 +8342,9 @@ function printEvalPDF(){
   const r = getRecords().find(x=>x.id===id);
   if(!r){ toast('Record not found.','error'); return; }
 
-  const form = getForm();
+  // Same fix as viewRecord(): print against the form this record actually
+  // used (r.formId), not whatever is currently first-published.
+  const form = (r.formId && getFormById(r.formId)?.sections) || getForm();
   const settings = getSettings();
   const orgName = settings.orgName || 'CELLCARD QMS';
   const logoText = orgName;
@@ -9483,11 +9514,12 @@ function renderRoster(){
   const records=getRecords();
   grid.innerHTML=data.map(a=>{
     const agRecs=records.filter(r=>r.agentId===a.id);
-    const avg=agRecs.length?(agRecs.reduce((s,r)=>s+r.finalScore,0)/agRecs.length).toFixed(1):null;
+    const avg=agRecs.length?(agRecs.reduce((s,r)=>s+_fs(r),0)/agRecs.length).toFixed(1):null;
+    const aName=a.name||'Unknown Agent';
     return `<div class="agent-card" onclick="openAgentModal('${a.id}')">
-      <div class="agent-avatar">${esc(a.name.replace(/^(Mr\.|Ms\.|Mrs\.)\s*/i,'').charAt(0).toUpperCase())}</div>
+      <div class="agent-avatar">${esc(aName.replace(/^(Mr\.|Ms\.|Mrs\.)\s*/i,'').charAt(0).toUpperCase())}</div>
       <div class="agent-info">
-        <div class="agent-name">${esc(a.name)}</div>
+        <div class="agent-name">${esc(aName)}</div>
         <div class="agent-meta">${esc(a.staffId)} · ${esc(a.team)||'No Team'}</div>
         ${a.campaign?`<div style="font-size:11px;color:var(--gray);">${esc(a.campaign)}</div>`:''}
         ${avg?`<div style="font-size:11px;font-weight:700;color:${+avg>=80?'var(--success)':+avg>=60?'var(--warning)':'var(--danger)'};margin-top:3px;">Avg: ${avg}% (${agRecs.length} eval${agRecs.length!==1?'s':''})</div>`:'<div style="font-size:11px;color:var(--gray);margin-top:3px;">No evaluations yet</div>'}
@@ -10630,14 +10662,14 @@ function renderCorrelation(){
     const bp=pts.filter(p=>p.x>=b.min&&p.x<b.max);
     if(!bp.length) return `<tr><td>${b.l}</td><td>0</td><td>—</td><td>—</td></tr>`;
     const bavg=(bp.reduce((s,p)=>s+p.y,0)/bp.length).toFixed(1);
-    let passPct;
-    if(dim==='duration'){
-      const bpass=getRecords().filter(rec=>rec.duration&&parseDuration(rec.duration)>=b.min&&parseDuration(rec.duration)<b.max&&rec.result==='PASS').length;
-      passPct = bp.length?(bpass/bp.length*100).toFixed(0):0;
-    } else {
-      const passCount = bp.filter(p=>p.y>=(+(getSettings().passScore||80))).length;
-      passPct = (passCount/bp.length*100).toFixed(0);
-    }
+    // Both dimensions now count PASS the same way (y >= passScore) out of the
+    // same period-filtered, bracket-filtered bp array. The duration branch
+    // used to count numerator hits from an unfiltered getRecords() call
+    // against a period-filtered bp denominator -- two different populations,
+    // able to produce a >100% pass rate whenever the selected report period
+    // excluded some of that bracket's all-time calls.
+    const passCount = bp.filter(p=>p.y>=(+(getSettings().passScore||80))).length;
+    const passPct = (passCount/bp.length*100).toFixed(0);
     return `<tr><td>${b.l}</td><td>${bp.length}</td><td style="font-weight:700;color:${+bavg>=80?'var(--success)':+bavg>=60?'var(--warning)':'var(--danger)'}">${bavg}%</td><td>${passPct}%</td></tr>`;
   }).join('');
 }
@@ -13954,6 +13986,29 @@ const NPS_CSV_COLUMNS = ['date','channel','score','verbatim',
   'product_purchased','transaction_ref','payment_method',
   'age_bracket','gender','customer_segment','region'];
 
+// Quote-aware CSV line split (RFC4180-ish: "" is an escaped quote inside a
+// quoted field). Both NPS CSV import paths used to split on raw commas, so
+// a comma inside a preceding text field (comment/verbatim) silently shifted
+// every later column -- e.g. a comment "Long wait, but polite" desyncs
+// promoters/passives/detractors or agent/store attribution for that row,
+// with no error shown since only nps_score/date were ever validated.
+function _csvParseLine(line){
+  const cols = []; let cur = '', inQuotes = false;
+  for(let i=0;i<line.length;i++){
+    const c = line[i];
+    if(inQuotes){
+      if(c==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else { inQuotes=false; } }
+      else cur+=c;
+    } else {
+      if(c==='"') inQuotes=true;
+      else if(c===',') { cols.push(cur); cur=''; }
+      else cur+=c;
+    }
+  }
+  cols.push(cur);
+  return cols;
+}
+
 function _parseNpsCsv(file){
   const status = document.getElementById('ndUploadStatus');
   const preview = document.getElementById('ndUploadPreview');
@@ -13968,7 +14023,7 @@ function _parseNpsCsv(file){
       _ndCsvRows = [];
       const errors = [];
       for(let i=1;i<lines.length;i++){
-        const cols = lines[i].split(',').map(c=>c.replace(/^"|"$/g,'').trim());
+        const cols = _csvParseLine(lines[i]).map(c=>c.replace(/^"|"$/g,'').trim());
         const g = k => idx[k]>=0 ? (cols[idx[k]]||'') : '';
         const date = g('date'), rawChannel = g('channel'), scoreStr = g('score');
         if(!date && !scoreStr) continue;
@@ -17028,7 +17083,7 @@ function _parseBatchFile(file) {
     const rows = [];
     const errors = [];
     for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',');
+      const cols = _csvParseLine(lines[i]);
       const row = {};
       headers.forEach((h, idx) => { row[h] = (cols[idx]||'').trim(); });
       const score = parseFloat(row['nps_score']);
@@ -17082,11 +17137,18 @@ function confirmBatchImport() {
       const existing = DB.get('npsInputData') || [];
       const surveys = getNpsSurveys();
       const s = surveys.find(x => x.id === _gatherSurveyId) || {};
+      // A blank promoters/passives/detractors cell is still !==undefined (it's
+      // '' on the parsed row, not a missing key), so the old `!==undefined`
+      // check treated "column present but this cell left blank" the same as
+      // "explicit 0", silently zeroing out a real promoter/passive/detractor
+      // whenever the CSV had these columns but a row didn't fill them in.
+      // Only trust the cell as an override when it actually parses to a number.
+      const _hasNum = v => v!==undefined && v!=='' && !isNaN(parseInt(v));
       const newRecs = rows.map(r => {
         const score = parseFloat(r['nps_score']);
-        const p = r['promoters'] !== undefined ? parseInt(r['promoters'])||0 : (score >= 9 ? 1 : 0);
-        const pa = r['passives']  !== undefined ? parseInt(r['passives']) ||0 : (score >= 7 && score <= 8 ? 1 : 0);
-        const d  = r['detractors']!== undefined ? parseInt(r['detractors'])||0 : (score <= 6 ? 1 : 0);
+        const p = _hasNum(r['promoters']) ? parseInt(r['promoters']) : (score >= 9 ? 1 : 0);
+        const pa = _hasNum(r['passives'])  ? parseInt(r['passives'])  : (score >= 7 && score <= 8 ? 1 : 0);
+        const d  = _hasNum(r['detractors']) ? parseInt(r['detractors']) : (score <= 6 ? 1 : 0);
         return {
           id: 'nr_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
           date: r['date'] || new Date().toISOString().slice(0,10),
@@ -18739,7 +18801,7 @@ function renderNpsRoster(){
   const search=(document.getElementById('npsRosterSearch')?.value||'').toLowerCase();
   const records=_npsRecordsData;
   const tbody=document.getElementById('npsRosterTableBody'); if(!tbody) return;
-  let rows=agents.filter(a=>!search||a.name.toLowerCase().includes(search)).map(a=>{
+  let rows=agents.filter(a=>!search||(a.name||'').toLowerCase().includes(search)).map(a=>{
     const aRecs=records.filter(r=>r.agent===a.name);
     const total=aRecs.length;
     const promoters=aRecs.filter(r=>r.score>=9).length;
@@ -22155,9 +22217,15 @@ function _pse_submitSurvey(){
   }
 
   const score = npsScore!==null&&npsScore!==undefined ? parseInt(npsScore) : null;
-  const p = score!==null ? (score>=9?1:0) : 0;
-  const pa= score!==null ? (score>=7&&score<=8?1:0) : 0;
-  const d = score!==null ? (score!==null&&score<=6?1:0) : 0;
+  // null (not 0) when no NPS-classified question was answered -- writing an
+  // explicit 0/0/0 here is indistinguishable downstream from a genuine
+  // 100%-detractor response and gets silently summed into channel/period
+  // aggregates as if it were real data (the survey may have no NPS question
+  // at all, e.g. a pure CSAT survey, or the respondent skipped an optional
+  // one -- either way this response has no NPS classification to report).
+  const p = score!==null ? (score>=9?1:0) : null;
+  const pa= score!==null ? (score>=7&&score<=8?1:0) : null;
+  const d = score!==null ? (score<=6?1:0) : null;
 
   const response = {
     id: 'nr_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
@@ -23153,7 +23221,7 @@ function renderRepeatOffenders(){
 // ═══════════════════════════════════════════════════
 function renderCoachingCompliance(){
   const settings = getSettings();
-  const records = getRecords();
+  const records = getFilteredRecords();
   const coachings = getCoachings();
 
   // Below-target records
@@ -23236,13 +23304,19 @@ function renderCoachingCompliance(){
 // ═══════════════════════════════════════════════════
 function renderDisputeReport(){
   const statusFilter = document.getElementById('disputeStatusFilter').value;
-  let disputes = getDisputes();
+  // Scope to the Reports screen's selected period (same YYYY-MM semantics as
+  // getFilteredRecords()) -- previously always showed all-time totals here
+  // regardless of the period picker shown right above this report.
+  const periodDisputes = (_rptFrom && _rptTo)
+    ? getDisputes().filter(d=>d.evalDate && d.evalDate.slice(0,7)>=_rptFrom && d.evalDate.slice(0,7)<=_rptTo)
+    : getDisputes();
+  let disputes = periodDisputes;
   if(statusFilter) disputes = disputes.filter(d=>d.status===statusFilter);
 
-  const total = getDisputes().length;
-  const pending = getDisputes().filter(d=>d.status==='pending').length;
-  const agreed = getDisputes().filter(d=>d.status==='agreed').length;
-  const rejected = getDisputes().filter(d=>d.status==='rejected').length;
+  const total = periodDisputes.length;
+  const pending = periodDisputes.filter(d=>d.status==='pending').length;
+  const agreed = periodDisputes.filter(d=>d.status==='agreed').length;
+  const rejected = periodDisputes.filter(d=>d.status==='rejected').length;
 
   document.getElementById('disputeKpi').innerHTML = `
     <div class="kpi blue"><div class="kpi-val" style="color:var(--primary)">${total}</div><div class="kpi-lbl">Total Disputes</div></div>
@@ -23266,7 +23340,7 @@ function renderDisputeReport(){
       +'<td><strong>'+d.agentName+'</strong></td>'
       +'<td>'+fmtDate(d.evalDate)+'</td>'
       +'<td style="font-weight:700;color:var(--danger)">'+origScore.toFixed(1)+'%</td>'
-      +'<td><small>'+d.tlUser+'</small><br><small style="color:#777">'+d.reason.substring(0,60)+(d.reason.length>60?'...':'')+'</small></td>'
+      +'<td><small>'+d.tlUser+'</small><br><small style="color:#777">'+(d.reason||'').substring(0,60)+((d.reason||'').length>60?'...':'')+'</small></td>'
       +'<td style="text-align:center">'+(d.suggestedScore!=null?d.suggestedScore+'%':'—')+'</td>'
       +'<td><span style="font-weight:700;color:'+cl+'">'+d.status.toUpperCase()+'</span></td>'
       +'<td style="text-align:center">'+(d.finalScore!=null?d.finalScore.toFixed(1)+'%':'—')+'</td>'
@@ -23281,7 +23355,17 @@ function renderDisputeReport(){
 function renderEditRequestsReport(){
   if(!isAdmin()){ document.getElementById('editReqReportBody').innerHTML='<tr class="empty-row"><td colspan="8">Admin only.</td></tr>'; return; }
   const statusFilter = document.getElementById('editReqStatusFilter').value;
-  const all = getEditRequests();
+  const _allRecordsForScope = getRecords();
+  // Scope to the Reports screen's selected period via the underlying
+  // evaluation's evalDate (edit requests don't carry their own evalDate) --
+  // previously always showed all-time totals regardless of the period picker.
+  const all = (_rptFrom && _rptTo)
+    ? getEditRequests().filter(r=>{
+        const rec=_allRecordsForScope.find(x=>x.id===r.recordId);
+        const mon=rec?.evalDate?.slice(0,7);
+        return mon && mon>=_rptFrom && mon<=_rptTo;
+      })
+    : getEditRequests();
   let reqs = all;
   if(statusFilter) reqs = reqs.filter(r=>r.status===statusFilter);
 
