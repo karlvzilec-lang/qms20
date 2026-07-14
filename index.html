@@ -8609,7 +8609,13 @@ function showConfirm(opts){
 }
 
 function confirmDelete(type, id, cb){
-  if(!isAdmin()){ toast('Only Admin or Super Admin can delete records.','error'); return; }
+  // Evaluation-record deletion now goes through the Role Permission Matrix's
+  // eval_delete key (hasPermission() already grants admin/superadmin
+  // unconditionally, matching the old isAdmin()-only check for anyone still
+  // on the default matrix). Agent/user deletion aren't modeled in the
+  // matrix, so they keep the original admin-only gate.
+  const allowed = type==='records' ? hasPermission('eval_delete') : isAdmin();
+  if(!allowed){ toast('Only Admin or Super Admin can delete records.','error'); return; }
   const labels = { records:'evaluation record', agents:'agent', users:'user' };
   showConfirm({
     title: 'Delete ' + (labels[type]||'item'),
@@ -11165,7 +11171,7 @@ function migrateFormsOnce(){
 }
 
 function createNewForm(){
-  if(!isAdmin()){ showToast('Admin access required','error'); return; }
+  if(!isAdmin()){ toast('Admin access required','error'); return; }
   const forms = getForms();
   const newForm = {
     id: 'form_'+uuid(),
@@ -11198,7 +11204,7 @@ function duplicateForm(id){
   forms.push(copy);
   saveForms(forms);
   renderFormsList();
-  showToast(`"${copy.name}" created as draft`,'success');
+  toast(`"${copy.name}" created as draft`,'success');
 }
 
 function toggleFormPublish(id, publish){
@@ -11209,7 +11215,7 @@ function toggleFormPublish(id, publish){
   if(!publish){
     const stillPublished = forms.filter(x=>x.status==='published' && x.id!==id);
     if(!stillPublished.length){
-      showToast('Cannot unpublish — at least one form must remain published','error');
+      toast('Cannot unpublish — at least one form must remain published','error');
       return;
     }
   }
@@ -11218,7 +11224,7 @@ function toggleFormPublish(id, publish){
   saveForms(forms);
   renderFormsList();
   populateEvalFormSelector();
-  showToast(`Form "${f.name}" ${publish?'published ✅':'unpublished'}`, publish?'success':'info');
+  toast(`Form "${f.name}" ${publish?'published ✅':'unpublished'}`, publish?'success':'info');
 }
 
 function deleteForm(id){
@@ -11228,7 +11234,7 @@ function deleteForm(id){
   if(!f) return;
   const pubCount = forms.filter(x=>x.status==='published').length;
   if(f.status==='published' && pubCount<=1){
-    showToast('Cannot delete the only published form','error'); return;
+    toast('Cannot delete the only published form','error'); return;
   }
   showConfirm({
     title: 'Delete Form',
@@ -11243,7 +11249,7 @@ function deleteForm(id){
     }
   });
   populateEvalFormSelector();
-  showToast(`Form "${f.name}" deleted`,'success');
+  toast(`Form "${f.name}" deleted`,'success');
 }
 
 // ── Form Builder ──────────────────────────────
@@ -11252,7 +11258,7 @@ let _fbSections = null;
 let fbDirty     = false;
 
 function openFormBuilder(id){
-  if(!isAdmin()){ showToast('Admin access required','error'); return; }
+  if(!isAdmin()){ toast('Admin access required','error'); return; }
   const forms = getForms();
   const f = forms.find(x=>x.id===id);
   if(!f) return;
@@ -11291,7 +11297,7 @@ function fbTogglePublish(){
   const newStatus = f.status==='published' ? 'draft' : 'published';
   if(newStatus==='draft'){
     const stillPub = forms.filter(x=>x.status==='published' && x.id!==_fbFormId);
-    if(!stillPub.length){ showToast('At least one form must stay published','error'); return; }
+    if(!stillPub.length){ toast('At least one form must stay published','error'); return; }
   }
   fbDirty = true;
   f.status = newStatus;
@@ -11300,7 +11306,7 @@ function fbTogglePublish(){
   _updateFbStatusBadge(newStatus);
   renderFormsList();
   populateEvalFormSelector();
-  showToast(`Form ${newStatus==='published'?'published ✅':'set to draft'}`,'success');
+  toast(`Form ${newStatus==='published'?'published ✅':'set to draft'}`,'success');
 }
 
 function fbSave(){
@@ -11563,6 +11569,18 @@ function addItem(si){
   _form=f; renderSettings();
 }
 function saveSettings(){
+  // viewer/qa/tl already can't reach the Settings screen at all (showScreen's
+  // denial map); only the QA-Settings TAB was hidden for manager, with no
+  // function-level check backing it up -- a manager could already reach this
+  // function via console. Gate it for real now: ceo/chief/admin/superadmin
+  // are outside the 4-role matrix and keep the unrestricted access they
+  // already had; manager now genuinely needs the matrix's settings_qa grant
+  // (false by default, matching the existing UI-hidden intent) rather than
+  // just having the tab hidden.
+  const _myRole = currentRole();
+  if(!(['admin','superadmin','ceo','chief'].includes(_myRole) || hasPermission('settings_qa'))){
+    toast('You do not have permission to manage QA form settings.','error'); return;
+  }
   if(_form){ DB.set('form',_form); _form=null; }
   const activeBtn = document.querySelector('.scoring-mode-btn.active');
   const globalScoringMode = activeBtn ? activeBtn.dataset.mode : 'per-section';
@@ -20944,7 +20962,12 @@ function qmsToggleCurPw(){
 
 function saveUser(){
   const myRole=currentRole();
-  if(myRole!=='admin'&&myRole!=='manager'&&myRole!=='superadmin'){ toast('You do not have permission to manage users.','error'); return; }
+  // Additive: preserves the existing admin/manager/superadmin access exactly
+  // (matches DEFAULT_ROLE_PERMS.settings_users for the default matrix), and
+  // now also lets an admin GRANT this to qa/tl/viewer via the Role
+  // Permission Matrix -- hasPermission() can only widen access here, never
+  // narrow it, since the three roles that already had it are still listed.
+  if(!(myRole==='admin'||myRole==='manager'||myRole==='superadmin'||hasPermission('settings_users'))){ toast('You do not have permission to manage users.','error'); return; }
   const username=document.getElementById('newUsername').value.trim();
   const password=document.getElementById('newUserPass').value;
   const roleEl=document.getElementById('newUserRole');
@@ -21416,7 +21439,7 @@ function renderRoleCards(){
 }
 
 function openRoleEditor(key){
-  if(!isAdmin()){ showToast('Admin access required','error'); return; }
+  if(!isAdmin()){ toast('Admin access required','error'); return; }
   const el         = document.getElementById('roleEditorInline');
   const titleEl    = document.getElementById('roleEditorTitle');
   const keyWrap    = document.getElementById('roleEditorKeyWrap');
@@ -21471,30 +21494,30 @@ function closeRoleEditor(){
 }
 
 function commitRoleEditor(){
-  if(!isAdmin()){ showToast('Admin access required','error'); return; }
+  if(!isAdmin()){ toast('Admin access required','error'); return; }
 
   const label  = (document.getElementById('roleEditorLabel').value||'').trim();
   const icon   = (document.getElementById('roleEditorIcon').value||'👤').trim();
   const rawKey = (document.getElementById('roleEditorKey').value||'').trim();
   const key    = rawKey.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
 
-  if(!label){ showToast('Role name is required','error'); return; }
+  if(!label){ toast('Role name is required','error'); return; }
 
   if(_roleEditorMode === 'add'){
-    if(!key){ showToast('Role key is required (letters, numbers, underscores)','error'); return; }
-    if(key === 'admin'){ showToast('Cannot use reserved key "admin"','error'); return; }
+    if(!key){ toast('Role key is required (letters, numbers, underscores)','error'); return; }
+    if(key === 'admin'){ toast('Cannot use reserved key "admin"','error'); return; }
     const all = getAllRoles();
-    if(all.some(r=>r.key===key)){ showToast(`Key "${key}" is already in use`,'error'); return; }
+    if(all.some(r=>r.key===key)){ toast(`Key "${key}" is already in use`,'error'); return; }
     const custom = getCustomRoles();
     custom.push({ key, label, icon });
     DB.set(CUSTOM_ROLES_KEY, custom);
-    showToast(`Role "${label}" added ✓`,'success');
+    toast(`Role "${label}" added ✓`,'success');
 
   } else {
     // ── Edit existing role ──
     const all  = getAllRoles();
     const role = all.find(r=>r.key===_roleEditorKey);
-    if(!role){ showToast('Role not found','error'); return; }
+    if(!role){ toast('Role not found','error'); return; }
 
     if(role.builtin){
       // Built-in: persist only label + icon as overrides (key stays fixed)
@@ -21503,14 +21526,14 @@ function commitRoleEditor(){
       DB.set('qms2_roleOverrides', overrides);
     } else {
       // Custom role: allow full edit including key rename
-      if(!key){ showToast('Role key is required','error'); return; }
-      if(key === 'admin'){ showToast('Cannot use reserved key "admin"','error'); return; }
+      if(!key){ toast('Role key is required','error'); return; }
+      if(key === 'admin'){ toast('Cannot use reserved key "admin"','error'); return; }
       if(key !== _roleEditorKey && all.some(r=>r.key===key)){
-        showToast(`Key "${key}" is already in use`,'error'); return;
+        toast(`Key "${key}" is already in use`,'error'); return;
       }
       const custom = getCustomRoles();
       const idx = custom.findIndex(r=>r.key===_roleEditorKey);
-      if(idx < 0){ showToast('Custom role not found','error'); return; }
+      if(idx < 0){ toast('Custom role not found','error'); return; }
       // If key changed, migrate permissions to new key
       if(key !== _roleEditorKey){
         const perms = getRolePerms();
@@ -21525,7 +21548,7 @@ function commitRoleEditor(){
       custom[idx] = { key, label, icon };
       DB.set(CUSTOM_ROLES_KEY, custom);
     }
-    showToast(`Role "${label}" saved ✓`,'success');
+    toast(`Role "${label}" saved ✓`,'success');
   }
 
   closeRoleEditor();
@@ -21533,14 +21556,14 @@ function commitRoleEditor(){
 }
 
 function deleteCustomRole(key){
-  if(!isAdmin()){ showToast('Admin access required','error'); return; }
+  if(!isAdmin()){ toast('Admin access required','error'); return; }
   // Guard: built-in roles cannot be deleted
   if(BUILTIN_ROLES.some(r=>r.key===key)){
-    showToast('Built-in roles cannot be deleted — only renamed','error'); return;
+    toast('Built-in roles cannot be deleted — only renamed','error'); return;
   }
   const custom = getCustomRoles();
   const role = custom.find(r=>r.key===key);
-  if(!role){ showToast('Role not found','error'); return; }
+  if(!role){ toast('Role not found','error'); return; }
   // Count users with this role
   const users = typeof getUsers==='function' ? getUsers() : [];
   const affected = users.filter(u=>u.role===key).length;
@@ -21558,7 +21581,7 @@ function deleteCustomRole(key){
       const perms = getRolePerms();
       Object.keys(perms).forEach(pk => { delete perms[pk][key]; });
       DB.set(ROLE_PERMS_KEY, perms);
-      showToast(`Role "${role.label}" deleted`,'success');
+      toast(`Role "${role.label}" deleted`,'success');
       renderRolePermsMatrix();
     }
   });
@@ -21598,19 +21621,19 @@ function commitPermEditor(){
   const desc  = (document.getElementById('permEditorDesc').value||'').trim();
   const group = document.getElementById('permEditorGroup').value;
 
-  if(!label){ showToast('Permission label is required','error'); return; }
-  if(!key){ showToast('Permission key is required','error'); return; }
+  if(!label){ toast('Permission label is required','error'); return; }
+  if(!key){ toast('Permission key is required','error'); return; }
 
   // Check uniqueness across all groups
   const allPerms = getAllPermGroups().flatMap(g=>g.perms);
-  if(allPerms.some(p=>p.key===key)){ showToast(`Key "${key}" already exists`,'error'); return; }
+  if(allPerms.some(p=>p.key===key)){ toast(`Key "${key}" already exists`,'error'); return; }
 
   const custom = getCustomPerms();
   custom.push({ group, key, label, desc });
   DB.set(CUSTOM_PERMS_KEY, custom);
   closePermEditor();
   renderRolePermsMatrix();
-  showToast(`Permission "${label}" added ✓`,'success');
+  toast(`Permission "${label}" added ✓`,'success');
 }
 
 // ── Matrix Render ─────────────────────────────
@@ -21688,13 +21711,17 @@ function deleteCustomPerm(key){
       delete perms[key];
       DB.set(ROLE_PERMS_KEY, perms);
       renderRolePermsMatrix();
-      showToast(`Permission "${perm.label}" removed`,'success');
+      toast(`Permission "${perm.label}" removed`,'success');
     }
   });
 }
 
 function saveRolePerms(){
-  if(!isAdmin()){ showToast('Admin access required','error'); return; }
+  // isAdmin() and hasPermission()'s own admin/superadmin bypass are
+  // identical, so this is a pure widening: an admin can now delegate
+  // "Manage Role Permissions" to another role via the matrix itself (false
+  // by default for everyone, matching today's admin-only behavior exactly).
+  if(!(isAdmin()||hasPermission('settings_perms'))){ toast('Admin access required','error'); return; }
   const perms = getRolePerms();
   document.querySelectorAll('.rp-check').forEach(cb => {
     const p = cb.dataset.perm, r = cb.dataset.role;
@@ -21702,11 +21729,11 @@ function saveRolePerms(){
     perms[p][r] = cb.checked;
   });
   DB.set(ROLE_PERMS_KEY, perms);
-  showToast('Role permissions saved ✓','success');
+  toast('Role permissions saved ✓','success');
 }
 
 function resetRolePerms(){
-  if(!isAdmin()){ showToast('Admin access required','error'); return; }
+  if(!isAdmin()){ toast('Admin access required','error'); return; }
   showConfirm({
     title: 'Reset All Permissions',
     message: 'Reset all role permissions to system defaults?',
@@ -21717,7 +21744,7 @@ function resetRolePerms(){
     onConfirm: () => {
       DB.set(ROLE_PERMS_KEY, JSON.parse(JSON.stringify(DEFAULT_ROLE_PERMS)));
       renderRolePermsMatrix();
-      showToast('Permissions reset to defaults','success');
+      toast('Permissions reset to defaults','success');
     }
   });
 }
