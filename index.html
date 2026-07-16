@@ -325,6 +325,12 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .nav-btn:hover svg{opacity:1;}
 .nav-btn.active{color:#FF7900;border-bottom-color:#FF7900;font-weight:700;background:rgba(255,121,0,.05);}
 .nav-btn.active svg{opacity:1;stroke:#FF7900;}
+/* Header icon buttons (User Manual / Notifications / Backup) — was 3 copies
+   of the same inline style + onmouseover/onmouseout JS, with the SVG
+   stroke hardcoded so CSS :hover couldn't touch it. */
+.icon-btn{position:relative;background:none;border:none;cursor:pointer;padding:6px;border-radius:50%;line-height:1;color:rgba(255,255,255,.8);transition:background var(--transition);}
+.icon-btn:hover{background:rgba(255,255,255,.12);}
+.icon-btn svg{stroke:currentColor;display:block;}
 .nps-nav-btn:hover{color:#FF7900!important;background:rgba(255,121,0,.05)!important;}
 .nps-nav-btn.active{color:#FF7900!important;border-bottom-color:#FF7900!important;font-weight:700;background:rgba(255,121,0,.05)!important;}
 
@@ -890,14 +896,14 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       </button>
     </div>
     <div class="login-body" id="resetFormView" style="display:none;">
-      <div style="font-size:14px;font-weight:600;color:#333;margin-bottom:4px;">🔑 Password Reset Request</div>
+      <div style="font-size:14px;font-weight:600;color:#333;margin-bottom:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>Password Reset Request</div>
       <div style="font-size:13px;color:var(--gray);margin-bottom:16px;">Enter your username. Your request will be sent to the Admin for approval.</div>
       <div class="form-group">
         <label>Username</label>
         <input type="text" id="resetUsername" placeholder="Your username">
       </div>
       <div class="login-error" id="resetError" style="display:none;">Username not found.</div>
-      <div id="resetSuccess" style="display:none;background:#dcfce7;color:#15803d;border-radius:6px;padding:9px 12px;font-size:12px;font-weight:600;margin-top:8px;">✅ Reset request submitted. Please wait for Admin approval.</div>
+      <div id="resetSuccess" style="display:none;background:#dcfce7;color:#15803d;border-radius:6px;padding:9px 12px;font-size:12px;font-weight:600;margin-top:8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 17"/></svg>Reset request submitted. Please wait for Admin approval.</div>
       <button class="login-btn" onclick="submitResetRequest()">Submit Reset Request</button>
       <div style="margin-top:10px;text-align:center;">
         <a onclick="showLoginForm()">← Back to Login</a>
@@ -905,7 +911,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     </div>
     <div class="login-body" id="npsFormView" style="display:none;">
       <div class="nps-coming-panel">
-        <div class="nps-icon">⭐</div>
+        <div class="nps-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
         <h3>NPS Module</h3>
         <p>Net Promoter Score tracking is coming soon.</p>
         <p style="margin-top:10px;font-size:12px;color:#94a3b8;">Contact your administrator to enable this feature.</p>
@@ -913,8 +919,8 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     </div>
     <!-- Request Access Form -->
     <div class="login-body" id="requestAccessView" style="display:none;">
-      <div style="font-size:14px;font-weight:700;color:#d97706;margin-bottom:4px;">🔓 Request System Access</div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.5;">Complete the form below. Your request will be reviewed by an administrator who will assign your role once approved.<br><span style="color:#b45309;font-weight:600;">⚠ Cellcard corporate email required.</span></div>
+      <div style="font-size:14px;font-weight:700;color:#d97706;margin-bottom:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>Request System Access</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.5;">Complete the form below. Your request will be reviewed by an administrator who will assign your role once approved.<br><span style="color:#b45309;font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Cellcard corporate email required.</span></div>
       <div class="form-group">
         <label>Desired Username</label>
         <input type="text" id="reqUsername" placeholder="e.g. john.doe" autocomplete="off">
@@ -922,14 +928,14 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <div class="form-group">
         <label>Cellcard Email Address</label>
         <input type="email" id="reqEmail" placeholder="yourname@cellcard.com.kh" autocomplete="off">
-        <div id="reqEmailHint" style="display:none;font-size:11px;color:#dc2626;font-weight:600;margin-top:4px;">⛔ Only @cellcard.com.kh email addresses are allowed.</div>
+        <div id="reqEmailHint" style="display:none;font-size:11px;color:#dc2626;font-weight:600;margin-top:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Only @cellcard.com.kh email addresses are allowed.</div>
       </div>
       <div class="form-group">
         <label>Full Name</label>
         <input type="text" id="reqFullName" placeholder="Your full name">
       </div>
       <div class="login-error" id="reqError" style="display:none;">Please fill in all fields correctly.</div>
-      <div id="reqSuccess" style="display:none;background:#dcfce7;color:#15803d;border-radius:7px;padding:10px 13px;font-size:12px;font-weight:600;margin-top:8px;line-height:1.5;">✅ Request submitted! An administrator will review your request and assign your role. You will be notified once approved.</div>
+      <div id="reqSuccess" style="display:none;background:#dcfce7;color:#15803d;border-radius:7px;padding:10px 13px;font-size:12px;font-weight:600;margin-top:8px;line-height:1.5;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 17"/></svg>Request submitted! An administrator will review your request and assign your role. You will be notified once approved.</div>
       <button class="login-btn" onclick="submitAccessRequest()" id="reqSubmitBtn">Submit Request</button>
       <div style="margin-top:10px;text-align:center;">
         <a onclick="showLoginForm()" style="font-size:12px;color:#d97706;cursor:pointer;font-weight:600;">← Back to Login</a>
@@ -954,20 +960,16 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
   <div class="header-right" style="display:flex;align-items:center;gap:10px;">
     <span class="header-date" id="headerDate"></span>
     <!-- User Manual Button -->
-    <button id="userManualBtn" onclick="openUserManual()" title="User Manual"
-      style="position:relative;background:none;border:none;cursor:pointer;padding:6px;border-radius:50%;transition:background .15s;line-height:1;"
-      onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='none'">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <button id="userManualBtn" class="icon-btn" onclick="openUserManual()" title="User Manual">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
         <line x1="12" y1="7" x2="12" y2="13"/><line x1="9" y1="10" x2="15" y2="10"/>
       </svg>
     </button>
     <!-- Notification Bell -->
     <div style="position:relative;" id="notifBellWrap">
-      <button id="notifBellBtn" onclick="toggleNotifPanel()" title="Notifications"
-        style="position:relative;background:none;border:none;cursor:pointer;padding:6px;border-radius:50%;transition:background .15s;line-height:1;"
-        onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='none'">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <button id="notifBellBtn" class="icon-btn" onclick="toggleNotifPanel()" title="Notifications">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
@@ -978,7 +980,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <div id="notifPanel" style="display:none;position:absolute;right:-10px;top:calc(100% + 10px);width:370px;background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.18);z-index:9999;overflow:hidden;border:1px solid #e2e8f0;">
         <!-- Panel Header -->
         <div style="padding:14px 18px 12px;background:linear-gradient(135deg,#1a0800,#FF7900);display:flex;align-items:center;justify-content:space-between;">
-          <div style="color:#fff;font-weight:800;font-size:14px;">🔔 Notifications</div>
+          <div style="color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notifications</div>
           <div style="display:flex;gap:10px;align-items:center;">
             <button onclick="markAllNotifsRead()" style="background:rgba(255,255,255,.15);border:none;color:#fde68a;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;cursor:pointer;">Mark all read</button>
             <button onclick="toggleNotifPanel()" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;line-height:1;">✕</button>
@@ -993,10 +995,8 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     <!-- Backup & Export (all roles — personal-scope, so it lives here rather than
          in app Settings, which viewer/qa/tl cannot access) -->
     <div style="position:relative;" id="backupPanelWrap">
-      <button id="backupBtn" onclick="toggleBackupPanel()" title="Save &amp; Backup My Data"
-        style="position:relative;background:none;border:none;cursor:pointer;padding:6px;border-radius:50%;transition:background .15s;line-height:1;"
-        onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='none'">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <button id="backupBtn" class="icon-btn" onclick="toggleBackupPanel()" title="Save &amp; Backup My Data">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
       </button>
@@ -1004,20 +1004,20 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <!-- Backup Panel -->
       <div id="backupPanel" style="display:none;position:absolute;right:-10px;top:calc(100% + 10px);width:300px;background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.18);z-index:9999;overflow:hidden;border:1px solid #e2e8f0;">
         <div style="padding:14px 18px 12px;background:linear-gradient(135deg,#1a0800,#FF7900);display:flex;align-items:center;justify-content:space-between;">
-          <div style="color:#fff;font-weight:800;font-size:14px;">💾 Save &amp; Backup</div>
+          <div style="color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Save &amp; Backup</div>
           <button onclick="toggleBackupPanel()" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;line-height:1;">✕</button>
         </div>
         <div style="padding:14px 18px;">
           <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Download your records as CSV or JSON for safekeeping.</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <button onclick="exportCSV('records')" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;text-align:left;">
-              ⬇ Records CSV
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Records CSV
             </button>
             <button onclick="exportJSON('records')" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;text-align:left;">
-              ⬇ Records JSON
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Records JSON
             </button>
             <button onclick="exportMyPersonalBackup()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:8px;font-size:12px;font-weight:700;color:#166534;cursor:pointer;text-align:left;">
-              📦 Full Backup (JSON)
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><line x1="10" y1="12" x2="14" y2="12"/></svg>Full Backup (JSON)
             </button>
           </div>
         </div>
@@ -1094,9 +1094,9 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 
   <!-- TL Dashboard Tabs (hidden for non-TL) -->
   <div id="tlDashTabs" style="display:none;border-bottom:2px solid var(--border);margin-bottom:18px;overflow-x:auto;display:none;">
-    <button class="settings-tab active" data-dtab="overview" onclick="switchDashTab('overview',this)">📊 Overview</button>
-    <button class="settings-tab" data-dtab="attribute" onclick="switchDashTab('attribute',this)">📋 Score by Attribute</button>
-    <button class="settings-tab" data-dtab="pending" onclick="switchDashTab('pending',this)" id="dashPendingTab">⏳ Pending Review</button>
+    <button class="settings-tab active" data-dtab="overview" onclick="switchDashTab('overview',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Overview</button>
+    <button class="settings-tab" data-dtab="attribute" onclick="switchDashTab('attribute',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>Score by Attribute</button>
+    <button class="settings-tab" data-dtab="pending" onclick="switchDashTab('pending',this)" id="dashPendingTab"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Pending Review</button>
   </div>
 
   <!-- Tab: Overview (default / non-TL) -->
@@ -1489,8 +1489,8 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 
   <!-- Roster Tab Bar -->
   <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:18px;overflow-x:auto;">
-    <button class="settings-tab active" data-rtab="agents" onclick="switchRosterTab('agents',this)" id="rosterTabAgents">👥 Agents</button>
-    <button class="settings-tab" data-rtab="coverage" onclick="switchRosterTab('coverage',this)" id="rosterTabCoverage">📊 Evaluation Coverage</button>
+    <button class="settings-tab active" data-rtab="agents" onclick="switchRosterTab('agents',this)" id="rosterTabAgents"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Agents</button>
+    <button class="settings-tab" data-rtab="coverage" onclick="switchRosterTab('coverage',this)" id="rosterTabCoverage"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Evaluation Coverage</button>
   </div>
 
   <!-- TAB: Agents -->
@@ -1592,22 +1592,22 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
          tools with many report views (GA, Mixpanel, Looker, PowerBI) do
          this: a left nav with section headers, not a horizontal strip. -->
     <div class="rpt-sidebar" style="width:190px;flex-shrink:0;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1px solid #f1f5f9;padding:8px;">
-      <button class="rpt-side-item active" data-rpt-view="overview" onclick="switchRptView('overview',this)">📊 Overview</button>
+      <button class="rpt-side-item active" data-rpt-view="overview" onclick="switchRptView('overview',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Overview</button>
       <div class="rpt-side-group-label">Performance</div>
-      <button class="rpt-side-item" data-rpt-view="agent-rank" onclick="switchRptView('agent-rank',this)">🏆 Agent Ranking</button>
-      <button class="rpt-side-item" data-rpt-view="team-rank" onclick="switchRptView('team-rank',this)">👥 Team Ranking</button>
-      <button class="rpt-side-item" data-rpt-view="tenure" onclick="switchRptView('tenure',this)">📅 By Tenure</button>
+      <button class="rpt-side-item" data-rpt-view="agent-rank" onclick="switchRptView('agent-rank',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3a2 2 0 0 1 0 4h-1M7 5H4a2 2 0 0 0 0 4h1"/></svg>Agent Ranking</button>
+      <button class="rpt-side-item" data-rpt-view="team-rank" onclick="switchRptView('team-rank',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Team Ranking</button>
+      <button class="rpt-side-item" data-rpt-view="tenure" onclick="switchRptView('tenure',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>By Tenure</button>
       <div class="rpt-side-group-label">Correlation</div>
-      <button class="rpt-side-item" data-rpt-view="correlation" onclick="switchRptView('correlation',this)">📈 Correlation Analysis</button>
+      <button class="rpt-side-item" data-rpt-view="correlation" onclick="switchRptView('correlation',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Correlation Analysis</button>
       <div class="rpt-side-group-label">Trends</div>
-      <button class="rpt-side-item" data-rpt-view="weekly" onclick="switchRptView('weekly',this)">📅 Weekly Trend</button>
-      <button class="rpt-side-item admin-only-tab" id="adminTimingTab" data-rpt-view="eval-timing" onclick="switchRptView('eval-timing',this)">⏱ Eval Timing</button>
+      <button class="rpt-side-item" data-rpt-view="weekly" onclick="switchRptView('weekly',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Weekly Trend</button>
+      <button class="rpt-side-item admin-only-tab" id="adminTimingTab" data-rpt-view="eval-timing" onclick="switchRptView('eval-timing',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Eval Timing</button>
       <div class="rpt-side-group-label">Quality &amp; compliance</div>
-      <button class="rpt-side-item" data-rpt-view="repeat-offenders" onclick="switchRptView('repeat-offenders',this)">🔁 Repeat Offenders</button>
-      <button class="rpt-side-item" data-rpt-view="pareto" onclick="switchRptView('pareto',this)">📐 Pareto Analysis</button>
-      <button class="rpt-side-item" data-rpt-view="coaching-compliance" onclick="switchRptView('coaching-compliance',this)">🎯 Coaching Compliance</button>
-      <button class="rpt-side-item" data-rpt-view="disputes" onclick="switchRptView('disputes',this)">⚠️ Disputes</button>
-      <button class="rpt-side-item admin-only-tab" data-rpt-view="edit-requests" onclick="switchRptView('edit-requests',this)">✏️ Edit Requests</button>
+      <button class="rpt-side-item" data-rpt-view="repeat-offenders" onclick="switchRptView('repeat-offenders',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Repeat Offenders</button>
+      <button class="rpt-side-item" data-rpt-view="pareto" onclick="switchRptView('pareto',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><path d="M12 2v10l7 5"/></svg>Pareto Analysis</button>
+      <button class="rpt-side-item" data-rpt-view="coaching-compliance" onclick="switchRptView('coaching-compliance',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Coaching Compliance</button>
+      <button class="rpt-side-item" data-rpt-view="disputes" onclick="switchRptView('disputes',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Disputes</button>
+      <button class="rpt-side-item admin-only-tab" data-rpt-view="edit-requests" onclick="switchRptView('edit-requests',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Edit Requests</button>
     </div>
 
     <div style="flex:1;min-width:0;">
@@ -2092,17 +2092,17 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 
   <!-- Settings Tab Bar -->
   <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:18px;overflow-x:auto;">
-    <button class="settings-tab active" data-stab="qa-settings" onclick="switchSettingsTab('qa-settings',this)">⚙️ QA Settings</button>
-    <button class="settings-tab" data-stab="forms-mgmt" onclick="switchSettingsTab('forms-mgmt',this)" id="formsTab">📝 Forms</button>
-    <button class="settings-tab" data-stab="access-mgmt" onclick="switchSettingsTab('access-mgmt',this)">🔐 Access Management</button>
-    <button class="settings-tab" data-stab="role-perms" onclick="switchSettingsTab('role-perms',this)" id="rolePermsTab">🛡️ Role Permissions</button>
-    <button class="settings-tab" data-stab="data-import" onclick="switchSettingsTab('data-import',this)" id="dataImportTab">📥 Data Import</button>
-    <button class="settings-tab" data-stab="user-monitoring" onclick="switchSettingsTab('user-monitoring',this)" id="userMonitoringTab" style="display:none;">👁 User Monitoring</button>
-    <button class="settings-tab" data-stab="change-history" onclick="switchSettingsTab('change-history',this)" id="changeHistoryTab" style="display:none;">📜 Change History</button>
-<button class="settings-tab" data-stab="integrations" onclick="switchSettingsTab('integrations',this)" id="integrationsTab" style="display:none;">🔌 Integrations</button>
-<button class="settings-tab" data-stab="db-health" onclick="switchSettingsTab('db-health',this)" id="dbHealthTab" style="display:none;">🗄️ DB Health</button>
-<button class="settings-tab" data-stab="evaluation-rules" onclick="switchSettingsTab('evaluation-rules',this);_renderCooldownToggle()" id="evalRulesTab" style="display:none;">📋 Evaluation</button>
-<button class="settings-tab" data-stab="migration" onclick="switchSettingsTab('migration',this);_migInit()" id="migrationTab" style="display:none;">🚀 Migration</button>
+    <button class="settings-tab active" data-stab="qa-settings" onclick="switchSettingsTab('qa-settings',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>QA Settings</button>
+    <button class="settings-tab" data-stab="forms-mgmt" onclick="switchSettingsTab('forms-mgmt',this)" id="formsTab"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Forms</button>
+    <button class="settings-tab" data-stab="access-mgmt" onclick="switchSettingsTab('access-mgmt',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Access Management</button>
+    <button class="settings-tab" data-stab="role-perms" onclick="switchSettingsTab('role-perms',this)" id="rolePermsTab"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Role Permissions</button>
+    <button class="settings-tab" data-stab="data-import" onclick="switchSettingsTab('data-import',this)" id="dataImportTab"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Data Import</button>
+    <button class="settings-tab" data-stab="user-monitoring" onclick="switchSettingsTab('user-monitoring',this)" id="userMonitoringTab" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>User Monitoring</button>
+    <button class="settings-tab" data-stab="change-history" onclick="switchSettingsTab('change-history',this)" id="changeHistoryTab" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Change History</button>
+<button class="settings-tab" data-stab="integrations" onclick="switchSettingsTab('integrations',this)" id="integrationsTab" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Integrations</button>
+<button class="settings-tab" data-stab="db-health" onclick="switchSettingsTab('db-health',this)" id="dbHealthTab" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>DB Health</button>
+<button class="settings-tab" data-stab="evaluation-rules" onclick="switchSettingsTab('evaluation-rules',this);_renderCooldownToggle()" id="evalRulesTab" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>Evaluation</button>
+<button class="settings-tab" data-stab="migration" onclick="switchSettingsTab('migration',this);_migInit()" id="migrationTab" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Migration</button>
   </div>
 
   <!-- TAB: QA Settings -->
@@ -7581,7 +7581,7 @@ function renderPendingReviewTab(){
 
   // Update tab badge
   const tabBtn=document.getElementById('dashPendingTab');
-  if(tabBtn) tabBtn.innerHTML=`⏳ Pending Review${pending.length?` <span style="background:#dc2626;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:800;margin-left:4px;">${pending.length}</span>`:''}`;
+  if(tabBtn) tabBtn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Pending Review${pending.length?` <span style="background:#dc2626;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:800;margin-left:4px;">${pending.length}</span>`:''}`;
 
   if(!pending.length){
     el.innerHTML=`<div class="card" style="text-align:center;padding:40px 20px;">
