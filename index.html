@@ -1508,6 +1508,10 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
           <option value="">All Teams</option>
         </select>
         <span id="rosterCount" style="font-size:12px;color:var(--gray);margin-left:4px;"></span>
+        <span id="rosterFilterStatus" style="display:none;align-items:center;gap:8px;font-size:11px;color:#64748b;margin-left:4px;">
+          <span id="rosterFilterCount"></span>
+          <a href="#" onclick="clearRosterFilters();return false;" style="color:var(--primary);font-weight:600;text-decoration:none;">✕ Clear filters</a>
+        </span>
       </div>
       <div class="agents-grid" id="rosterGrid"></div>
     </div>
@@ -1943,6 +1947,10 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <select id="repeatAgent" onchange="renderRepeatOffenders()" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;">
         <option value="">All Agents</option>
       </select>
+      <span id="repeatFilterStatus" style="display:none;align-items:center;gap:8px;font-size:11px;color:#64748b;margin-left:4px;">
+        <span id="repeatFilterCount"></span>
+        <a href="#" onclick="clearRepeatOffendersFilters();return false;" style="color:var(--primary);font-weight:600;text-decoration:none;">✕ Clear filters</a>
+      </span>
     </div>
     <div class="kpi-grid" id="repeatKpi"></div>
     <div class="card">
@@ -1994,6 +2002,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
           <select id="disputeStatusFilter" onchange="renderDisputeReport()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;">
             <option value="">All</option><option value="pending">Pending</option><option value="agreed">Agreed</option><option value="rejected">Rejected</option>
           </select>
+          <a href="#" id="disputeFilterClear" onclick="clearDisputeFilters();return false;" style="display:none;color:var(--primary);font-weight:600;text-decoration:none;font-size:11px;align-items:center;">✕ Clear filter</a>
         </div>
       </div>
       <div class="table-wrap"><table>
@@ -2012,6 +2021,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
           <select id="editReqStatusFilter" onchange="renderEditRequestsReport()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;">
             <option value="">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
           </select>
+          <a href="#" id="editReqFilterClear" onclick="clearEditReqFilters();return false;" style="display:none;color:var(--primary);font-weight:600;text-decoration:none;font-size:11px;align-items:center;">✕ Clear filter</a>
         </div>
       </div>
       <div class="table-wrap"><table>
@@ -2249,6 +2259,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
               <option value="published">Published Only</option>
               <option value="draft">Drafts Only</option>
             </select>
+            <a href="#" id="formsFilterClear" onclick="clearFormsFilters();return false;" style="display:none;color:var(--primary);font-weight:600;text-decoration:none;font-size:11px;align-items:center;">✕ Clear</a>
             <button class="btn btn-primary btn-sm" onclick="createNewForm()">＋ New Form</button>
           </div>
         </div>
@@ -2467,6 +2478,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <input type="text" id="umSearch" placeholder="🔍 Search user…" oninput="renderUserMonitoring()" style="padding:7px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;width:200px;">
+        <a href="#" id="umFilterClear" onclick="clearUserMonitoringFilters();return false;" style="display:none;color:var(--primary);font-weight:600;text-decoration:none;font-size:11px;align-items:center;">✕ Clear</a>
         <button class="btn btn-outline btn-sm" onclick="renderUserMonitoring()">↻ Refresh</button>
       </div>
     </div>
@@ -2523,6 +2535,10 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         <select id="chFilterUser" onchange="renderChangeHistory()" style="padding:7px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;">
           <option value="">All Users</option>
         </select>
+        <span id="chFilterStatus" style="display:none;align-items:center;gap:8px;font-size:11px;color:#64748b;">
+          <span id="chFilterCount"></span>
+          <a href="#" onclick="clearChangeHistoryFilters();return false;" style="color:var(--primary);font-weight:600;text-decoration:none;">✕ Clear filters</a>
+        </span>
         <button class="btn btn-outline btn-sm" onclick="exportChangeHistory()">⬇ Export</button>
         <button class="btn btn-gray btn-sm" onclick="if(!isSuperAdmin()){toast('Only Super Admin can clear the audit log.','error');return;}if(confirm('Clear all change history? This cannot be undone.')){DB.set(\'changeLog\',[]);renderChangeHistory();toast(\'History cleared.\',\'info\');}">🗑 Clear</button>
       </div>
@@ -3665,6 +3681,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <input type="text" id="ndModalSearch" placeholder="Search…" oninput="renderNdModalList()" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;width:130px;transition:.15s;" onfocus="this.style.borderColor='#FF7900'" onblur="this.style.borderColor='#e2e8f0'">
+            <a href="#" id="ndModalFilterClear" onclick="clearNdModalFilters();return false;" style="display:none;color:var(--primary,#FF7900);font-weight:600;text-decoration:none;font-size:11px;align-items:center;">✕ Clear</a>
             <button onclick="npsExportSubmittedJSON()" style="padding:5px 12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;" title="Export as JSON">&#x2B07; JSON</button>
 <button onclick="npsExportSubmittedCSV()" style="padding:5px 12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;color:#374151;display:flex;align-items:center;gap:4px;">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -3776,6 +3793,10 @@ CORS_ORIGIN=https://yourdomain.com</code>
       <option value="">All Programs</option>
       <option>Mobile Prepaid</option><option>Mobile Postpaid</option><option>FTTH</option><option>Corporate</option><option>General</option><option>VIP</option><option>Technical</option>
     </select>
+    <span id="npsRecordFilterStatus" style="display:none;align-items:center;gap:8px;font-size:11px;color:#64748b;margin-left:4px;">
+      <span id="npsRecordFilterCount"></span>
+      <a href="#" onclick="clearNpsRecordFilters();return false;" style="color:var(--primary);font-weight:600;text-decoration:none;">✕ Clear filters</a>
+    </span>
   </div>
 
   <!-- Table -->
@@ -4105,7 +4126,10 @@ CORS_ORIGIN=https://yourdomain.com</code>
       <h2 style="margin:0;font-size:20px;font-weight:800;color:#1e293b;">👥 NPS Roster</h2>
       <p style="margin:4px 0 0;font-size:13px;color:#64748b;">Agent-level NPS performance tracking</p>
     </div>
-    <input type="text" id="npsRosterSearch" placeholder="🔍 Search agent…" oninput="renderNpsRoster()" style="padding:7px 14px;border:1.5px solid #fcd34d;border-radius:8px;font-size:13px;min-width:200px;background:#fffbeb;">
+    <span style="display:flex;align-items:center;gap:8px;">
+      <input type="text" id="npsRosterSearch" placeholder="🔍 Search agent…" oninput="renderNpsRoster()" style="padding:7px 14px;border:1.5px solid #fcd34d;border-radius:8px;font-size:13px;min-width:200px;background:#fffbeb;">
+      <a href="#" id="npsRosterFilterClear" onclick="clearNpsRosterFilters();return false;" style="display:none;color:var(--primary,#FF7900);font-weight:600;text-decoration:none;font-size:11px;align-items:center;">✕ Clear</a>
+    </span>
   </div>
 
   <div class="section-card" style="padding:0;overflow:hidden;">
@@ -4278,8 +4302,9 @@ CORS_ORIGIN=https://yourdomain.com</code>
       </div>
 
       <!-- Search -->
-      <div style="margin-bottom:12px;">
+      <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
         <input type="text" id="npsUserSearch" placeholder="🔍 Search by name, email or role…" oninput="renderNpsUserList()" style="width:100%;max-width:340px;padding:7px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;">
+        <a href="#" id="npsUserFilterClear" onclick="clearNpsUserListFilters();return false;" style="display:none;color:var(--primary);font-weight:600;text-decoration:none;font-size:11px;align-items:center;">✕ Clear</a>
       </div>
 
       <!-- User Table -->
@@ -4358,7 +4383,10 @@ CORS_ORIGIN=https://yourdomain.com</code>
           <div style="font-weight:700;font-size:14px;color:#d97706;">👁 User Monitoring</div>
           <div style="font-size:11px;color:#64748b;">Track login sessions and activity for NPS system users</div>
         </div>
-        <input type="text" id="npsUmSearch" placeholder="🔍 Search user…" oninput="renderNpsUserMonitoring()" style="padding:7px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;width:200px;">
+        <span style="display:flex;align-items:center;gap:8px;">
+          <input type="text" id="npsUmSearch" placeholder="🔍 Search user…" oninput="renderNpsUserMonitoring()" style="padding:7px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;width:200px;">
+          <a href="#" id="npsUmFilterClear" onclick="clearNpsUserMonitoringFilters();return false;" style="display:none;color:var(--primary);font-weight:600;text-decoration:none;font-size:11px;align-items:center;">✕ Clear</a>
+        </span>
       </div>
       <!-- Currently Online -->
       <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-bottom:16px;">
@@ -4412,6 +4440,10 @@ CORS_ORIGIN=https://yourdomain.com</code>
           <select id="npsChFilterUser" onchange="renderNpsChangeHistory()" style="padding:7px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;">
             <option value="">All Users</option>
           </select>
+          <span id="npsChFilterStatus" style="display:none;align-items:center;gap:8px;font-size:11px;color:#64748b;">
+            <span id="npsChFilterCount"></span>
+            <a href="#" onclick="clearNpsChangeHistoryFilters();return false;" style="color:var(--primary);font-weight:600;text-decoration:none;">✕ Clear filters</a>
+          </span>
           <button class="btn btn-outline btn-sm" onclick="exportChangeHistory()">⬇ Export</button>
         </div>
       </div>
@@ -9568,6 +9600,13 @@ function renderRoster(){
   if(st) data=data.filter(a=>a.status===st);
   if(tm) data=data.filter(a=>a.team===tm);
   document.getElementById('rosterCount').textContent=`${data.length} agent${data.length!==1?'s':''}`;
+  const rosterActiveFilterCount=[q,st,tm].filter(Boolean).length;
+  const rosterStatusEl=document.getElementById('rosterFilterStatus');
+  const rosterCountEl=document.getElementById('rosterFilterCount');
+  if(rosterStatusEl){
+    rosterStatusEl.style.display=rosterActiveFilterCount?'inline-flex':'none';
+    if(rosterCountEl) rosterCountEl.textContent=rosterActiveFilterCount+' filter'+(rosterActiveFilterCount>1?'s':'')+' active — showing '+data.length+' of '+getAgents().length;
+  }
   const grid=document.getElementById('rosterGrid');
   if(!data.length){ grid.innerHTML='<div style="text-align:center;padding:48px 20px;color:#94a3b8;grid-column:1/-1;"><div style="font-size:32px;margin-bottom:8px;">📭</div><div style="font-size:13px;font-weight:600;color:#64748b;">No agents found</div><div style="font-size:12px;color:#94a3b8;margin-top:4px;">Try adjusting your filters or add a new agent</div></div>'; return; }
   const records=getRecords();
@@ -9593,6 +9632,13 @@ function populateTeamFilter(){
   const sel=document.getElementById('rosterTeam');
   const cur=sel.value;
   sel.innerHTML='<option value="">All Teams</option>'+teams.map(t=>`<option value="${t}" ${t===cur?'selected':''}>${t}</option>`).join('');
+}
+
+function clearRosterFilters(){
+  const s=document.getElementById('rosterSearch'); if(s) s.value='';
+  const st=document.getElementById('rosterStatus'); if(st) st.value='';
+  const tm=document.getElementById('rosterTeam'); if(tm) tm.value='';
+  renderRoster();
 }
 
 // ── CSV Upload ──
@@ -11176,6 +11222,8 @@ function renderFormsList(){
   const filter   = filterEl ? filterEl.value : 'all';
   const forms    = allForms.filter(f=> filter==='all' ? true : f.status===filter);
   const el       = document.getElementById('formsListContainer');
+  const formsClearEl = document.getElementById('formsFilterClear');
+  if(formsClearEl) formsClearEl.style.display=(filter!=='all')?'inline-flex':'none';
   if(!el) return;
 
   if(!forms.length){
@@ -11214,6 +11262,11 @@ function renderFormsList(){
       </div>
     </div>`;
   }).join('');
+}
+
+function clearFormsFilters(){
+  const s=document.getElementById('formsFilterStatus'); if(s) s.value='all';
+  renderFormsList();
 }
 
 let _migratedForms = false;
@@ -13935,6 +13988,8 @@ function renderNdModalList(){
     String(r.weekNo||'').includes(search)||
     (r.remarks||'').toLowerCase().includes(search)
   ) : all;
+  const ndModalClearEl=document.getElementById('ndModalFilterClear');
+  if(ndModalClearEl) ndModalClearEl.style.display=search?'inline-flex':'none';
   if(badge) badge.textContent = all.length;
   const canDel = isAdmin();
   if(!rows.length){
@@ -13956,6 +14011,11 @@ function renderNdModalList(){
       </td>
     </tr>
   `).join('');
+}
+
+function clearNdModalFilters(){
+  const s=document.getElementById('ndModalSearch'); if(s) s.value='';
+  renderNdModalList();
 }
 
 function renderNpsSubmittedList(){
@@ -15984,6 +16044,14 @@ function renderNpsRecords(){
     return true;
   });
 
+  const npsRecActiveFilterCount=[search,scoreF,channelF,teamF,campF].filter(Boolean).length;
+  const npsRecStatusEl=document.getElementById('npsRecordFilterStatus');
+  const npsRecCountEl=document.getElementById('npsRecordFilterCount');
+  if(npsRecStatusEl){
+    npsRecStatusEl.style.display=npsRecActiveFilterCount?'inline-flex':'none';
+    if(npsRecCountEl) npsRecCountEl.textContent=npsRecActiveFilterCount+' filter'+(npsRecActiveFilterCount>1?'s':'')+' active — showing '+data.length+' of '+_npsRecordsData.length;
+  }
+
   const total=data.length, pages=Math.max(1,Math.ceil(total/NPS_PAGE_SIZE));
   _npsRecordsPage=Math.min(_npsRecordsPage,pages);
   const slice=data.slice((_npsRecordsPage-1)*NPS_PAGE_SIZE, _npsRecordsPage*NPS_PAGE_SIZE);
@@ -16034,6 +16102,16 @@ function renderNpsRecords(){
          <button class="btn btn-gray btn-sm" onclick="_npsRecordsPage=Math.min(${pages},_npsRecordsPage+1);renderNpsRecords();" ${_npsRecordsPage>=pages?'disabled':''}>Next ›</button>
        </span>`
     : '';
+}
+
+function clearNpsRecordFilters(){
+  const s=document.getElementById('npsRecordSearch'); if(s) s.value='';
+  const sc=document.getElementById('npsRecordFilterScore'); if(sc) sc.value='';
+  const ch=document.getElementById('npsRecordFilterChannel'); if(ch) ch.value='';
+  const tm=document.getElementById('npsRecordFilterTeam'); if(tm) tm.value='';
+  const cp=document.getElementById('npsRecordFilterCampaign'); if(cp) cp.value='';
+  _npsRecordsPage=1;
+  renderNpsRecords();
 }
 
 function _npsRefreshFilterOptions(){
@@ -18870,6 +18948,8 @@ function srdDownloadXLS(){
 function renderNpsRoster(){
   const agents=getAgents();
   const search=(document.getElementById('npsRosterSearch')?.value||'').toLowerCase();
+  const npsRosterClearEl=document.getElementById('npsRosterFilterClear');
+  if(npsRosterClearEl) npsRosterClearEl.style.display=search?'inline-flex':'none';
   const records=_npsRecordsData;
   const tbody=document.getElementById('npsRosterTableBody'); if(!tbody) return;
   let rows=agents.filter(a=>!search||(a.name||'').toLowerCase().includes(search)).map(a=>{
@@ -18894,6 +18974,11 @@ function renderNpsRoster(){
     </tr>`;
   });
   tbody.innerHTML=rows.length?rows.join(''):`<tr><td colspan="8" style="text-align:center;padding:48px 20px;color:#94a3b8;"><div style="font-size:32px;margin-bottom:8px;">📭</div><div style="font-size:13px;font-weight:600;color:#64748b;">No agents found</div><div style="font-size:12px;color:#94a3b8;margin-top:4px;">Try adjusting your filters</div></td></tr>`;
+}
+
+function clearNpsRosterFilters(){
+  const s=document.getElementById('npsRosterSearch'); if(s) s.value='';
+  renderNpsRoster();
 }
 
 function saveNpsSettings(){ toast('NPS settings saved successfully.','success'); }
@@ -18953,6 +19038,8 @@ function renderUserMonitoring(){
   if(!tbody) return;
 
   const search   = (document.getElementById('umSearch')?.value||'').toLowerCase();
+  const umClearEl = document.getElementById('umFilterClear');
+  if(umClearEl) umClearEl.style.display=search?'inline-flex':'none';
   const sessions = DB.get('userSessions')||[];
   const users    = getUsers();
   const activeSid= sessionStorage.getItem('qms_activeSessionId');
@@ -19031,6 +19118,11 @@ function renderUserMonitoring(){
   }
 }
 
+function clearUserMonitoringFilters(){
+  const s=document.getElementById('umSearch'); if(s) s.value='';
+  renderUserMonitoring();
+}
+
 // ══════════════════════════════════════════════════════
 // ── CHANGE HISTORY / AUDIT LOG ────────────────────────
 // ══════════════════════════════════════════════════════
@@ -19070,6 +19162,13 @@ function renderChangeHistory(){
   const fType   = document.getElementById('chFilterType')?.value||'';
   const fUser   = filterEl?.value||'';
   let log = DB.get('changeLog')||[];
+  const chActiveFilterCount=[search,fType,fUser].filter(Boolean).length;
+  const chStatusEl=document.getElementById('chFilterStatus');
+  const chCountEl=document.getElementById('chFilterCount');
+  if(chStatusEl){
+    chStatusEl.style.display=chActiveFilterCount?'inline-flex':'none';
+    if(chCountEl) chCountEl.textContent=chActiveFilterCount+' filter'+(chActiveFilterCount>1?'s':'')+' active';
+  }
 
   // Populate user filter
   if(filterEl && filterEl.options.length<=1){
@@ -19133,6 +19232,14 @@ function renderChangeHistory(){
       <button onclick="_chPage=Math.min(${pages},_chPage+1);renderChangeHistory()" style="padding:3px 10px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:pointer;${_chPage>=pages?'opacity:.4;pointer-events:none':''}">Next &raquo;</button>
     </div>`;
   }
+}
+
+function clearChangeHistoryFilters(){
+  const s=document.getElementById('chSearch'); if(s) s.value='';
+  const t=document.getElementById('chFilterType'); if(t) t.value='';
+  const u=document.getElementById('chFilterUser'); if(u) u.value='';
+  _chPage=1;
+  renderChangeHistory();
 }
 
 function exportChangeHistory(){
@@ -19495,6 +19602,8 @@ function renderNpsUserMonitoring(){
   if(!tbody) return;
 
   const search   = (document.getElementById('npsUmSearch')?.value||'').toLowerCase();
+  const npsUmClearEl = document.getElementById('npsUmFilterClear');
+  if(npsUmClearEl) npsUmClearEl.style.display=search?'inline-flex':'none';
   const sessions = DB.get('userSessions')||[];
   const users    = DB.get('users')||[];
   const activeSid= sessionStorage.getItem('qms_activeSessionId');
@@ -19554,6 +19663,11 @@ function renderNpsUserMonitoring(){
   }
 }
 
+function clearNpsUserMonitoringFilters(){
+  const s=document.getElementById('npsUmSearch'); if(s) s.value='';
+  renderNpsUserMonitoring();
+}
+
 function renderNpsChangeHistory(){
   const tbody   = document.getElementById('npsChTableBody');
   const pager   = document.getElementById('npsChPager');
@@ -19565,6 +19679,13 @@ function renderNpsChangeHistory(){
   const fType  = document.getElementById('npsChFilterType')?.value||'';
   const fUser  = filterEl?.value||'';
   let log = DB.get('changeLog')||[];
+  const npsChActiveFilterCount=[search,fType,fUser].filter(Boolean).length;
+  const npsChStatusEl=document.getElementById('npsChFilterStatus');
+  const npsChCountEl=document.getElementById('npsChFilterCount');
+  if(npsChStatusEl){
+    npsChStatusEl.style.display=npsChActiveFilterCount?'inline-flex':'none';
+    if(npsChCountEl) npsChCountEl.textContent=npsChActiveFilterCount+' filter'+(npsChActiveFilterCount>1?'s':'')+' active';
+  }
 
   if(filterEl && filterEl.options.length<=1){
     const users=[...new Set(log.map(e=>e.displayName||e.username))].sort();
@@ -19616,6 +19737,14 @@ function renderNpsChangeHistory(){
   }
 }
 
+function clearNpsChangeHistoryFilters(){
+  const s=document.getElementById('npsChSearch'); if(s) s.value='';
+  const t=document.getElementById('npsChFilterType'); if(t) t.value='';
+  const u=document.getElementById('npsChFilterUser'); if(u) u.value='';
+  _npsChPage=1;
+  renderNpsChangeHistory();
+}
+
 // ── NPS User Access Management ────────────────────────
 function openNpsAddUserForm(){
   const f = document.getElementById('npsAddUserForm');
@@ -19651,6 +19780,8 @@ function renderNpsUserList(){
   const tbody = document.getElementById('npsUserTableBody');
   if(!tbody) return;
   const search = (document.getElementById('npsUserSearch')?.value||'').toLowerCase();
+  const npsUserClearEl = document.getElementById('npsUserFilterClear');
+  if(npsUserClearEl) npsUserClearEl.style.display=search?'inline-flex':'none';
   const users  = (DB.get('users')||[]).filter(u=>!search ||
     (u.displayName||u.username||'').toLowerCase().includes(search) ||
     (u.email||'').toLowerCase().includes(search) ||
@@ -19700,6 +19831,11 @@ function renderNpsUserList(){
       </td>
     </tr>`;
   }).join('');
+}
+
+function clearNpsUserListFilters(){
+  const s=document.getElementById('npsUserSearch'); if(s) s.value='';
+  renderNpsUserList();
 }
 
 // ── NPS Edit User Modal ────────────────────────────────
@@ -23209,6 +23345,16 @@ function renderRepeatOffenders(){
   const windowDays = +document.getElementById('repeatWindow').value;
   const agentFilter = document.getElementById('repeatAgent').value;
 
+  // Window is a required view-scope (always has a meaningful value, shown
+  // directly in the dropdown label) rather than an optional filter, so only
+  // the agent selection counts toward "active filters" / gets cleared.
+  const repeatStatusEl=document.getElementById('repeatFilterStatus');
+  const repeatCountEl=document.getElementById('repeatFilterCount');
+  if(repeatStatusEl){
+    repeatStatusEl.style.display=agentFilter?'inline-flex':'none';
+    if(repeatCountEl) repeatCountEl.textContent='1 filter active';
+  }
+
   // Populate agent dropdown
   const sel = document.getElementById('repeatAgent');
   const prevVal = sel.value;
@@ -23294,6 +23440,11 @@ function renderRepeatOffenders(){
   const sorted = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
   mkChart('chartRepeatItems','bar',sorted.map(x=>x[0]),[{label:'Repeat Failures',data:sorted.map(x=>x[1]),backgroundColor:'#e74c3c',borderRadius:4}],
     {indexAxis:'y',plugins:{legend:{display:false}}});
+}
+
+function clearRepeatOffendersFilters(){
+  const a=document.getElementById('repeatAgent'); if(a) a.value='';
+  renderRepeatOffenders();
 }
 
 // ═══════════════════════════════════════════════════
@@ -23384,6 +23535,8 @@ function renderCoachingCompliance(){
 // ═══════════════════════════════════════════════════
 function renderDisputeReport(){
   const statusFilter = document.getElementById('disputeStatusFilter').value;
+  const disputeClearEl=document.getElementById('disputeFilterClear');
+  if(disputeClearEl) disputeClearEl.style.display=statusFilter?'inline-flex':'none';
   // Scope to the Reports screen's selected period (same YYYY-MM semantics as
   // getFilteredRecords()) -- previously always showed all-time totals here
   // regardless of the period picker shown right above this report.
@@ -23429,12 +23582,19 @@ function renderDisputeReport(){
   }).join('');
 }
 
+function clearDisputeFilters(){
+  const s=document.getElementById('disputeStatusFilter'); if(s) s.value='';
+  renderDisputeReport();
+}
+
 // ═══════════════════════════════════════════════════
 // REPORTS — EDIT REQUESTS
 // ═══════════════════════════════════════════════════
 function renderEditRequestsReport(){
   if(!isAdmin()){ document.getElementById('editReqReportBody').innerHTML='<tr class="empty-row"><td colspan="8">Admin only.</td></tr>'; return; }
   const statusFilter = document.getElementById('editReqStatusFilter').value;
+  const editReqClearEl=document.getElementById('editReqFilterClear');
+  if(editReqClearEl) editReqClearEl.style.display=statusFilter?'inline-flex':'none';
   const _allRecordsForScope = getRecords();
   // Scope to the Reports screen's selected period via the underlying
   // evaluation's evalDate (edit requests don't carry their own evalDate) --
@@ -23484,6 +23644,11 @@ function renderEditRequestsReport(){
       +'<td>'+actionBtn+'</td>'
       +'</tr>';
   }).join('');
+}
+
+function clearEditReqFilters(){
+  const s=document.getElementById('editReqStatusFilter'); if(s) s.value='';
+  renderEditRequestsReport();
 }
 
 // ═══════════════════════════════════════════════════
