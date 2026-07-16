@@ -1444,6 +1444,13 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <select id="recMonth" onchange="renderRecords()">
         <option value="">All Months</option>
       </select>
+      <select id="recQaOfficer" onchange="renderRecords()">
+        <option value="">All Evaluators</option>
+      </select>
+      <span id="recFilterStatus" style="display:none;align-items:center;gap:8px;font-size:11px;color:#64748b;margin-left:4px;">
+        <span id="recFilterCount"></span>
+        <a href="#" onclick="clearRecordFilters();return false;" style="color:var(--primary);font-weight:600;text-decoration:none;">✕ Clear filters</a>
+      </span>
     </div>
     <div class="table-wrap">
       <table>
@@ -5833,7 +5840,7 @@ function showScreen(name,btn){
       if(_isSA) _renderEvalCooldownQuickBtn();
     }
   }
-  if(name==='records')   { renderRecords(); populateMonthFilter('recMonth','records'); }
+  if(name==='records')   { renderRecords(); populateMonthFilter('recMonth','records'); populateQaOfficerFilter(); }
   if(name==='roster'){
     // QA lands on Coverage tab; Admin/others land on Agents tab
     const defaultTab = (!isAdmin() && isQA()) ? 'coverage' : 'agents';
@@ -8247,9 +8254,25 @@ function renderRecords(){
   const q=document.getElementById('recSearch').value.toLowerCase();
   const res=document.getElementById('recResult').value;
   const mon=document.getElementById('recMonth').value;
+  const qao=document.getElementById('recQaOfficer')?.value||'';
   if(q)   data=data.filter(r=>((r.agentName||'')+(r.qaOfficer||'')+(r.refNo||'')).toLowerCase().includes(q));
   if(res) data=data.filter(r=>r.result===res);
   if(mon) data=data.filter(r=>fmtMon(r.evalDate)===mon);
+  if(qao) data=data.filter(r=>r.qaOfficer===qao);
+
+  // Visible "N filters active" indicator + one-click reset -- there was
+  // previously zero on-screen signal that a filter was narrowing the table
+  // at all, so a leftover Search term (or Month/Evaluator selection) from an
+  // earlier session could silently hide most of the data with no visual cue
+  // anything was filtered, indistinguishable from "there's just not much
+  // data" or a real bug.
+  const activeFilterCount = [q, res, mon, qao].filter(Boolean).length;
+  const statusEl = document.getElementById('recFilterStatus');
+  const countEl = document.getElementById('recFilterCount');
+  if(statusEl){
+    statusEl.style.display = activeFilterCount ? 'inline-flex' : 'none';
+    if(countEl) countEl.textContent = activeFilterCount+' filter'+(activeFilterCount>1?'s':'')+' active — showing '+data.length+' of '+getRecords().length;
+  }
 
   const tbody=document.getElementById('recordsBody');
   if(!data.length){ tbody.innerHTML=`<tr><td colspan="8" style="padding:0;border:none;">${emptyState('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>','No records found','Try adjusting your search filters, or submit a new evaluation.', null, null)}</td></tr>`; return; }
@@ -8652,6 +8675,36 @@ function populateMonthFilter(elId, type){
   });
   // Restore selection
   if(cur) el.value=cur;
+}
+
+function populateQaOfficerFilter(){
+  const records=getRecords();
+  const officers=[...new Set(records.map(r=>r.qaOfficer).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const el=document.getElementById('recQaOfficer');
+  if(!el) return;
+  const cur=el.value;
+  const fixed=Array.from(el.options).filter(o=>o.value==='');
+  el.innerHTML='';
+  fixed.forEach(o=>el.appendChild(o));
+  officers.forEach(name=>{
+    const o=document.createElement('option'); o.value=name; o.textContent=name; el.appendChild(o);
+  });
+  // Restore selection only if that evaluator still has records; otherwise
+  // fall through to "All Evaluators" rather than silently keeping a filter
+  // selected on a name that no longer resolves to anything.
+  if(cur && officers.includes(cur)) el.value=cur;
+}
+
+// Explicit reset for the Records filter bar -- the exact escape hatch for
+// the failure mode that prompted this feature: a leftover Search term (or
+// Month/Evaluator selection) silently narrows the table to a handful of old
+// rows with nothing on screen indicating a filter is even active.
+function clearRecordFilters(){
+  const s=document.getElementById('recSearch'); if(s) s.value='';
+  const r=document.getElementById('recResult'); if(r) r.value='';
+  const m=document.getElementById('recMonth'); if(m) m.value='';
+  const q=document.getElementById('recQaOfficer'); if(q) q.value='';
+  renderRecords();
 }
 
 function exportCSV(type){
