@@ -14482,6 +14482,8 @@ const _UM_CONTENT = {
       qa:        ['login','dash','eval','records','reports','logout'],
       tl:        ['login','dash','eval','myteam','records','reports','logout'],
       manager:   ['login','dash','roster','records','reports','settings','logout'],
+      chief:     ['login','dash','roster','records','reports','settings','npsdash','switch','logout'],
+      ceo:       ['login','dash','roster','records','reports','settings','npsdash','switch','logout'],
       admin:     ['login','dash','eval','roster','records','reports','settings','logout'],
       superadmin:['login','dash','eval','myteam','roster','records','reports','settings','fb','npsdash','npsset','switch','logout'],
     };
@@ -14793,19 +14795,22 @@ const _UM_CONTENT = {
   chRecords(role){
     const M=_UM_CONTENT;
     const canExport=['qa','tl','manager','admin','superadmin'].includes(role);
+    const isAdminRole=['admin','superadmin'].includes(role);
     const ssList=M.SS('Records Screen — Evaluation List',
       M.HDR('Records','All Evaluations')+
       M.NAVBAR('Records')+
       `<div style="background:#f8f9fb;padding:10px;">
-        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
-          <div style="flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 10px;font-size:10px;color:#94a3b8;background:#fff;">🔍 Search by agent, evaluator, score…</div>
-          <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 10px;font-size:10px;color:#64748b;">Filter ▾</div>
-          ${canExport?`<div style="background:#FF7900;color:#fff;border-radius:7px;padding:6px 10px;font-size:10px;font-weight:700;">⬇ Export</div>`:''}
+        <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+          <div style="flex:1;min-width:110px;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 10px;font-size:9.5px;color:#94a3b8;background:#fff;">🔍 Search by agent, QA officer…</div>
+          <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 8px;font-size:9px;color:#64748b;">All Results ▾</div>
+          <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 8px;font-size:9px;color:#64748b;">All Months ▾</div>
+          <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 8px;font-size:9px;color:#64748b;">All Evaluators ▾</div>
+          <div style="font-size:9px;color:#FF7900;font-weight:700;white-space:nowrap;">2 filters active — showing 8 of 143 &nbsp;✕ Clear filters</div>
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:10px;">
-          <tr style="background:#f1f5f9;"><th style="padding:6px 8px;text-align:left;color:#64748b;font-weight:700;">Agent</th><th style="padding:6px 8px;color:#64748b;font-weight:700;">Evaluator</th><th style="padding:6px 8px;color:#64748b;font-weight:700;">Date</th><th style="padding:6px 8px;color:#64748b;font-weight:700;">Score</th><th style="padding:6px 8px;color:#64748b;font-weight:700;">Result</th><th style="padding:6px 8px;color:#64748b;font-weight:700;">Action</th></tr>
-          <tr style="border-top:1px solid #f1f5f9;"><td style="padding:6px 8px;">Ana Cruz</td><td style="padding:6px 8px;">J. Doe</td><td style="padding:6px 8px;">06/07/26</td><td style="padding:6px 8px;font-weight:800;color:#16a34a;">92.5%</td><td style="padding:6px 8px;">${M.BADGE('PASS','#16a34a')}</td><td style="padding:6px 8px;color:#3b82f6;cursor:pointer;">View</td></tr>
-          <tr style="border-top:1px solid #f1f5f9;"><td style="padding:6px 8px;">Ben Tan</td><td style="padding:6px 8px;">J. Doe</td><td style="padding:6px 8px;">06/06/26</td><td style="padding:6px 8px;font-weight:800;color:#dc2626;">0%</td><td style="padding:6px 8px;">${M.BADGE('AUTO FAIL','#dc2626')}</td><td style="padding:6px 8px;color:#3b82f6;cursor:pointer;">View</td></tr>
+          <tr style="background:#f1f5f9;"><th style="padding:6px 8px;text-align:left;color:#64748b;font-weight:700;">Agent</th><th style="padding:6px 8px;text-align:left;color:#64748b;font-weight:700;">QA Officer</th><th style="padding:6px 8px;color:#64748b;font-weight:700;">Date</th><th style="padding:6px 8px;color:#64748b;font-weight:700;">Ref No.</th><th style="padding:6px 8px;color:#64748b;font-weight:700;">Score</th><th style="padding:6px 8px;color:#64748b;font-weight:700;">Result</th><th style="padding:6px 8px;color:#64748b;font-weight:700;">Actions</th></tr>
+          <tr style="border-top:1px solid #f1f5f9;"><td style="padding:6px 8px;">Ana Cruz</td><td style="padding:6px 8px;">J. Doe</td><td style="padding:6px 8px;">06/07/26</td><td style="padding:6px 8px;color:#94a3b8;">REF-10234</td><td style="padding:6px 8px;font-weight:800;color:#16a34a;">92.5%</td><td style="padding:6px 8px;">${M.BADGE('PASS','#16a34a')}</td><td style="padding:6px 8px;color:#3b82f6;cursor:pointer;">👁 🗑</td></tr>
+          <tr style="border-top:1px solid #f1f5f9;"><td style="padding:6px 8px;">Ben Tan</td><td style="padding:6px 8px;">J. Doe</td><td style="padding:6px 8px;">06/06/26</td><td style="padding:6px 8px;color:#94a3b8;">REF-10201</td><td style="padding:6px 8px;font-weight:800;color:#dc2626;">0%</td><td style="padding:6px 8px;">${M.BADGE('AUTO FAIL','#dc2626')}</td><td style="padding:6px 8px;color:#3b82f6;cursor:pointer;">👁 🗑</td></tr>
         </table>
       </div>`, 10
     );
@@ -14815,18 +14820,21 @@ const _UM_CONTENT = {
         <div style="flex:1;background:#fff;border-radius:8px;border:1px solid #f1f5f9;padding:10px;">
           <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
             <div style="font-size:10px;font-weight:800;color:#1a0800;">📋 Evaluation Details</div>
-            <div style="display:flex;gap:4px;">${M.BADGE('PASS','#16a34a')}${M.BTN('⬇ PDF','#374151')}</div>
+            <div style="display:flex;gap:4px;">${M.BADGE('PASS','#16a34a')}${M.BTN('🖨 Print PDF','#374151')}</div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:9px;margin-bottom:8px;">
             <div><span style="color:#94a3b8;">Agent:</span> <strong>Ana Cruz</strong></div>
-            <div><span style="color:#94a3b8;">Evaluator:</span> <strong>John Doe</strong></div>
+            <div><span style="color:#94a3b8;">QA Officer:</span> <strong>John Doe</strong></div>
             <div><span style="color:#94a3b8;">Eval Date:</span> <strong>06/07/2026</strong></div>
-            <div><span style="color:#94a3b8;">Score:</span> <strong style="color:#16a34a;">92.5%</strong></div>
-            <div><span style="color:#94a3b8;">Call Type:</span> <strong>Inbound</strong></div>
+            <div><span style="color:#94a3b8;">Ref No.:</span> <strong>REF-10234</strong></div>
+            <div><span style="color:#94a3b8;">Duration:</span> <strong>00:04:12</strong></div>
             <div><span style="color:#94a3b8;">Campaign:</span> <strong>FTTH Support</strong></div>
+            <div><span style="color:#94a3b8;">Score:</span> <strong style="color:#16a34a;">92.5%</strong></div>
+            <div><span style="color:#94a3b8;">Result:</span> <strong style="color:#16a34a;">PASS</strong></div>
           </div>
           <div style="border-top:1px solid #f1f5f9;padding-top:8px;font-size:9px;color:#374151;font-weight:700;margin-bottom:4px;">Section Breakdown</div>
           ${[['Opening','25/25','100%','#16a34a'],['Handling','32/35','91.4%','#FF7900'],['Closing','20/20','100%','#16a34a'],['Compliance','15/15','100%','#16a34a']].map(([s,pts,pct,c])=>`<div style="display:flex;justify-content:space-between;font-size:9px;padding:3px 0;border-bottom:1px solid #f8fafc;"><span style="color:#64748b;">${s}</span><span style="font-weight:700;color:${c};">${pts} (${pct})</span></div>`).join('')}
+          <div style="border-top:1px solid #f1f5f9;margin-top:8px;padding-top:8px;display:flex;gap:5px;flex-wrap:wrap;">${M.BTN('🗑 Delete','#dc2626')}${M.BTN('✏️ Request Edit','#c25800')}${M.BTN('📧 Notify','#d97706')}</div>
         </div>
       </div>`, 11
     );
@@ -14834,19 +14842,19 @@ const _UM_CONTENT = {
       `<div style="background:#fff3e0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#7c2d12;"><strong>What you will find here:</strong> The Records screen is a searchable archive of every completed evaluation. Use it to look up a specific interaction, review an agent's history, check a disputed score, or export data for reporting.</div>`+
       M.P(1,'Click <strong>Records</strong> in the top navigation bar. A full list of evaluations loads, sorted by date (newest first).',10)+
       ssList+
-      M.CALLOUT('Result badges are color-coded: <strong style="color:#16a34a;">PASS</strong> in green, <strong style="color:#dc2626;">AUTO FAIL</strong> in red. Click any <strong>View</strong> link to open the full record.')+
-      M.P(2,'<strong>Search bar:</strong> Click the search box at the top-left. Type any keyword — agent name, evaluator name, campaign, reference number, or score. The list filters in real time with each keystroke. Clear the search field to return to the full list.')+
-      M.P(3,'<strong>Advanced Filters:</strong> Click the <em>Filter ▾</em> button to expand the filter panel. Available filters:<br><br>'+'<strong>Date Range</strong> — Set a From and To date to limit results to a specific period.<br>'+'<strong>Campaign / Queue</strong> — Show only evaluations for a specific campaign.<br>'+'<strong>Call Type</strong> — Filter by Inbound, Outbound, Chat, or Email.<br>'+'<strong>Result</strong> — Show only PASS, FAIL, or AUTO FAIL records.<br><br>Click <strong>Apply Filters</strong> to run the filtered query. Click <strong>Clear</strong> to reset all filters.')+
-      M.P(4,'<strong>Reading the record list:</strong> Each row shows Agent name, Evaluator name, Evaluation Date, Final Score (color-coded), Result badge, and a View action link.')+
-      M.P(5,'<strong>Opening a full record:</strong> Click the blue <strong>View</strong> link on any row. A full-screen overlay opens displaying the complete evaluation — header details, QA item answers, item-level comments, section scores, and the final score with result badge.',11)+
+      M.CALLOUT('Result badges are color-coded: <strong style="color:#16a34a;">PASS</strong> in green, <strong style="color:#dc2626;">AUTO FAIL</strong> in red. Click the eye icon on any row to open the full record.')+
+      M.P(2,'<strong>Search bar:</strong> Click the search box at the top-left. Type any keyword — agent name or QA officer name. The list filters in real time with each keystroke.')+
+      M.P(3,'<strong>Filters:</strong> Three dropdowns sit next to the search box:<br><br>'+'<strong>Result</strong> — show only PASS, FAIL, or AUTO FAIL records.<br>'+'<strong>Month</strong> — limit results to one calendar month.<br>'+'<strong>Evaluator</strong> — show only evaluations completed by one QA officer.<br><br>Each dropdown applies immediately — there is no separate "Apply" step.')+
+      M.P(4,'<strong>Active filter indicator:</strong> As soon as one or more of the above are set, a small orange counter appears reading "<em>N filters active — showing X of Y</em>" with a <strong>✕ Clear filters</strong> link right next to it. Click that link at any time to reset every filter on this screen back to "show everything" in one click — it never touches filters on any other screen (Dashboard, Roster, Reports, etc. each have their own independent Clear Filters where available).')+
+      M.P(5,'<strong>Reading the record list:</strong> Each row shows Agent name, QA Officer name, Evaluation Date, Reference Number, Final Score (color-coded), Result badge, and two action icons.')+
+      M.P(6,'<strong>Opening a full record:</strong> Click the eye (👁) icon on any row. A full-screen overlay opens displaying the complete evaluation — header details, QA item answers, item-level comments, section scores, and the final score with result badge.',11)+
       ssView+
-      M.CALLOUT('Use the <strong>⬇ PDF</strong> button inside the record view to download a formatted evaluation report — useful for agent coaching sessions.')+
-      M.P(6,'Inside the record view overlay, you can:<br><br>'+'• Read every QA item answer (Y / N / N/A) and any evaluator comments<br>'+'• See the section-by-section score breakdown<br>'+'• View the total final score and PASS/FAIL/AUTO FAIL result<br>'+'• Download the record as a formatted <strong>PDF</strong> using the ⬇ PDF button at the top')+
+      M.CALLOUT('Use the <strong>🖨 Print PDF</strong> button inside the record view to generate a formatted evaluation report — useful for agent coaching sessions.')+
+      M.P(7,'Inside the record view overlay, you can:<br><br>'+'• Read every QA item answer (Y / N / N/A) and any evaluator comments<br>'+'• See the section-by-section score breakdown<br>'+'• View the total final score and PASS/FAIL/AUTO FAIL result<br>'+'• Print a formatted PDF report<br>'+(isAdminRole?'• <strong>Delete</strong> the record (Admin/Super Admin only)<br>':'')+'• <strong>Request Edit</strong> on a record you believe is incorrect<br>'+'• <strong>Notify</strong> the agent by email if the result was FAIL or AUTO FAIL')+
       (canExport ?
-        M.P(7,'<strong>Bulk Export:</strong> To export multiple records, first apply any desired filters. Then click the orange <strong>⬇ Export</strong> button (top-right of Records screen). Select your format:<br><br>'+'<strong>📄 PDF Report</strong> — A formatted document listing all filtered evaluations with scores and details.<br>'+'<strong>📊 CSV Data</strong> — A spreadsheet-compatible file with one evaluation per row. Open in Excel or Google Sheets.<br>'+'<strong>📗 XLS Data</strong> — Microsoft Excel format with basic formatting applied.')
-      : M.NOTE('Export is available to QA Officers and above. If you do not see the Export button, contact your Admin.'))+
-      M.NOTE('Records are permanent — once submitted, an evaluation can only be deleted by an Admin or Super Admin. If you spot an error in a saved evaluation, contact your Admin to review it.')+
-      M.TIP('Click any column header (Agent, Date, Score) to sort the list by that column. Click again to reverse the sort direction. This is useful for finding the lowest or highest scored evaluations quickly.')
+        M.P(8,'<strong>Bulk Export:</strong> Use the export buttons at the top-right of the Records screen to download the current (filtered) list as <strong>CSV</strong> or <strong>JSON</strong>. QA Officers and above also see extra export formats (HTML report, full JSON backup).')
+      : M.NOTE('Export is available to QA Officers and above. If you do not see an Export button, contact your Admin.'))+
+      M.NOTE('Records are permanent — once submitted, an evaluation can only be deleted by an Admin or Super Admin. If you spot an error in a saved evaluation, use <strong>Request Edit</strong> instead of trying to resubmit it.')
     );
   },
 
@@ -14961,56 +14969,50 @@ const _UM_CONTENT = {
 
   chReports(role){
     const M=_UM_CONTENT;
-    const ss=M.SS('Reports Screen — Report Selection',
+    const isAdminRole=['admin','superadmin'].includes(role);
+    const ss=M.SS('Reports Screen — left sidebar + global period picker',
       M.HDR('Reports','Performance Analytics')+
       M.NAVBAR('Reports')+
-      `<div style="background:#f8f9fb;padding:12px;">
-        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-          ${['Agent Performance','QA Trend','Campaign Summary','Timing Analysis'].map(r=>`<div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 14px;font-size:10px;font-weight:700;color:#374151;cursor:pointer;">${r}</div>`).join('')}
+      `<div style="background:#f8f9fb;padding:10px;display:flex;gap:10px;">
+        <div style="width:110px;flex-shrink:0;background:#fff;border-radius:8px;border:1px solid #f1f5f9;padding:6px;">
+          ${[['Overview',1],['Agent Ranking',0],['Team Ranking',0],['By Tenure',0],['Correlation Analysis',0],['Weekly Trend',0],['Repeat Offenders',0],['Pareto Analysis',0],['Coaching Compliance',0],['Disputes',0],['Edit Requests',0]].map(([label,active])=>`<div style="padding:5px 8px;font-size:8.5px;font-weight:700;border-radius:6px;margin-bottom:1px;${active?'background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;':'color:#64748b;'}">${label}</div>`).join('')}
         </div>
-        <div style="background:#fff;border-radius:8px;border:1px solid #f1f5f9;padding:10px;display:flex;gap:8px;margin-bottom:10px;">
-          <div style="font-size:9px;color:#64748b;">FROM <div style="border:1px solid #e2e8f0;border-radius:5px;padding:4px 8px;margin-top:2px;font-size:10px;color:#374151;">2026-06-01</div></div>
-          <div style="font-size:9px;color:#64748b;">TO <div style="border:1px solid #e2e8f0;border-radius:5px;padding:4px 8px;margin-top:2px;font-size:10px;color:#374151;">2026-06-07</div></div>
-          <div style="margin-left:auto;display:flex;gap:4px;align-items:flex-end;">${M.BTN('Generate Report')}${M.BTN('⬇ Export','#374151')}</div>
+        <div style="flex:1;">
+          <div style="background:#fffbeb;border:1.5px solid #d97706;border-radius:8px;padding:6px 10px;margin-bottom:8px;display:flex;gap:8px;align-items:center;font-size:9px;">
+            <span style="color:#92400e;font-weight:700;">Period:</span>
+            <div style="background:#fff;border-radius:5px;padding:3px 8px;">3 Mo</div><div style="padding:3px 8px;">6 Mo</div><div style="padding:3px 8px;">1 Yr</div>
+            <span style="color:#92400e;margin-left:auto;">2026-05-01 → 2026-07-16</span>
+          </div>
+          <div style="background:#fff;border-radius:8px;border:1px solid #f1f5f9;height:80px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:10px;">📊 Overview charts + KPI cards render here</div>
         </div>
-        <div style="background:#fff;border-radius:8px;border:1px solid #f1f5f9;height:90px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:11px;">📊 Chart / Table renders here after Generate is clicked</div>
       </div>`, 16
     );
-    const ssGenerated=M.SS('Generated report — Agent Performance with score bar chart',
-      M.HDR('Reports','Agent Performance · June 2026')+
-      `<div style="background:#f8f9fb;padding:10px;">
-        <div style="background:#fff;border-radius:8px;border:1px solid #f1f5f9;padding:10px;margin-bottom:8px;">
-          <div style="font-size:10px;font-weight:800;color:#374151;margin-bottom:8px;">📊 Agent Score Ranking — June 2026</div>
-          <div style="display:flex;flex-direction:column;gap:4px;">
-            ${[['Ana Cruz','FTTH','95.0%','#16a34a'],['Mia Santos','Mobile','88.5%','#16a34a'],['Ben Tan','FTTH','78.2%','#dc2626'],['Kai Lim','Chat','76.1%','#dc2626']].map(([name,cmp,score,c])=>`
-            <div style="display:flex;align-items:center;gap:8px;">
-              <div style="font-size:9px;color:#64748b;width:90px;">${name}</div>
-              <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;overflow:hidden;"><div style="width:${score};height:100%;background:${c};border-radius:4px;"></div></div>
-              <div style="font-size:9px;font-weight:800;color:${c};width:36px;text-align:right;">${score}</div>
-            </div>`).join('')}
-          </div>
-        </div>
-        <div style="background:#fff;border-radius:8px;border:1px solid #f1f5f9;padding:10px;display:flex;justify-content:space-between;align-items:center;">
-          <div style="font-size:10px;color:#64748b;">4 agents · 43 evaluations · Period: 06/01–06/07/2026</div>
-          <div style="display:flex;gap:4px;">${M.BTN('📄 PDF','#374151')}${M.BTN('📊 CSV','#3b82f6')}</div>
-        </div>
-      </div>`, 17
-    );
-    return M.S('📈','Chapter 7 — Reports: Analytics & Performance Exports',
-      `<div style="background:#fff3e0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#7c2d12;"><strong>Purpose:</strong> The Reports screen generates analytical summaries of evaluation data. Use it to support management presentations, identify coaching needs, track QA trends over time, and fulfill compliance reporting requirements.</div>`+
-      M.P(1,'Click <strong>Reports</strong> in the top navigation bar.',16)+
+    return M.S('📈','Chapter 7 — Reports: Analytics & Performance',
+      `<div style="background:#fff3e0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#7c2d12;"><strong>Purpose:</strong> Reports is not one screen but a set of ${isAdminRole?'11':'9'} analytical views, listed in a sidebar on the left. Each view answers a different question — agent ranking, tenure trends, dispute tracking, and more. Use it to support management presentations, identify coaching needs, and fulfill compliance reporting.</div>`+
+      M.P(1,'Click <strong>Reports</strong> in the top navigation bar. The <strong>Overview</strong> view opens by default.',16)+
       ss+
-      M.CALLOUT('Select a report type first, then set the date range, then click <strong>Generate Report</strong>. Always in that order.')+
-      M.P(2,'<strong>Step 1 — Select a Report Type:</strong> Click one of the four report type buttons at the top of the page.<br><br>'+'<strong>📊 Agent Performance</strong> — Ranks agents by average score. Bar chart shows each agent\'s score. Table below lists their evaluation count, average, best/worst score, and pass rate. Best used for agent calibration reviews.<br><br>'+'<strong>📈 QA Trend</strong> — Line chart showing average score over time. Reveals score drift (improving or declining quality) across all evaluations or filtered by campaign/team. Use for weekly or monthly QA performance reviews.<br><br>'+'<strong>🏆 Campaign Summary</strong> — Groups evaluations by campaign or queue. Shows pass rate, average score, and total evaluations per campaign. Essential for management reporting and identifying which campaigns need targeted interventions.<br><br>'+'<strong>⏱ Timing Analysis</strong> — Shows how many evaluations each QA Officer completed and the average time per evaluation. Useful for QA team productivity monitoring.')+
-      M.P(3,'<strong>Step 2 — Set Date Range:</strong> Use the <em>From</em> and <em>To</em> date pickers to define your reporting period. For a monthly report, set From = 1st of the month, To = last day of the month. Avoid ranges longer than 3 months for performance.')+
-      M.P(4,'<strong>Step 3 — Apply Optional Filters:</strong> Below the date range, additional filters narrow the data:<br><br>'+'<strong>Agent</strong> — Generate a report for one specific agent only.<br>'+'<strong>Team</strong> — Filter to one team (useful for Team Leaders).<br>'+'<strong>Campaign / Queue</strong> — Focus on a single campaign.<br>'+'<strong>Evaluator</strong> — See reports for evaluations conducted by a specific QA Officer.')+
-      M.P(5,'<strong>Step 4 — Generate the Report:</strong> Click the orange <strong>Generate Report</strong> button. The system queries all matching evaluations and renders the chart and data table below.',17)+
-      ssGenerated+
-      M.CALLOUT('Red bars in the chart mean below-threshold scores. Hover any bar for exact values. Click <strong>Export</strong> to save the report as PDF or CSV.')+
-      M.P(6,'<strong>Reading the output:</strong> The chart displays the primary visualization (bar chart, line chart, or ranking bars). Hover over any bar or data point to see the exact value in a tooltip popup. The summary table below the chart lists individual records with sortable columns.')+
-      M.P(7,'<strong>Step 5 — Export the Report:</strong> Click the <strong>⬇ Export</strong> dropdown button (top-right). Choose your format:<br><br>'+'<strong>📄 PDF Report</strong> — A formatted, print-ready document with charts and tables. Suitable for management presentations and filing.<br>'+'<strong>📊 CSV Data</strong> — Raw data in comma-separated format. Import into Excel, Google Sheets, or Power BI for further analysis.<br>'+'<strong>📗 XLS Data</strong> — Microsoft Excel format with basic table formatting applied.')+
-      M.NOTE('Reports only include submitted evaluations. Evaluations not yet submitted (in-progress forms) are excluded. Ensure all evaluators have submitted their forms before generating a period-end report.')+
-      M.TIP('For the monthly management presentation, use <strong>Campaign Summary</strong> with the full month date range. Generate → Export as PDF. The PDF includes the chart and summary table ready for sharing.')
+      M.CALLOUT('The amber bar at the top of every view is the <strong>global period picker</strong> — it applies to most views at once. Repeat Offenders has its own separate time window and ignores this picker.')+
+      M.P(2,'<strong>The sidebar</strong> lists every available view. Click any item to switch views instantly — the page does not reload. What each view shows:<br><br>'+
+        '<strong>Overview</strong> — headline KPIs, an AI-generated rule-based summary, and several charts covering score trend, section performance, and monitoring coverage.<br>'+
+        '<strong>Agent Ranking</strong> — every agent ranked by average score, with pass/fail counts.<br>'+
+        '<strong>Team Ranking</strong> — the same ranking rolled up by team.<br>'+
+        '<strong>By Tenure</strong> — average score grouped by how long each agent has been employed.<br>'+
+        '<strong>Correlation Analysis</strong> — whether call duration or agent tenure correlates with score (toggle between the two).<br>'+
+        '<strong>Weekly Trend</strong> — average score plotted week over week.<br>'+
+        (isAdminRole?'<strong>Eval Timing</strong> — how long each QA Officer takes to complete an evaluation (Admin/Super Admin only).<br>':'')+
+        '<strong>Repeat Offenders</strong> — agents who failed the <em>same</em> scorecard item two or more times within a chosen day window.<br>'+
+        '<strong>Pareto Analysis</strong> — the small number of failure reasons responsible for most of the failed evaluations (80/20 rule).<br>'+
+        '<strong>Coaching Compliance</strong> — whether below-target evaluations received timely coaching.<br>'+
+        '<strong>Disputes</strong> — every scored dispute an agent or TL has raised, with status.<br>'+
+        (isAdminRole?'<strong>Edit Requests</strong> — every post-submission edit request, with status (Admin/Super Admin only).':''))+
+      M.P(3,'<strong>Setting the period:</strong> Use the amber period bar — click <strong>3 Mo / 6 Mo / 1 Yr</strong> for a quick range, or set an exact custom From/To date. This one picker drives Overview, Agent Ranking, Team Ranking, By Tenure, Correlation Analysis, Coaching Compliance, Disputes, and Edit Requests simultaneously.')+
+      M.NOTE('Repeat Offenders keeps its own independent window (a Days dropdown, default 30 days) instead of the shared period bar — changing the global period does not affect it. Weekly Trend and Pareto Analysis show all-time data by default.')+
+      M.P(4,'<strong>Reading a view:</strong> Every view opens with a row of colored KPI cards, followed by one or more charts, and usually a data table below the charts. Hover any chart bar or point to see its exact value.')+
+      M.P(5,'<strong>Clearing a view\'s own filters:</strong> Repeat Offenders, Disputes, and Edit Requests each have their own local filter controls (e.g. an Agent dropdown, a Status dropdown) in addition to the shared period bar. Where a "✕ Clear filters" link appears next to those controls, it resets only that view\'s own filter — it never touches the shared period bar or any other view.')+
+      (['qa','tl','manager','admin','superadmin'].includes(role) ?
+        M.P(6,'<strong>Exporting:</strong> Most views have their own export button near the top-right (CSV for tables, PDF for the printable Reports summary via the print icon in the toolbar).')
+      : M.NOTE('Export options vary by view and role. If you do not see an export control where you expect one, contact your Admin.'))+
+      M.TIP('For a monthly management review, open <strong>Overview</strong>, set the period to the full month, and use the print icon in the top toolbar for a print-ready summary.')
     );
   },
 
@@ -15078,8 +15080,8 @@ const _UM_CONTENT = {
       </div>`, 21
     );
     return M.S('⚙️','Chapter 8 — Settings: System Configuration',
-      `<div style="background:#fff3e0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#7c2d12;"><strong>Admin / Super Admin access required.</strong> Settings is the control center of the QMS. It contains four tabs: QA Settings, Access Management, User Monitoring, and Change History. Changes made here affect all users system-wide — proceed carefully and always click Save after each change.</div>`+
-      M.P(1,'Click <strong>Settings</strong> in the top navigation bar. The Settings screen opens with four horizontal tabs.',18)+
+      `<div style="background:#fff3e0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#7c2d12;"><strong>Admin / Super Admin access required.</strong> Settings is the control center of the QMS, organized into a row of tabs. This chapter covers the ones every Admin uses most often first (QA Settings, Forms, Access Management, Role Permissions, User Monitoring, Change History), then briefly covers the more technical tabs. Changes made here affect all users system-wide — proceed carefully and always click Save after each change.</div>`+
+      M.P(1,'Click <strong>Settings</strong> in the top navigation bar. The Settings screen opens with a row of tabs across the top.',18)+
       ssQA+
       M.CALLOUT('The four tabs at the top — QA Settings, Access Management, User Monitoring, Change History — each control a different area. Always click <strong>Save Settings</strong> after any change.')+
       `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">⚙️ TAB 1 — QA Settings</div>`+
@@ -15087,7 +15089,11 @@ const _UM_CONTENT = {
       M.P(3,'<strong>Passing Score (%):</strong> The minimum percentage an evaluation must achieve to receive a PASS verdict. The industry standard is 80%. Click the field, type the new value (e.g. 85), and click <strong>💾 Save Settings</strong>. All future evaluations will use this threshold immediately. Historical evaluations are not re-calculated.')+
       M.P(4,'<strong>Auto-Fail Trigger behavior:</strong> When a critical item is answered N, the system can respond in two ways:<br><br>'+'<strong>Full Score Zero</strong> — The final score becomes 0% and the result shows AUTO FAIL.<br>'+'<strong>Flag Only</strong> — The score reflects the actual answers but an AUTO FAIL flag is added to the record.')+
       M.P(5,'After configuring QA Settings, click the orange <strong>💾 Save Settings</strong> button at the top-right of the Settings screen. A success toast confirms the save.')+
-      `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">👤 TAB 2 — Access Management</div>`+
+      `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">📝 TAB — Forms</div>`+
+      M.P('5b','The <strong>Forms</strong> tab manages the QA scorecard(s) themselves — more than one form can exist at once (e.g. a Hotline form and a Chat form with different sections). Each form card shows its status (Published / Draft), section and item counts, and how many evaluations have used it.')+
+      M.P('5c','Click <strong>＋ New Form</strong> to start a blank form, <strong>✏️ Edit</strong> to open the Form Builder for an existing one, <strong>⧉ Copy</strong> to duplicate a form as a starting point, or <strong>📤 Unpublish</strong> / <strong>📢 Publish</strong> to control whether QA Officers can select it in New Evaluation. Only one form needs to be published for the app to work as before — publishing a second form lets evaluators choose which scorecard applies to a given call.')+
+      M.WARN('Deleting a form does not delete evaluations already submitted against it — those records keep their own copy of the scoring structure. Deleting only removes the form as a future option.')+
+      `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">👤 TAB — Access Management</div>`+
       ssAM+
       M.CALLOUT('Role badges are color-coded — orange = QA Officer, blue = Team Leader, etc. The <strong>Reset PW</strong> button sends a new temporary password — always notify the user after resetting.')+
       M.P(6,'The Access Management tab shows a table of all registered QMS users: Name, Username, Email, Role badge, and Status (Active/Inactive).')+
@@ -15099,16 +15105,29 @@ const _UM_CONTENT = {
       M.P(10,'<strong>Resetting a password:</strong> Click <strong>Reset PW</strong> on any user row. Enter a new temporary password. Notify the user. They should change it immediately after logging in.')+
       M.P(11,'<strong>Deactivating a user (e.g. staff member left):</strong> Click <strong>Deactivate</strong> on the row. Confirm in the dialog. The user is immediately logged out (if active) and cannot log in again. All their records are preserved. To re-enable access, click <strong>Activate</strong>.')+
       M.WARN('Super Admin accounts are permanently protected. You cannot edit, deactivate, or reset the password of a Super Admin account through the user table. Contact your IT administrator directly.')+
-      `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">👁 TAB 3 — User Monitoring</div>`+
+      `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">🛡️ TAB — Role Permissions</div>`+
+      M.P('11b','This tab has two parts: <strong>Custom Roles</strong> and the <strong>Permission Matrix</strong>.')+
+      M.P('11c','<strong>Custom Roles:</strong> The system ships with four built-in roles (QA Officer, Team Lead, Manager, Viewer) plus Admin/Super Admin. If your organization needs a role that doesn\'t map cleanly onto those — e.g. a "Quality Coach" who should see more than a Viewer but less than a Manager — click <strong>＋ Add Role</strong>, give it a name and an icon, and it appears as a new column in the Permission Matrix below.')+
+      M.P('11d','<strong>Permission Matrix:</strong> A grid of individual permissions (grouped into Evaluations, Agent & TL Actions, Dashboard & Reports, and Administration) against every role, including any custom ones. Admin\'s column is always fully checked and locked. Click any other cell to grant or revoke that permission for that role, then click <strong>💾 Save</strong>. Use <strong>↺ Reset Defaults</strong> to discard custom changes and restore the factory permission set.')+
+      M.NOTE('Some behavior is intentionally hardcoded regardless of the matrix (for example, Team Leads can edit an evaluation within a short window after submission) — the matrix controls the permissions that are meant to be configurable, not every rule in the system.')+
+      `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">👁 TAB — User Monitoring</div>`+
       ssMonitor+
       M.CALLOUT('Idle sessions (yellow badge) have been inactive for over 10 minutes. Sessions marked Disconnected have lost network connection. Use <strong>Force Logout</strong> on any suspicious row.','warn')+
       M.P(12,'User Monitoring shows a live list of all currently active login sessions. Each row displays: Username, Role, Login Time, Last Activity timestamp, and Session Status (Active / Idle / Disconnected).')+
       M.P(13,'Use this tab to detect: unauthorized access attempts, sessions left open on unattended workstations, and unusually long idle sessions. If you see a suspicious session, click <strong>Force Logout</strong> on that row to terminate it immediately.')+
-      `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">📜 TAB 4 — Change History</div>`+
+      `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">📜 TAB — Change History</div>`+
       M.P(14,'Change History is the full audit log of every action taken in the QMS system — evaluations submitted, records edited, users added, settings changed, and logins/logouts. Each entry records: Who performed the action, What the action was, When it happened (timestamp), and What system (QMS or NPS).')+
       M.P(15,'<strong>Searching the audit log:</strong> Use the search bar to find actions by username. Use the Action Type dropdown to filter (e.g. show only "User Deleted" or "Settings Changed"). Use the date range pickers to limit to a specific period.')+
       M.P(16,'<strong>Exporting the audit log:</strong> Click <strong>⬇ Export CSV</strong>. The exported file is suitable for compliance reporting, external audits, and HR investigations.')+
       M.NOTE('The Change History log is read-only and tamper-proof. No user — including Super Admin — can edit or delete audit entries. This ensures a reliable paper trail for all system activities.')+
+
+      `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">🔧 Other Admin Tabs</div>`+
+      M.P('16b','Four more tabs exist for less frequent, more technical tasks — each Super Admin only unless noted:<br><br>'+
+        '<strong>📥 Data Import</strong> — bulk-import evaluations, agents, users, or a full JSON backup via CSV/JSON upload or drag-and-drop. Always download the template first so your columns match what the importer expects; every import shows a preview you can review before committing.<br><br>'+
+        '<strong>🔌 Integrations</strong> — connection details for the REST API and MCP server stub, for teams wiring an AI agent or external BI tool into QMS data.<br><br>'+
+        '<strong>🗄️ DB Health</strong> — QMS stores data in two databases in parallel for redundancy; this tab reports whether they agree and can resolve drift if they don\'t.<br><br>'+
+        '<strong>📋 Evaluation</strong> — configures the re-evaluation cooldown rule (how soon the same agent can be re-evaluated).')+
+      M.NOTE('These four tabs are hidden from the tab bar until your role has access — if you don\'t see them, that\'s expected for QA Officer, Team Lead, and Manager roles.')+
 
       `<div style="font-size:12px;font-weight:800;color:#dc2626;margin:20px 0 8px;padding-bottom:4px;border-bottom:2px solid #fee2e2;">⚠️ DANGER ZONE — Wipe Entry Data</div>`+
       M.SS('Settings — Danger Zone card at the bottom of QA Settings tab',
@@ -15617,15 +15636,15 @@ const _UM_CONTENT = {
       </div>`, 29
     );
     return M.S('🔄','Switching Between QMS and NPS Systems',
-      `<p style="font-size:12px;color:#374151;line-height:1.65;margin-bottom:10px;">Super Admin can switch between the QMS (Quality Monitoring System) and NPS (Net Promoter Score) system from the top user bar.</p>`+
-      M.P(1,'Look at the top user bar (the dark bar below the Cellcard header). After your name and Super Admin badge, you will see the <strong>QMS / NPS toggle</strong>.',29)+
+      `<p style="font-size:12px;color:#374151;line-height:1.65;margin-bottom:10px;">Super Admin, CEO, and Chief can switch between the QMS (Quality Monitoring System) and NPS (Net Promoter Score) system from the top user bar.</p>`+
+      M.P(1,'Look at the top user bar (the dark bar below the Cellcard header). After your name and role badge, you will see the <strong>QMS / NPS toggle</strong>.',29)+
       ss+
       M.CALLOUT('The active system pill is highlighted in orange. Click the other pill to switch — the dashboard for that system loads immediately.')+
       M.P(2,'Click <strong>📊 QMS</strong> to switch to the Quality Monitoring System. The QMS navigation bar appears and the dashboard loads automatically.')+
       M.P(3,'Click <strong>⭐ NPS</strong> to switch to the Net Promoter Score system. The NPS navigation bar appears and the Executive Dashboard loads.')+
       M.P(4,'The active system button is highlighted in <strong style="color:#FF7900;">orange</strong>. The inactive system button is dimmed.')+
       M.P(5,'When you switch systems, all open panels and modals close automatically. Your work in either system is not lost — evaluations and NPS records save independently.')+
-      M.NOTE('The QMS/NPS switch is exclusive to Super Admin. Other roles see only the system they have been granted access to.')
+      M.NOTE('The QMS/NPS switch is only available to Super Admin, CEO, and Chief. Other roles see only the system they have been granted access to.')
     );
   },
 
@@ -15740,7 +15759,7 @@ function _umRenderChapter(id, role){
 }
 
 function _umRoleLabel(role){
-  return {viewer:'Viewer',qa:'QA Officer',tl:'Team Leader',manager:'Manager',admin:'Admin',superadmin:'Super Admin'}[role]||'User';
+  return {viewer:'Viewer',qa:'QA Officer',tl:'Team Leader',manager:'Manager',ceo:'CEO',chief:'Chief',admin:'Admin',superadmin:'Super Admin'}[role]||'User';
 }
 
 let _umActiveChapter = 'login';
