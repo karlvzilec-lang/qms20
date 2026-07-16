@@ -6958,7 +6958,12 @@ function renderQAScoreChart(myRecs){
     // Last 7 days — one bar per day
     for(let i=6;i>=0;i--){
       const d=new Date(now); d.setDate(now.getDate()-i); d.setHours(0,0,0,0);
-      const key=d.toISOString().slice(0,10);
+      // Local date components, not toISOString() — evalDate strings come from
+      // a plain <input type="date">, always local calendar dates. Using
+      // toISOString() here UTC-shifts the key and silently mismatches by a
+      // day in any timezone ahead of UTC (e.g. ICT/UTC+7), moving a day's
+      // real evaluations onto the following day's bar and showing 0 here.
+      const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const day=d.toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'});
       const recs=myRecs.filter(r=>r.evalDate===key);
       labels.push(day);
