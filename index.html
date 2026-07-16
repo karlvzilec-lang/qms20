@@ -8322,6 +8322,19 @@ function renderRecords(){
   if(mon) data=data.filter(r=>fmtMon(r.evalDate)===mon);
   if(qao) data=data.filter(r=>r.qaOfficer===qao);
 
+  // Newest evaluation first -- getRecords() has no inherent order (it's raw
+  // storage/merge order across two databases, not chronological), so without
+  // an explicit sort here the list looked arbitrarily shuffled: a filtered
+  // view could show older evaluations above genuinely newer ones with no
+  // indication anything was out of order, making just-submitted work look
+  // "missing" until a user scrolled far enough to find it. Sort by evalDate
+  // first, then by submission time as a tiebreaker for same-day evaluations.
+  data = [...data].sort((a,b)=>{
+    const d = new Date(b.evalDate) - new Date(a.evalDate);
+    if(d) return d;
+    return new Date(b.createdAt||0) - new Date(a.createdAt||0);
+  });
+
   // Visible "N filters active" indicator + one-click reset -- there was
   // previously zero on-screen signal that a filter was narrowing the table
   // at all, so a leftover Search term (or Month/Evaluator selection) from an
@@ -16105,6 +16118,11 @@ function renderNpsRecords(){
     if(search   && !JSON.stringify(r).toLowerCase().includes(search)) return false;
     return true;
   });
+
+  // Newest first -- _npsRecordsData has no inherent order (raw storage/merge
+  // order), so an unsorted list could show older responses above genuinely
+  // newer ones with nothing indicating anything was out of order.
+  data = [...data].sort((a,b)=> new Date(b.date||0) - new Date(a.date||0));
 
   const npsRecActiveFilterCount=[search,scoreF,channelF,teamF,campF].filter(Boolean).length;
   const npsRecStatusEl=document.getElementById('npsRecordFilterStatus');
