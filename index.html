@@ -14,18 +14,27 @@
   /* Cellcard Official Brand Colors — cellcard.com.kh */
   --primary:#FF7900;       /* Cellcard Orange — primary CTA, nav active, buttons */
   --primary-dark:#E56A00;  /* Darker orange for hover */
-  --primary-light:#FFF3E0; /* Light orange tint for backgrounds */
+  --primary-light:#fff3e0; /* Light orange tint for backgrounds */
   --accent:#319CDE;        /* Cellcard Blue — secondary/info accent */
   --accent-dark:#008DD4;   /* Deeper blue */
   --navy:#0f2167;          /* Dark navy for headers */
   --amber:#F6A000;         /* Cellcard Amber — warning, highlights */
   --success:#16a34a;--danger:#dc2626;--warning:#F6A000;
   --info:#319CDE;--gray:#64748b;--light:#f8fafc;--white:#fff;
-  --border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);
+  --border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);
   --shadow-md:0 4px 6px rgba(0,0,0,.05),0 10px 30px rgba(0,0,0,.08);
-  --shadow-lg:0 24px 80px rgba(0,0,0,.2);
-  --radius:16px;--radius-sm:9px;--radius-btn:10px;--radius-badge:20px;--radius-lg:20px;--radius-input:9px;
+  --shadow-lg:0 20px 60px rgba(0,0,0,.18);
+  --radius:16px;--radius-sm:9px;--radius-btn:10px;--radius-badge:20px;--radius-lg:20px;
   --transition:0.15s ease;
+  /* Minimalist redesign — spacing scale (4/8/12/16/24/32) for new/updated
+     components; existing hand-tuned spacing elsewhere is left as-is to avoid
+     a risky whole-file re-tokenization pass. */
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px;
+  /* Consolidated neutral-ink scale — replaces the 6-way near-black /
+     4-way near-gray sprawl for anything newly touched in this pass. */
+  --ink:#0f172a;--muted:#64748b;--muted-2:#94a3b8;
+  --gradient-brand:linear-gradient(135deg,#1a0800,var(--primary));
+  --gradient-cta:linear-gradient(135deg,var(--primary),var(--primary-dark));
 }
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--light);color:#0f172a;min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 *:focus-visible{outline:2px solid #FF7900;outline-offset:2px;}
@@ -70,7 +79,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .role-admin{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
 .role-qa{background:#fff3e0;color:#c25800;border:1px solid #ffdcb0;}
 .role-viewer{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;}
-.role-tl{background:#fff3e0;color:#c25800;border:1px solid #ffdcb0;}
+.role-tl{background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc;}
 .role-manager{background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff;}
 .role-superadmin{background:rgba(255,255,255,.95);color:#c25800;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.12);border:1.5px solid rgba(255,255,255,.6);}
 .role-ceo{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;}
@@ -161,6 +170,11 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .cov-partial{background:#fef9c3;color:#854d0e;}
 .cov-zero{background:#fee2e2;color:#dc2626;}
 .cov-over{background:#ede9fe;color:#7c3aed;}
+/* Eval Coverage KPI tiles — these had no CSS at all (bare unstyled divs) */
+.kpi-card{background:#fff;border-radius:var(--radius-sm);border:1px solid var(--border);padding:var(--sp-3) var(--sp-4);}
+.kpi-icon{font-size:20px;margin-bottom:var(--sp-1);line-height:1;}
+.kpi-value{font-size:26px;font-weight:900;line-height:1.15;}
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
 /* Role Cards */
 .role-card{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;min-width:170px;position:relative;}
 .role-card.role-card-admin{border-color:#FF7900;background:linear-gradient(135deg,#fff8f0,#fff3e0);}
@@ -327,7 +341,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .section-hdr p{font-size:13px;color:#64748b;margin-top:2px;}
 
 /* Cards */
-.card{background:#fff;border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);padding:20px;margin-bottom:20px;border:1px solid #eef2f7;}
+.card{background:#fff;border-radius:var(--radius);padding:20px;margin-bottom:20px;border:1px solid var(--border);}
 /* Settings screen cards get richer border + shadow */
 #screen-settings .card{border-radius:16px;border:1px solid #eef2f7;box-shadow:var(--shadow-md);}
 .card-title{font-size:13px;font-weight:800;color:#0f172a;margin-bottom:16px;display:flex;align-items:center;gap:9px;justify-content:space-between;padding-bottom:12px;border-bottom:1.5px solid #f1f5f9;}
@@ -335,9 +349,9 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 
 /* KPI Grid */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:22px;}
-.kpi{background:#fff;border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);padding:20px 16px 16px;text-align:center;border:1px solid #eef2f7;position:relative;overflow:hidden;transition:box-shadow var(--transition),transform var(--transition);}
-.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#FF7900,#E56A00);border-radius:var(--radius) var(--radius) 0 0;}
-.kpi:hover{box-shadow:0 4px 12px rgba(255,121,0,.1),0 8px 32px rgba(0,0,0,.06);transform:translateY(-2px);}
+.kpi{background:#fff;border-radius:var(--radius);padding:20px 16px 16px;text-align:center;border:1px solid var(--border);position:relative;overflow:hidden;transition:box-shadow var(--transition),transform var(--transition);}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--gradient-cta);border-radius:var(--radius) var(--radius) 0 0;}
+.kpi:hover{box-shadow:var(--shadow);transform:translateY(-1px);}
 .kpi.blue::before{background:linear-gradient(90deg,var(--accent),var(--accent-dark));}
 .kpi.green::before{background:linear-gradient(90deg,#16a34a,#15803d);}
 .kpi.red::before{background:linear-gradient(90deg,#dc2626,#b91c1c);}
@@ -405,6 +419,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 
 /* Toolbar */
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+.toolbar select{width:auto;flex:0 0 auto;min-width:140px;max-width:180px;}
 .search-box{position:relative;flex:1;min-width:200px;}
 .search-box input{padding-left:38px;background:#fff;}
 .search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;line-height:1;}
@@ -513,9 +528,9 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 .dih-type-icon{font-size:28px;margin-bottom:6px;}
 .dih-type-lbl{font-size:12px;font-weight:700;color:#1e293b;}
 .dih-type-desc{font-size:11px;color:#64748b;margin-top:2px;}
-.dih-drop{border:2.5px dashed #cbd5e1;border-radius:12px;padding:36px 24px;text-align:center;cursor:pointer;transition:all .15s;background:#f8fafc;margin:16px 0;}
-.dih-drop:hover,.dih-drop.drag-over{border-color:var(--primary);background:#eff6ff;}
-.dih-drop-icon{font-size:40px;margin-bottom:10px;}
+.dih-drop{border:2px dashed var(--border);border-radius:var(--radius);padding:32px 24px;text-align:center;cursor:pointer;transition:all .2s;background:#fafafa;margin:16px 0;}
+.dih-drop:hover,.dih-drop.drag-over{border-color:var(--primary);background:var(--primary-light);}
+.dih-drop-icon{font-size:36px;margin-bottom:8px;}
 .dih-drop h4{font-size:15px;font-weight:700;color:#1e293b;margin:0 0 4px;}
 .dih-drop p{font-size:12px;color:#64748b;margin:0;}
 .dih-step{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:16px;}
@@ -634,10 +649,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 .coaching-box h4{color:#f57f17;font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 .action-plan-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
 .action-plan-num{background:var(--primary);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
-.dispute-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;}
-.dispute-pending{background:#fff3cd;color:#856404;}
-.dispute-agreed{background:#d1e7dd;color:#0a3622;}
-.dispute-rejected{background:#f8d7da;color:#58151c;}
+.dispute-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;cursor:pointer;}
 .tl-reviewed{background:#d1e7dd;color:#0a3622;}
 .coaching-done{background:#d1fae5;color:#065f46;}
 .coaching-pending{background:#fef3c7;color:#92400e;}
@@ -2540,7 +2552,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
           <a href="#" onclick="clearChangeHistoryFilters();return false;" style="color:var(--primary);font-weight:600;text-decoration:none;">✕ Clear filters</a>
         </span>
         <button class="btn btn-outline btn-sm" onclick="exportChangeHistory()">⬇ Export</button>
-        <button class="btn btn-gray btn-sm" onclick="if(!isSuperAdmin()){toast('Only Super Admin can clear the audit log.','error');return;}if(confirm('Clear all change history? This cannot be undone.')){DB.set(\'changeLog\',[]);renderChangeHistory();toast(\'History cleared.\',\'info\');}">🗑 Clear</button>
+        <button class="btn btn-gray btn-sm" onclick="clearAuditLog()">🗑 Clear</button>
       </div>
     </div>
 
@@ -4867,10 +4879,10 @@ CORS_ORIGIN=https://yourdomain.com</code>
       <button class="modal-close" onclick="closeModal('uploadModal')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFile').click()" ondragover="e=>e.preventDefault()" ondrop="handleDrop(event)">
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFile').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDrop(event)">
         <div class="drop-zone-icon">📂</div>
         <p><strong>Click to browse</strong> or drag &amp; drop your CSV file here</p>
-        <p style="font-size:12px;margin-top:6px;color:#aaa;">Required columns: Name, StaffID, Team, Supervisor, Campaign, Status, Email</p>
+        <p style="font-size:12px;margin-top:6px;color:var(--gray);">Required columns: Name, StaffID, Team, Supervisor, Campaign, Status, Email</p>
         <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleCSVFile(this)">
       </div>
       <div id="csvPreview" style="margin-top:14px;"></div>
@@ -5126,12 +5138,14 @@ CORS_ORIGIN=https://yourdomain.com</code>
 <!-- Universal Confirm Dialog -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal" style="max-width:420px;">
-    <div class="modal-header" id="confirmModalHeader" style="background:var(--danger);">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span id="confirmModalIcon" style="font-size:22px;">🗑</span>
-        <h3 id="confirmModalTitle">Confirm Action</h3>
+    <div class="modal-header" id="confirmModalHeader" style="background:#fff;color:var(--ink);border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span id="confirmModalIconWrap" style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fef2f2;">
+          <span id="confirmModalIcon" style="font-size:17px;line-height:1;">🗑</span>
+        </span>
+        <h3 id="confirmModalTitle" style="color:var(--ink);">Confirm Action</h3>
       </div>
-      <button class="modal-close" onclick="closeModal('confirmModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('confirmModal')" style="background:#f1f5f9;color:var(--muted);">✕</button>
     </div>
     <div class="modal-body" style="padding:22px 24px;">
       <p id="confirmModalMsg" style="font-size:15px;line-height:1.6;color:#374151;margin:0;"></p>
@@ -5146,7 +5160,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
         <span id="confirmCountdownTxt" style="font-size:10px;font-weight:700;color:#94a3b8;min-width:32px;text-align:right;">10s</span>
       </div>
       <div style="display:flex;gap:10px;width:100%;justify-content:flex-end;">
-        <button id="confirmModalCancel" class="btn btn-gray" onclick="closeModal('confirmModal')">✕ Cancel</button>
+        <button id="confirmModalCancel" class="btn btn-gray" onclick="closeModal('confirmModal')">Cancel</button>
         <button class="btn" id="confirmModalBtn">Confirm</button>
       </div>
     </div>
@@ -5704,6 +5718,17 @@ const _DbSync = (function(){
 
 // ── HTML escaper (prevents XSS in innerHTML injections) ──────────────────────
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// Single source of truth for a role's display color — routes through the
+// same .role-* CSS classes used by the .role-badge component everywhere
+// else, instead of each screen inventing its own independent hex map (which
+// previously caused the same role to render in different colors on
+// different tabs, e.g. QA Evaluator orange in one screen, blue in another).
+function roleBadgeHtml(r){
+  const known=['admin','superadmin','qa','tl','manager','viewer','ceo','chief'];
+  const cls=known.includes(r)?('role-'+r):'role-viewer';
+  return `<span class="role-badge ${cls}">${esc(r||'—')}</span>`;
+}
 
 // ── Password hashing (PBKDF2-SHA-256 with salt; SHA-256 legacy fallback) ─────
 const _IS_HASH   = /^[0-9a-f]{64}$/i;          // legacy unsalted SHA-256
@@ -7186,7 +7211,7 @@ function renderQAAgentsList(myRecs, allRecords, periodLabel){
       <div style="width:8px;height:8px;border-radius:50%;background:#dc2626;flex-shrink:0;margin-top:2px;"></div>
       <div style="flex:1;min-width:0;">
         <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.name)}</div>
-        <div style="font-size:11px;color:var(--gray);">${esc(a.team||'—')} · ${esc(a.campaign|'')}</div>
+        <div style="font-size:11px;color:var(--gray);">${esc(a.team||'—')} · ${esc(a.campaign||'')}</div>
       </div>
       <button onclick="startEvaluateAgent('${a.id}')"
         style="flex-shrink:0;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
@@ -8625,6 +8650,18 @@ function _confirmClearCountdown(){
 }
 
 function showConfirm(opts){
+  // headerColor drives the icon-badge tint, not a full-bleed header fill —
+  // the header itself is always a neutral white/hairline-border surface now
+  // (a minimalist redesign choice: severity is conveyed by one small icon
+  // badge, not by painting the whole modal top red/green/orange). When a
+  // caller doesn't pass headerColor explicitly, derive a sensible tint from
+  // btnClass instead of always defaulting to red — a "Save"/"Approve" action
+  // routed through btn-primary/btn-success no longer looks like a warning.
+  const _tintByBtn = {
+    'btn-danger':  {bg:'#fef2f2', fg:'var(--danger)'},
+    'btn-success': {bg:'#f0fdf4', fg:'var(--success)'},
+    'btn-primary': {bg:'var(--primary-light)', fg:'var(--primary-dark)'},
+  };
   const o = Object.assign({
     title: 'Confirm Action',
     message: 'Are you sure?',
@@ -8632,17 +8669,19 @@ function showConfirm(opts){
     icon: '⚠️',
     btnLabel: 'Confirm',
     btnClass: 'btn-danger',
-    headerColor: 'var(--danger)',
+    headerColor: null,
     hideCancel: false,
     autoClose: 10, // seconds; set 0 to disable
     onConfirm: null
   }, opts);
+  const tint = _tintByBtn[o.btnClass] || {bg:'#f1f5f9', fg:'var(--gray)'};
   document.getElementById('confirmModalTitle').textContent  = o.title;
   // Use innerHTML to support markup in message/sub (callers are responsible for escaping)
   document.getElementById('confirmModalMsg').innerHTML      = o.message;
   document.getElementById('confirmModalSub').innerHTML      = o.sub;
   document.getElementById('confirmModalIcon').textContent   = o.icon;
-  document.getElementById('confirmModalHeader').style.background = o.headerColor;
+  document.getElementById('confirmModalIcon').style.color   = tint.fg;
+  document.getElementById('confirmModalIconWrap').style.background = o.headerColor || tint.bg;
   const cancelBtn = document.getElementById('confirmModalCancel');
   if(cancelBtn) cancelBtn.style.display = o.hideCancel ? 'none' : '';
   const btn = document.getElementById('confirmModalBtn');
@@ -9285,7 +9324,6 @@ function dihRestoreBackup(inp){
     icon: '📥',
     btnLabel: '📥 Restore & Merge',
     btnClass: 'btn-primary',
-    headerColor: 'var(--primary)',
     onConfirm: ()=>{
       const reader = new FileReader();
       reader.onload = e=>{
@@ -9411,7 +9449,6 @@ function saveAgent(){
       icon: '✏️',
       btnLabel: '✅ Save Changes',
       btnClass: 'btn-primary',
-      headerColor: 'var(--primary)',
       onConfirm: doSave
     });
   } else {
@@ -9652,7 +9689,7 @@ function downloadRosterTemplate(){
   const csv='Name,StaffID,Team,Supervisor,Campaign,Status,Email\nMs. Sample Agent,CC-001,FTTH Team A,Mr. Supervisor,FTTH,Active,agent@cellcard.com.kh';
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='Agent_Roster_Template.csv';a.click();
 }
-function handleDrop(e){ e.preventDefault(); e.stopPropagation(); const f=e.dataTransfer.files[0]; if(f) readCSV(f); }
+function handleDrop(e){ e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('drag-over'); const f=e.dataTransfer.files[0]; if(f) readCSV(f); }
 function handleCSVFile(inp){ if(inp.files[0]) readCSV(inp.files[0]); }
 function readCSV(file){
   const reader=new FileReader();
@@ -11961,6 +11998,7 @@ function approveAccessRequest(reqId){
   showConfirm({
     title:'Approve Access Request',
     message:`Approve <strong>${esc(req.fullName)}</strong> (@${esc(req.username)}) as <strong>${esc(role)}</strong>? A new account will be created with a temporary password.`,
+    icon:'✅',
     btnClass:'btn-primary',
     btnLabel:'Approve & Create Account',
     onConfirm: async ()=>{
@@ -16320,7 +16358,7 @@ function deleteNpsRecord(id, idx){
   const rec = id ? _npsRecordsData.find(r=>r.id===id) : _npsRecordsData[idx];
   if(!rec){ toast('Record not found.','error'); return; }
   showConfirm({
-    title:'🗑 Delete NPS Record',
+    title:'Delete NPS Record',
     message:`Delete the record for <strong>${esc(rec.agent||'this entry')}</strong> dated <strong>${rec.date}</strong> (Score: ${rec.score})?`,
     sub:'This action cannot be undone.',
     icon:'🗑️', btnLabel:'Delete', btnClass:'btn-danger',
@@ -16352,7 +16390,7 @@ function seedNpsData(){
   if(!isSuperAdmin()){ toast('Super Admin only.','error'); return; }
 
   showConfirm({
-    title:'🌱 Seed Demo Data',
+    title:'Seed Demo Data',
     message:'This will populate <strong>Agents / QMS Roster, NPS Input Data (13 weeks), QMS Evaluations, and Survey definitions</strong> with realistic Cellcard sample data.',
     sub:'Existing data is preserved — duplicates are skipped by ID.',
     icon:'🌱',
@@ -16655,7 +16693,7 @@ function _doSeedNpsData(){
 function seedNps400(){
   if(!isSuperAdmin()){ toast('Super Admin only.','error'); return; }
   showConfirm({
-    title:'📊 Seed 400 NPS Responses',
+    title:'Seed 400 NPS Responses',
     message:'Generate <strong>400 individual NPS response records</strong> spread over the last 3 weeks with a random mix of Promoters, Passives, and Detractors?',
     sub:'Spread across all channels and agents. Re-running replaces previous seeded responses; manual entries are always preserved.',
     icon:'📊', btnLabel:'Generate 400 Samples', btnClass:'btn-primary',
@@ -16832,7 +16870,7 @@ function _doSeedNps400(){
 function clearSeedData(){
   if(!isSuperAdmin()){ toast('Super Admin only.','error'); return; }
   showConfirm({
-    title:'🗑️ Clear All Seed Data',
+    title:'Clear All Seed Data',
     message:'Remove all seeded demo records from <strong>NPS Input Data, NPS Responses (400 samples), QMS Evaluations, Agents, and enriched survey sections</strong>?',
     sub:'Only records with seeded IDs / flags will be removed. Manual entries are kept.',
     icon:'🗑️',btnLabel:'Clear Seed Data',btnClass:'btn-danger',
@@ -19080,7 +19118,7 @@ function renderUserMonitoring(){
     onlineEl.innerHTML = myEntry + (others||'<span style="color:#94a3b8;font-size:12px;margin-left:6px;">No other active sessions</span>');
   }
 
-  const roleBadge=(r)=>{const map={admin:'#fef3c7|#92400e',superadmin:'#fff|linear-gradient(135deg,#f97316,#d97706)',manager:'#f3e8ff|#6b21a8',tl:'#e0f2fe|#0369a1',qa:'#dbeafe|#1d4ed8',viewer:'#f3f4f6|#374151'};const[bg,col]=(map[r]||'#f3f4f6|#374151').split('|');return `<span style="background:${bg};color:${col};font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;">${r||'—'}</span>`;};
+  const roleBadge=roleBadgeHtml;
 
   const avgMs = (m)=> m.count>0 ? Math.round(m.totalMs/m.count) : null;
   const isOnline= (uid)=> uid===curUser.id || sessions.some(s=>s.userId===uid&&!s.logoutAt&&s.id!==activeSid&&Date.now()-new Date(s.loginAt)<3600000);
@@ -19258,6 +19296,20 @@ function exportChangeHistory(){
   a.download='change_history_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
   toast('Change history exported.','success');
+}
+
+function clearAuditLog(){
+  if(!isSuperAdmin()){ toast('Only Super Admin can clear the audit log.','error'); return; }
+  showConfirm({
+    title:'Clear Audit Log',
+    message:'Clear all change history? This cannot be undone.',
+    icon:'🗑', btnLabel:'Clear Log', btnClass:'btn-danger',
+    onConfirm:()=>{
+      DB.set('changeLog',[]);
+      renderChangeHistory();
+      toast('History cleared.','info');
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -19631,7 +19683,7 @@ function renderNpsUserMonitoring(){
   }).sort(([,a],[,b])=>(b.lastLogin||'')>(a.lastLogin||'')?1:-1);
 
   const isOnline=uid=>uid===curUser.id||sessions.some(s=>s.userId===uid&&!s.logoutAt&&s.id!==activeSid&&Date.now()-new Date(s.loginAt)<3600000);
-  const roleBadge=r=>{const map={admin:'#fef3c7|#92400e',superadmin:'#fff|#f97316',manager:'#f3e8ff|#6b21a8',tl:'#e0f2fe|#0369a1',qa:'#dbeafe|#1d4ed8',viewer:'#f3f4f6|#374151'};const[bg,col]=(map[r]||'#f3f4f6|#374151').split('|');return`<span style="background:${bg};color:${col};font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;">${r||'—'}</span>`;};
+  const roleBadge=roleBadgeHtml;
   const avgMs=m=>m.count>0?Math.round(m.totalMs/m.count):null;
 
   if(onlineEl){
@@ -19792,16 +19844,11 @@ function renderNpsUserList(){
     (u.email||'').toLowerCase().includes(search) ||
     (u.role||'').toLowerCase().includes(search)
   );
-  const roleLabels = { viewer:'Viewer', qa:'QA Officer', tl:'Team Leader', manager:'Manager', admin:'Admin', superadmin:'Super Admin' };
-  const roleBg     = { viewer:'#f3f4f6', qa:'#dbeafe', tl:'#e0f2fe', manager:'#f3e8ff', admin:'#fef3c7', superadmin:'#fef3c7' };
-  const roleColor  = { viewer:'#374151', qa:'#1d4ed8', tl:'#0369a1', manager:'#6b21a8', admin:'#92400e', superadmin:'#b45309' };
   if(!users.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:#94a3b8;font-style:italic;">No users found.</td></tr>'; return; }
   const amISuper = isSuperAdmin();
   tbody.innerHTML = users.map(u=>{
     const isProtected = u.role==='superadmin';
     const canRemove   = amISuper && !isProtected;
-    const rBg  = roleBg[u.role]||'#f3f4f6';
-    const rCol = roleColor[u.role]||'#374151';
     const avatar = `<div style="width:32px;height:32px;border-radius:50%;background:${isProtected?'linear-gradient(135deg,#f97316,#d97706)':'#e0f2fe'};color:${isProtected?'#fff':'#0369a1'};font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${(u.displayName||u.username||'?')[0].toUpperCase()}</div>`;
     return `<tr style="border-bottom:1px solid #f1f5f9;transition:background .1s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
       <td style="padding:11px 14px;">
@@ -19818,7 +19865,7 @@ function renderNpsUserList(){
       <td style="padding:11px 14px;">
         ${isProtected
           ? `<span style="background:linear-gradient(135deg,#f97316,#d97706);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">Super Admin</span>`
-          : `<span style="background:${rBg};color:${rCol};font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">${roleLabels[u.role]||u.role}</span>`}
+          : roleBadgeHtml(u.role)}
       </td>
       <td style="padding:11px 14px;"><span style="color:#94a3b8;letter-spacing:2px;font-size:14px;">••••••••</span></td>
       <td style="padding:11px 14px;">
@@ -19932,11 +19979,16 @@ function npsRemoveUser(uid){
   if(!u) return;
   if(u.role==='superadmin'){ toast('Super Admin cannot be removed.','error'); return; }
   if(!isSuperAdmin() && u.role==='admin'){ toast('Only Super Admin can remove Admin accounts.','error'); return; }
-  showConfirm('Remove this user from the NPS system?', ()=>{
-    DB.set('users',(DB.get('users')||[]).filter(x=>x.id!==uid));
-    logChange('user','Deleted',`NPS: Removed user "${u.displayName||u.username}" (role: ${u.role})`,'NPS');
-    renderNpsUserList();
-    toast('User removed.','success');
+  showConfirm({
+    title:'Remove User',
+    message:`Remove "${u.displayName||u.username}" from the NPS system?`,
+    icon:'👤', btnLabel:'Remove', btnClass:'btn-danger',
+    onConfirm:()=>{
+      DB.set('users',(DB.get('users')||[]).filter(x=>x.id!==uid));
+      logChange('user','Deleted',`NPS: Removed user "${u.displayName||u.username}" (role: ${u.role})`,'NPS');
+      renderNpsUserList();
+      toast('User removed.','success');
+    }
   });
 }
 
@@ -19972,7 +20024,7 @@ function npsEditPw(uid){
     title:'Set Password',
     message:`Set new password for <strong>${esc(u.displayName||u.username)}</strong>`,
     sub:'<div style="margin-top:8px;"><input type="password" id="_npsNewPwInput" placeholder="New password" autocomplete="new-password" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;"></div>',
-    icon:'🔑', btnLabel:'Set Password', btnClass:'btn-primary', headerColor:'var(--primary)',
+    icon:'🔑', btnLabel:'Set Password', btnClass:'btn-primary',
     onConfirm: async ()=>{
       const inp = document.getElementById('_npsNewPwInput');
       const newPw = inp ? inp.value.trim() : '';
@@ -20023,7 +20075,7 @@ function npsApproveRequest(reqId){
   const req  = reqs.find(r=>r.id===reqId); if(!req) return;
   const roleEl = document.getElementById('npsRoleFor_'+reqId);
   const role   = roleEl ? roleEl.value : 'viewer';
-  showConfirm({ title:'Approve Request', message:`Approve <strong>${esc(req.fullName)}</strong> as <strong>${esc(role)}</strong>?`, btnLabel:'Approve', btnClass:'btn-primary',
+  showConfirm({ title:'Approve Request', message:`Approve <strong>${esc(req.fullName)}</strong> as <strong>${esc(role)}</strong>?`, icon:'✅', btnLabel:'Approve', btnClass:'btn-primary',
     onConfirm: async ()=>{
       const users=getUsers();
       const tempPw='cellcard';
@@ -20169,7 +20221,7 @@ function saveNpsRoleMatrix(){
 
 function resetNpsRoleMatrix(){
   if(!isAdmin()){ toast('Permission denied.','error'); return; }
-  showConfirm({ title:'Reset Role Matrix', message:'Reset all permissions to factory defaults?', sub:'Any custom changes will be lost.', icon:'↺', btnLabel:'Reset to Default', btnClass:'btn-danger', headerColor:'#dc2626',
+  showConfirm({ title:'Reset Role Matrix', message:'Reset all permissions to factory defaults?', sub:'Any custom changes will be lost.', icon:'↺', btnLabel:'Reset to Default', btnClass:'btn-danger',
     onConfirm: ()=>{
       DB.set('npsRoleMatrix', null);
       renderNpsRoleMatrix();
@@ -20826,7 +20878,7 @@ async function doSysLogin(){
 // Forced password change for mustChangePw accounts
 function showForcedPasswordChange(userId){
   showConfirm({
-    title:'🔒 Password Change Required',
+    title:'Password Change Required',
     message:'Your account requires a password change before you can continue.',
     sub:'<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">'
       +'<input type="password" id="_fpNewPw1" placeholder="New password (min 8 characters)" autocomplete="new-password" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;">'
@@ -21212,7 +21264,6 @@ function saveUser(){
       icon: '✏️',
       btnLabel: '✅ Save Changes',
       btnClass: 'btn-primary',
-      headerColor: 'var(--primary)',
       onConfirm: doSaveUser
     });
   } else {
@@ -22688,7 +22739,7 @@ function batchRunCoaching(){
   const passScore=(getSettings()||{passScore:80}).passScore||80;
 
   showConfirm({
-    title:'📋 Bulk TL Coaching',
+    title:'Bulk TL Coaching',
     message:`Auto-generate coaching records for <strong>${open.length} open FAIL / AUTO FAIL evaluation${open.length!==1?'s':''}</strong>?`,
     sub:'A templated coaching entry with 3 action plans will be created for each uncoached record. Existing coaching records are never overwritten.',
     icon:'📋',
@@ -22755,7 +22806,7 @@ function batchRunDispute(){
   if(!eligible.length){ toast('All records already have disputes on file.','info'); return; }
 
   showConfirm({
-    title:'⚖️ Auto-Dispute 1%',
+    title:'Auto-Dispute 1%',
     message:`Raise disputes for <strong>${actual} record${actual!==1?'s':''}</strong> — approximately <strong>1%</strong> of ${allRecs.length.toLocaleString()} total audits.`,
     sub:'Records are selected using a deterministic random sample. Records already under dispute are skipped. Disputes are raised as "pending" for QA review.',
     icon:'⚖️',
@@ -24401,27 +24452,19 @@ function _afterEvalSubmit(record){
     if(agent && agent.email){
       // Auto-offer email notification
       setTimeout(()=>{
-        if(confirm('⚠️ FAIL result — Send notification email to agent '+record.agentName+'?')){
-          _currentViewRecordId=record.id;
-          openEmailNotif();
-        }
+        showConfirm({
+          title:'Send FAIL Notification?',
+          message:`Send a notification email to agent <strong>${esc(record.agentName)}</strong>?`,
+          icon:'⚠️', btnLabel:'Send Email', btnClass:'btn-primary',
+          onConfirm:()=>{
+            _currentViewRecordId=record.id;
+            openEmailNotif();
+          }
+        });
       },400);
     }
   }
 }
-
-// ─── Add role-tl CSS if not already present ──
-(function(){
-  if(!document.querySelector('style[data-tl]')){
-    const s=document.createElement('style');
-    s.setAttribute('data-tl','1');
-    s.textContent='.role-tl{background:#e0f2fe;color:#0369a1;}'
-      +'.dispute-pending{background:#fff3cd;color:#92400e;cursor:pointer;}'
-      +'.dispute-agreed{background:#d1fae5;color:#065f46;cursor:pointer;}'
-      +'.dispute-rejected{background:#fee2e2;color:#991b1b;cursor:pointer;}';
-    document.head.appendChild(s);
-  }
-})();
 
 init().catch(e=>console.error('Init error',e));
 
@@ -24430,10 +24473,10 @@ init().catch(e=>console.error('Init error',e));
 // ═══════════════════════════════════════════════════════════════
 function seedSampleData(){
   showConfirm({
-    title:'🌱 Seed Sample Data',
+    title:'Seed Sample Data',
     message:'This will add <strong>50 agents</strong>, <strong>5 TL users</strong>, <strong>12 weeks of NPS data</strong>, and <strong>QA evaluation records</strong> to the system.',
     sub:'Existing data will be preserved. Duplicate agents (by Staff ID) will be skipped.',
-    icon:'🗄️', btnLabel:'Seed Data', btnClass:'btn-primary',
+    icon:'🌱', btnLabel:'Seed Data', btnClass:'btn-primary',
     onConfirm: _runSeedSampleData
   });
 }
@@ -24715,13 +24758,12 @@ function superDeleteData(type){
   };
   const label=labels[type]||type;
   showConfirm({
-    title:'⚠️ Delete '+label,
+    title:'Delete '+label,
     message:'Permanently delete '+label+'?',
     sub:'This action cannot be undone. The data will be gone immediately.',
     icon:'🗑',
     btnLabel:'🗑 Yes, Delete Now',
     btnClass:'btn-danger',
-    headerColor:'#dc2626',
     onConfirm:()=>{
       try{
         if(type==='evaluations'){
