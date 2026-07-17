@@ -5204,14 +5204,14 @@ CORS_ORIGIN=https://yourdomain.com</code>
 
 <!-- Avatar Picker Modal -->
 <div class="modal-overlay" id="avatarPickerModal">
-  <div class="modal" style="max-width:480px;">
+  <div class="modal" style="max-width:680px;">
     <div class="modal-header">
       <h3>Choose Your Avatar</h3>
       <button class="modal-close" onclick="closeModal('avatarPickerModal')">✕</button>
     </div>
     <div class="modal-body" style="padding:22px 24px;">
       <p style="font-size:12px;color:var(--gray);margin:0 0 16px;">Pick an avatar to represent you across the app. This only changes how you appear to others — it doesn't affect your login or permissions.</p>
-      <div id="avatarPickerGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;"></div>
+      <div id="avatarPickerGrid" style="max-height:56vh;overflow-y:auto;padding-right:4px;"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-gray" onclick="closeModal('avatarPickerModal')">Close</button>
@@ -5874,90 +5874,155 @@ function applyBranding(){
 function _fs(r){ return +(r?.finalScore ?? r?.score ?? 0) || 0; }
 
 // ── User avatar system ──────────────────────────────────────────────────
-// Hand-built flat SVG avatars composed from a small set of shared shape
-// primitives (hair/facial-hair/glasses), combined into a curated preset
-// gallery. Fully self-contained -- no external images, fonts, or CDN calls
-// at runtime, same approach as the avatar system already shipped in the
-// Cellcard KMS project. A user only ever stores which preset id they picked
-// (e.g. "av7"); the SVG itself is generated on the fly from that id, so
-// nothing image-sized is duplicated per user record.
-const AVATAR_HAIR = {
-  none:     '',
-  short:    '<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L76 34 Q76 24 50 22 Q24 24 24 34 Z" fill="{c}"/>',
-  long:     '<path d="M24 40 Q24 14 50 14 Q76 14 76 40 L76 70 Q68 56 68 40 Q68 26 50 26 Q32 26 32 40 Q32 56 24 70 Z" fill="{c}"/>',
-  bun:      '<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L76 34 Q76 24 50 22 Q24 24 24 34 Z" fill="{c}"/><circle cx="50" cy="9" r="9" fill="{c}"/>',
-  curly:    '<path d="M22 38 Q19 28 26 24 Q25 15 34 13 Q36 5 46 6 Q50 -1 58 4 Q67 1 71 10 Q80 10 79 20 Q86 24 82 33 Q84 40 78 41 Q77 27 65 22 Q58 16 49 19 Q40 15 32 21 Q23 21 22 38 Z" fill="{c}"/>',
-  buzzcut:  '<path d="M26 30 Q26 18 50 18 Q74 18 74 30 Q74 24 50 22 Q26 24 26 30 Z" fill="{c}"/>',
-  ponytail: '<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L76 34 Q76 24 50 22 Q24 24 24 34 Z" fill="{c}"/><path d="M68 20 Q81 23 78 41 Q85 56 76 73 Q69 60 70 42 Q68 29 68 20 Z" fill="{c}"/>',
-  spacebuns:'<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L76 34 Q76 24 50 22 Q24 24 24 34 Z" fill="{c}"/><circle cx="33" cy="13" r="7.5" fill="{c}"/><circle cx="67" cy="13" r="7.5" fill="{c}"/>'
-};
-const AVATAR_FACIAL_HAIR = {
-  none:     '',
-  mustache: '<path d="M39 60 Q50 66 61 60 Q57 65 50 65 Q43 65 39 60 Z" fill="{c}"/>',
-  beard:    '<path d="M27 47 Q26 68 50 72 Q74 68 73 47 L69 52 Q66 65 50 67 Q34 65 31 52 Z" fill="{c}"/>',
-  goatee:   '<path d="M40 60 Q42 68 50 68 Q58 68 60 60 Q56 65 50 65 Q44 65 40 60 Z" fill="{c}"/>'
+// Real avatar photos (AI-generated bust portraits supplied by the user,
+// cropped to the face/shoulders and re-encoded as small JPEGs) served from
+// /avatars/*.jpg. A user only ever stores which preset id they picked
+// (e.g. "men-01-03"); the picker renders <img> tags directly against that id.
+const AVATAR_CATEGORY_LABELS = {
+  'cambodian-men':       'Cambodian Men',
+  'cambodian-women':     'Cambodian Women',
+  'football-genz-men':   'Football Gen Z Men',
+  'football-genz-women': 'Football Gen Z Women',
+  'men':                 'Men',
+  'women':               'Women',
+  'party-men':           'Party Men',
+  'party-women':         'Party Women'
 };
 const AVATAR_PRESETS = [
-  {id:'av1',  bg:'#DCEBFF', skin:'#E8B18C', hair:'short', hairColor:'#1a1410', glasses:false, facialHair:'none',     cloth:'#0F2167'},
-  {id:'av2',  bg:'#E3F3DC', skin:'#F3C9A0', hair:'long',  hairColor:'#2b1b12', glasses:true,  facialHair:'none',     cloth:'#2F5233'},
-  {id:'av3',  bg:'#FCE4EC', skin:'#C68863', hair:'curly', hairColor:'#1a1410', glasses:false, facialHair:'goatee',   cloth:'#6B2C3E'},
-  {id:'av4',  bg:'#FFF3E0', skin:'#8D5A3B', hair:'bun',   hairColor:'#1a1410', glasses:false, facialHair:'none',     cloth:'#C9A876'},
-  {id:'av5',  bg:'#EDE7F6', skin:'#F3C9A0', hair:'short', hairColor:'#4a2f1f', glasses:true,  facialHair:'none',     cloth:'#1F5F5B'},
-  {id:'av6',  bg:'#DCEBFF', skin:'#6B4226', hair:'none',  hairColor:'#1a1410', glasses:false, facialHair:'mustache', cloth:'#333333'},
-  {id:'av7',  bg:'#E3F3DC', skin:'#E8B18C', hair:'long',  hairColor:'#6b6b6b', glasses:false, facialHair:'none',     cloth:'#0F2167'},
-  {id:'av8',  bg:'#FCE4EC', skin:'#F3C9A0', hair:'curly', hairColor:'#4a2f1f', glasses:false, facialHair:'none',     cloth:'#6B2C3E'},
-  {id:'av9',  bg:'#FFF3E0', skin:'#C68863', hair:'bun',   hairColor:'#2b1b12', glasses:true,  facialHair:'none',     cloth:'#2F5233'},
-  {id:'av10', bg:'#EDE7F6', skin:'#8D5A3B', hair:'short', hairColor:'#1a1410', glasses:false, facialHair:'beard',    cloth:'#C9A876'},
-  {id:'av11', bg:'#DCEBFF', skin:'#F3C9A0', hair:'curly', hairColor:'#2b1b12', glasses:true,  facialHair:'none',     cloth:'#1F5F5B'},
-  {id:'av12', bg:'#E3F3DC', skin:'#6B4226', hair:'none',  hairColor:'#1a1410', glasses:true,  facialHair:'goatee',   cloth:'#333333'},
-  {id:'av13', bg:'#FCE4EC', skin:'#E8B18C', hair:'long',  hairColor:'#1a1410', glasses:false, facialHair:'none',     cloth:'#0F2167'},
-  {id:'av14', bg:'#FFF3E0', skin:'#C68863', hair:'short', hairColor:'#6b6b6b', glasses:false, facialHair:'mustache', cloth:'#2F5233'},
-  {id:'av15', bg:'#EDE7F6', skin:'#F3C9A0', hair:'bun',   hairColor:'#4a2f1f', glasses:false, facialHair:'none',     cloth:'#6B2C3E'},
-  {id:'av16', bg:'#DCEBFF', skin:'#8D5A3B', hair:'curly',     hairColor:'#1a1410', glasses:true,  facialHair:'none', cloth:'#C9A876'},
-  {id:'av17', bg:'#DCEBFF', skin:'#F3C9A0', hair:'ponytail',  hairColor:'#6b6b6b', glasses:true,  facialHair:'none', cloth:'#0F2167', earrings:true},
-  {id:'av18', bg:'#E3F3DC', skin:'#E8B18C', hair:'buzzcut',   hairColor:'#1a1410', glasses:false, facialHair:'none', cloth:'#333333'},
-  {id:'av19', bg:'#FCE4EC', skin:'#8D5A3B', hair:'spacebuns', hairColor:'#1a1410', glasses:false, facialHair:'none', cloth:'#6B2C3E', earrings:true},
-  {id:'av20', bg:'#FFF3E0', skin:'#C68863', hair:'buzzcut',   hairColor:'#4a2f1f', glasses:false, facialHair:'goatee', cloth:'#0F2167'},
-  {id:'av21', bg:'#EDE7F6', skin:'#F3C9A0', hair:'ponytail',  hairColor:'#2b1b12', glasses:false, facialHair:'none', cloth:'#1F5F5B', earrings:true},
-  {id:'av22', bg:'#DCEBFF', skin:'#6B4226', hair:'spacebuns', hairColor:'#1a1410', glasses:true,  facialHair:'none', cloth:'#C9A876', earrings:true},
-  {id:'av23', bg:'#E3F3DC', skin:'#E8B18C', hair:'ponytail',  hairColor:'#8a8a8a', glasses:false, facialHair:'none', cloth:'#2F5233', earrings:true},
-  {id:'av24', bg:'#FCE4EC', skin:'#F3C9A0', hair:'buzzcut',   hairColor:'#6b6b6b', glasses:true,  facialHair:'none', cloth:'#333333'},
-  {id:'av25', bg:'#FFF3E0', skin:'#8D5A3B', hair:'ponytail',  hairColor:'#1a1410', glasses:false, facialHair:'none', cloth:'#6B2C3E', earrings:true},
-  {id:'av26', bg:'#EDE7F6', skin:'#C68863', hair:'spacebuns', hairColor:'#4a2f1f', glasses:false, facialHair:'none', cloth:'#0F2167', earrings:true},
-  {id:'av27', bg:'#DCEBFF', skin:'#F3C9A0', hair:'buzzcut',   hairColor:'#2b1b12', glasses:false, facialHair:'mustache', cloth:'#1F5F5B'},
-  {id:'av28', bg:'#E3F3DC', skin:'#8D5A3B', hair:'ponytail',  hairColor:'#1a1410', glasses:true,  facialHair:'none', cloth:'#C9A876', earrings:true}
+  {id:'cambodian-men-01-01', category:'cambodian-men'},
+  {id:'cambodian-men-01-02', category:'cambodian-men'},
+  {id:'cambodian-men-01-03', category:'cambodian-men'},
+  {id:'cambodian-men-01-04', category:'cambodian-men'},
+  {id:'cambodian-men-01-05', category:'cambodian-men'},
+  {id:'cambodian-men-01-06', category:'cambodian-men'},
+  {id:'cambodian-men-01-07', category:'cambodian-men'},
+  {id:'cambodian-men-01-08', category:'cambodian-men'},
+  {id:'cambodian-men-01-09', category:'cambodian-men'},
+  {id:'cambodian-men-01-10', category:'cambodian-men'},
+  {id:'cambodian-men-02-01', category:'cambodian-men'},
+  {id:'cambodian-men-02-02', category:'cambodian-men'},
+  {id:'cambodian-men-02-03', category:'cambodian-men'},
+  {id:'cambodian-men-02-04', category:'cambodian-men'},
+  {id:'cambodian-men-02-05', category:'cambodian-men'},
+  {id:'cambodian-men-02-06', category:'cambodian-men'},
+  {id:'cambodian-men-02-07', category:'cambodian-men'},
+  {id:'cambodian-men-02-08', category:'cambodian-men'},
+  {id:'cambodian-men-02-09', category:'cambodian-men'},
+  {id:'cambodian-men-02-10', category:'cambodian-men'},
+  {id:'cambodian-women-01-01', category:'cambodian-women'},
+  {id:'cambodian-women-01-02', category:'cambodian-women'},
+  {id:'cambodian-women-01-03', category:'cambodian-women'},
+  {id:'cambodian-women-01-04', category:'cambodian-women'},
+  {id:'cambodian-women-01-05', category:'cambodian-women'},
+  {id:'cambodian-women-01-06', category:'cambodian-women'},
+  {id:'cambodian-women-01-07', category:'cambodian-women'},
+  {id:'cambodian-women-01-08', category:'cambodian-women'},
+  {id:'cambodian-women-01-09', category:'cambodian-women'},
+  {id:'cambodian-women-01-10', category:'cambodian-women'},
+  {id:'cambodian-women-02-01', category:'cambodian-women'},
+  {id:'cambodian-women-02-02', category:'cambodian-women'},
+  {id:'cambodian-women-02-03', category:'cambodian-women'},
+  {id:'cambodian-women-02-04', category:'cambodian-women'},
+  {id:'cambodian-women-02-05', category:'cambodian-women'},
+  {id:'cambodian-women-02-06', category:'cambodian-women'},
+  {id:'cambodian-women-02-07', category:'cambodian-women'},
+  {id:'cambodian-women-02-08', category:'cambodian-women'},
+  {id:'cambodian-women-02-09', category:'cambodian-women'},
+  {id:'cambodian-women-02-10', category:'cambodian-women'},
+  {id:'football-genz-men-01-01', category:'football-genz-men'},
+  {id:'football-genz-men-01-02', category:'football-genz-men'},
+  {id:'football-genz-men-01-03', category:'football-genz-men'},
+  {id:'football-genz-men-01-04', category:'football-genz-men'},
+  {id:'football-genz-men-01-05', category:'football-genz-men'},
+  {id:'football-genz-men-01-06', category:'football-genz-men'},
+  {id:'football-genz-men-01-07', category:'football-genz-men'},
+  {id:'football-genz-men-01-08', category:'football-genz-men'},
+  {id:'football-genz-men-01-09', category:'football-genz-men'},
+  {id:'football-genz-men-01-10', category:'football-genz-men'},
+  {id:'football-genz-women-01-01', category:'football-genz-women'},
+  {id:'football-genz-women-01-02', category:'football-genz-women'},
+  {id:'football-genz-women-01-03', category:'football-genz-women'},
+  {id:'football-genz-women-01-04', category:'football-genz-women'},
+  {id:'football-genz-women-01-05', category:'football-genz-women'},
+  {id:'football-genz-women-01-06', category:'football-genz-women'},
+  {id:'football-genz-women-01-07', category:'football-genz-women'},
+  {id:'football-genz-women-01-08', category:'football-genz-women'},
+  {id:'football-genz-women-01-09', category:'football-genz-women'},
+  {id:'football-genz-women-01-10', category:'football-genz-women'},
+  {id:'men-01-01', category:'men'},
+  {id:'men-01-02', category:'men'},
+  {id:'men-01-03', category:'men'},
+  {id:'men-01-04', category:'men'},
+  {id:'men-01-05', category:'men'},
+  {id:'men-01-06', category:'men'},
+  {id:'men-01-07', category:'men'},
+  {id:'men-01-08', category:'men'},
+  {id:'men-01-09', category:'men'},
+  {id:'men-01-10', category:'men'},
+  {id:'men-02-01', category:'men'},
+  {id:'men-02-02', category:'men'},
+  {id:'men-02-03', category:'men'},
+  {id:'men-02-04', category:'men'},
+  {id:'men-02-05', category:'men'},
+  {id:'men-02-06', category:'men'},
+  {id:'men-02-07', category:'men'},
+  {id:'men-02-08', category:'men'},
+  {id:'men-02-09', category:'men'},
+  {id:'men-02-10', category:'men'},
+  {id:'party-men-01-01', category:'party-men'},
+  {id:'party-men-01-02', category:'party-men'},
+  {id:'party-men-01-03', category:'party-men'},
+  {id:'party-men-01-04', category:'party-men'},
+  {id:'party-men-01-05', category:'party-men'},
+  {id:'party-men-01-06', category:'party-men'},
+  {id:'party-men-01-07', category:'party-men'},
+  {id:'party-men-01-08', category:'party-men'},
+  {id:'party-men-01-09', category:'party-men'},
+  {id:'party-men-01-10', category:'party-men'},
+  {id:'party-women-01-01', category:'party-women'},
+  {id:'party-women-01-02', category:'party-women'},
+  {id:'party-women-01-03', category:'party-women'},
+  {id:'party-women-01-04', category:'party-women'},
+  {id:'party-women-01-05', category:'party-women'},
+  {id:'party-women-01-06', category:'party-women'},
+  {id:'party-women-01-07', category:'party-women'},
+  {id:'party-women-01-08', category:'party-women'},
+  {id:'party-women-01-09', category:'party-women'},
+  {id:'party-women-01-10', category:'party-women'},
+  {id:'women-01-01', category:'women'},
+  {id:'women-01-02', category:'women'},
+  {id:'women-01-03', category:'women'},
+  {id:'women-01-04', category:'women'},
+  {id:'women-01-05', category:'women'},
+  {id:'women-01-06', category:'women'},
+  {id:'women-01-07', category:'women'},
+  {id:'women-01-08', category:'women'},
+  {id:'women-01-09', category:'women'},
+  {id:'women-01-10', category:'women'},
+  {id:'women-02-01', category:'women'},
+  {id:'women-02-02', category:'women'},
+  {id:'women-02-03', category:'women'},
+  {id:'women-02-04', category:'women'},
+  {id:'women-02-05', category:'women'},
+  {id:'women-02-06', category:'women'},
+  {id:'women-02-07', category:'women'},
+  {id:'women-02-08', category:'women'},
+  {id:'women-02-09', category:'women'},
+  {id:'women-02-10', category:'women'}
 ];
-function avatarSvg(p, size){
-  size = size || 40;
-  const hair    = (AVATAR_HAIR[p.hair]||'').replace(/\{c\}/g, p.hairColor||'#2b1b12');
-  const facial  = (AVATAR_FACIAL_HAIR[p.facialHair]||'').replace(/\{c\}/g, p.hairColor||'#2b1b12');
-  const glasses  = p.glasses  ? '<circle cx="38" cy="49" r="8" fill="none" stroke="#1e293b" stroke-width="2.5"/><circle cx="62" cy="49" r="8" fill="none" stroke="#1e293b" stroke-width="2.5"/><line x1="46" y1="49" x2="54" y2="49" stroke="#1e293b" stroke-width="2.5"/>' : '';
-  const earrings = p.earrings ? `<circle cx="24" cy="62" r="2.4" fill="${p.earringColor||'#D4AF37'}"/><circle cx="76" cy="62" r="2.4" fill="${p.earringColor||'#D4AF37'}"/>` : '';
-  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="50" cy="50" r="50" fill="${p.bg}"/>
-    <path d="M16 98 Q50 72 84 98 L84 100 L16 100 Z" fill="${p.cloth}"/>
-    <ellipse cx="50" cy="53" rx="24" ry="26" fill="${p.skin}"/>
-    <ellipse cx="25" cy="56" rx="4" ry="5" fill="${p.skin}"/>
-    <ellipse cx="75" cy="56" rx="4" ry="5" fill="${p.skin}"/>
-    <path d="M35 46 Q40 42 46 45" stroke="#2b1b12" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-    <path d="M54 45 Q60 42 65 46" stroke="#2b1b12" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-    <circle cx="40" cy="53" r="2.6" fill="#1e293b"/>
-    <circle cx="60" cy="53" r="2.6" fill="#1e293b"/>
-    <path d="M40 64 Q50 70 60 64" stroke="#7a4a2f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-    ${hair}
-    ${facial}
-    ${glasses}
-    ${earrings}
-  </svg>`;
-}
+function avatarSrc(id){ return 'avatars/'+id+'.jpg'; }
 function avatarPresetById(id){ return AVATAR_PRESETS.find(p=>p.id===id) || null; }
+function avatarImgHtml(preset, size){
+  size = size || 40;
+  return `<img src="${avatarSrc(preset.id)}" alt="" loading="lazy" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;display:block;flex-shrink:0;"/>`;
+}
 // Renders a user's chosen avatar, falling back to the existing initials-circle
 // look (same visual language used everywhere in the app before this feature)
 // when the user hasn't picked one yet.
 function avatarHtmlForUser(user, size){
   size = size || 32;
   const preset = user && user.avatarId ? avatarPresetById(user.avatarId) : null;
-  if(preset) return avatarSvg(preset, size);
+  if(preset) return avatarImgHtml(preset, size);
   const initial = ((user && (user.displayName||user.username))||'?').charAt(0).toUpperCase();
   return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;font-weight:800;font-size:${Math.round(size*0.42)}px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${esc(initial)}</div>`;
 }
@@ -5971,9 +6036,18 @@ function openAvatarPicker(){
 function _renderAvatarPickerGrid(selectedId){
   const grid = document.getElementById('avatarPickerGrid');
   if(!grid) return;
-  grid.innerHTML = AVATAR_PRESETS.map(p=>{
-    const active = p.id===selectedId;
-    return `<div onclick="_saveAvatarChoice('${p.id}')" title="Select this avatar" style="cursor:pointer;border-radius:50%;padding:3px;border:3px solid ${active?'var(--primary)':'transparent'};transition:border-color .15s;line-height:0;">${avatarSvg(p,68)}</div>`;
+  const cats = Object.keys(AVATAR_CATEGORY_LABELS);
+  grid.innerHTML = cats.map(cat=>{
+    const presets = AVATAR_PRESETS.filter(p=>p.category===cat);
+    if(!presets.length) return '';
+    const tiles = presets.map(p=>{
+      const active = p.id===selectedId;
+      return `<div onclick="_saveAvatarChoice('${p.id}')" title="Select this avatar" style="cursor:pointer;border-radius:50%;padding:3px;border:3px solid ${active?'var(--primary)':'transparent'};transition:border-color .15s;line-height:0;">${avatarImgHtml(p,64)}</div>`;
+    }).join('');
+    return `<div style="margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--gray);margin-bottom:8px;">${esc(AVATAR_CATEGORY_LABELS[cat])}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:10px;">${tiles}</div>
+    </div>`;
   }).join('');
 }
 function _saveAvatarChoice(avatarId){
