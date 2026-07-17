@@ -6742,10 +6742,12 @@ function renderDashboard(){
     document.getElementById('dashKpi').innerHTML = tlKpiHtml;
 
     // Recent evals (filtered period)
+    const _agentsById1=new Map(getAgents().map(ag=>[ag.id,ag]));
     const recent=[...records].sort((a,b)=>new Date(b.evalDate)-new Date(a.evalDate)).slice(0,8);
     document.getElementById('dashRecent').innerHTML=!recent.length
       ?`<p style="color:var(--gray);font-style:italic;font-size:13px;">No evaluations for ${periodLabel.toLowerCase()}.</p>`
       :recent.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
+        ${agentAvatarHtml(_agentsById1.get(r.agentId)||{id:r.agentId||r.agentName,name:r.agentName},28)}
         <div style="flex:1;">
           <div style="font-weight:600;font-size:13px;">${esc(r.agentName)}</div>
           <div style="font-size:11px;color:var(--gray);">${fmtDate(r.evalDate)} · QA: ${esc(r.qaOfficer)}${r.campaign?' · '+esc(r.campaign):''}</div>
@@ -6755,6 +6757,7 @@ function renderDashboard(){
       </div>`).join('');
 
     // Top performers from full team scope
+    const _agentsByName1=new Map(getAgents().map(ag=>[ag.name,ag]));
     const byAgent={};
     teamRecords.forEach(r=>{ if(!byAgent[r.agentName])byAgent[r.agentName]=[]; byAgent[r.agentName].push(_fs(r)); });
     const top=Object.entries(byAgent).map(([n,s])=>({name:n,avg:s.reduce((a,b)=>a+b,0)/s.length,count:s.length})).sort((a,b)=>b.avg-a.avg).slice(0,5);
@@ -6767,7 +6770,8 @@ function renderDashboard(){
     document.getElementById('dashTop').innerHTML=!top.length
       ?emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','No performers yet','Submit evaluations to see top-scoring agents here.',null,null)
       :top.map((a,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
-        <div style="width:24px;height:24px;border-radius:50%;background:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#cd7f32':'#f1f5f9'};color:${i<3?'#fff':'#64748b'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;">${i+1}</div>
+        <div style="width:24px;height:24px;border-radius:50%;background:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#cd7f32':'#f1f5f9'};color:${i<3?'#fff':'#64748b'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0;">${i+1}</div>
+        ${agentAvatarHtml(_agentsByName1.get(a.name)||{id:a.name,name:a.name},26)}
         <div style="flex:1;font-weight:600;font-size:13px;">${esc(a.name)}</div>
         <div style="font-weight:800;font-size:14px;color:${a.avg>=(getSettings().passScore||80)?'var(--success)':a.avg>=60?'var(--warning)':'var(--danger)'};">${a.avg.toFixed(1)}%</div>
         <div style="font-size:11px;color:var(--gray)">${a.count} eval${a.count>1?'s':''}</div>
@@ -6822,16 +6826,19 @@ function renderDashboard(){
   }
 
   // Recent
+  const _agentsById2=new Map(getAgents().map(ag=>[ag.id,ag]));
   const recent=[...records].sort((a,b)=>new Date(b.evalDate||b.date||b.createdAt||0)-new Date(a.evalDate||a.date||a.createdAt||0)).slice(0,6);
   document.getElementById('dashRecent').innerHTML=!recent.length
     ?emptyState('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>','No evaluations yet','Complete your first evaluation to see recent activity here.','+ New Evaluation',"showScreen('evaluation',document.querySelectorAll('.nav-btn')[1])")
     :recent.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
+      ${agentAvatarHtml(_agentsById2.get(r.agentId)||{id:r.agentId||r.agentName,name:r.agentName},28)}
       <div style="flex:1;"><div style="font-weight:600;font-size:13px;">${esc(r.agentName)}</div><div style="font-size:11px;color:var(--gray)">${fmtDate(r.evalDate||r.date)} · ${esc(r.qaOfficer||r.evaluator||'—')}</div></div>
       <div style="font-weight:800;font-size:15px;color:${_fs(r)>=80?'var(--success)':_fs(r)>=60?'var(--warning)':'var(--danger)'};">${_fs(r).toFixed(1)}%</div>
       ${resultBadge(r.result)}
     </div>`).join('');
 
   // Top performers
+  const _agentsByName2=new Map(getAgents().map(ag=>[ag.name,ag]));
   const byAgent={};
   records.forEach(r=>{ if(!byAgent[r.agentName])byAgent[r.agentName]=[]; byAgent[r.agentName].push(_fs(r)); });
   const top=Object.entries(byAgent).map(([n,s])=>({name:n,avg:s.reduce((a,b)=>a+b,0)/s.length,count:s.length})).sort((a,b)=>b.avg-a.avg).slice(0,5);
@@ -6845,7 +6852,8 @@ function renderDashboard(){
   document.getElementById('dashTop').innerHTML=!top.length
     ?emptyState('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','No performers yet','Submit evaluations to see top-scoring agents here.',null,null)
     :top.map((a,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
-      <div style="width:24px;height:24px;border-radius:50%;background:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#cd7f32':'#f1f5f9'};color:${i<3?'#fff':'#64748b'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;">${i+1}</div>
+      <div style="width:24px;height:24px;border-radius:50%;background:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#cd7f32':'#f1f5f9'};color:${i<3?'#fff':'#64748b'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0;">${i+1}</div>
+      ${agentAvatarHtml(_agentsByName2.get(a.name)||{id:a.name,name:a.name},26)}
       <div style="flex:1;font-weight:600;font-size:13px;">${esc(a.name)}</div>
       <div style="font-weight:800;font-size:14px;color:${a.avg>=(getSettings().passScore||80)?'var(--success)':a.avg>=60?'var(--warning)':'var(--danger)'};">${a.avg.toFixed(1)}%</div>
       <div style="font-size:11px;color:var(--gray)">${a.count} eval${a.count>1?'s':''}</div>
@@ -9598,12 +9606,17 @@ function dihValidateRecords(headers, rows){
 // ── Validate Agents ──────────────────────────────
 function dihValidateAgents(headers, rows){
   const existing = getAgents();
+  const seenInBatch = new Set(); // catches the same StaffID appearing twice in one file, which previously became two separate roster cards since isDup only checked against pre-existing agents
   _dihParsed = rows.filter(r=>r.join('').trim()).map((row,i)=>{
     const name    = _dihGet(headers,row,'name');
     const staffId = _dihGet(headers,row,'staffid') || _dihGet(headers,row,'staffId') || _dihGet(headers,row,'staff id');
     const errors = [];
     if(!name)    errors.push('Missing Name');
     if(!staffId) errors.push('Missing StaffID');
+    if(staffId){
+      if(seenInBatch.has(staffId)) errors.push('Duplicate in file');
+      seenInBatch.add(staffId);
+    }
     const isDup = !!existing.find(a=>a.staffId&&a.staffId===staffId);
     const data = {
       name, staffId,
@@ -9845,11 +9858,27 @@ function dihMergeBackup(json, dupOpt){
   // Agents
   if(json.agents && json.agents.length){
     const agents = getAgents();
+    // A backup file can legitimately list the same person more than once
+    // (e.g. re-exported after a partial restore); without this, every
+    // duplicate row became its own roster card. staffId is the primary
+    // key when present on both sides; falls back to name only when the
+    // incoming row has no staffId, since blank staffId used to bypass
+    // dedup entirely (the `x.staffId&&` guard never matches two blanks).
+    const seenAgentKeys = new Set();
     json.agents.forEach(a=>{
-      const idx=agents.findIndex(x=>x.staffId&&x.staffId===a.staffId);
+      const key = ((a.staffId||a.name||'')+'').toLowerCase().trim();
+      const idx = agents.findIndex(x=>(x.staffId&&a.staffId&&x.staffId===a.staffId)||(!a.staffId&&x.name&&a.name&&x.name.toLowerCase()===a.name.toLowerCase()));
+      const dupInBatch = key && seenAgentKeys.has(key);
+      if(key) seenAgentKeys.add(key);
+      if(dupInBatch){ totalSkipped++; return; } // same person already handled earlier in this same file
       if(idx>=0 && dupOpt==='skip'){ totalSkipped++; return; }
       if(idx>=0){ agents[idx]={...agents[idx],...a}; totalUpdated++; }
-      else { agents.push({...a, id:a.id||uuid()}); totalAdded++; }
+      // Always mint a fresh id -- carrying through a.id here was the one
+      // path in the app that could put an externally-supplied id (already
+      // duplicated across several entries in a bad backup file) onto more
+      // than one roster card, which is also why they'd render the exact
+      // same avatar (a deterministic hash of the agent's id).
+      else { agents.push({...a, id:uuid()}); totalAdded++; }
     });
     DB.set('agents', agents);
     renderRoster && renderRoster(); populateTeamFilter && populateTeamFilter(); populateAgentDropdown && populateAgentDropdown();
