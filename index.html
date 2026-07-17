@@ -5213,6 +5213,11 @@ CORS_ORIGIN=https://yourdomain.com</code>
     <div class="modal-body" style="padding:22px 24px;">
       <div id="avatarModeTabs" role="group" aria-label="Avatar source" style="display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:16px;"></div>
 
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:18px;">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--gray);margin-bottom:8px;">Background Color</div>
+        <div id="avatarBgSwatches" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
+
       <div id="avatarPanelGallery">
         <p style="font-size:12px;color:var(--gray);margin:0 0 14px;">These are ready-made — pick the one you like, then confirm below.</p>
         <div id="avatarPickerTabs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
@@ -5443,7 +5448,7 @@ const DEFAULT_FORM = [
 // Keys never sent to the API (credentials, local prefs)
 const _DB_LOCAL_ONLY = new Set([
   'claudeKey','notifRead','integrationConfig','integrationLog',
-  'userSessions','npsPartialSessions'
+  'userSessions','npsPartialSessions','avatarBgColor'
 ]);
 
 // All buckets QMS.html uses — synced on every DB.set
@@ -6038,6 +6043,34 @@ function _hashToIndex(str, mod){
   for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
   return Math.abs(h) % mod;
 }
+// Infers gender from the "Mr./Ms./Mrs." honorific already parsed out of
+// agent names elsewhere in the app (renderRoster's initials) -- returns
+// null for names with no honorific, so callers can fall back gracefully.
+function _agentGender(name){
+  const m = /^\s*(Mr|Ms|Mrs)\.?\s+/i.exec(name||'');
+  if(!m) return null;
+  return /^Mr\.?$/i.test(m[1]) ? 'male' : 'female';
+}
+const AVATAR_MALE_CATEGORIES = ['cambodian-men','football-genz-men','men','party-men'];
+const AVATAR_FEMALE_CATEGORIES = ['cambodian-women','football-genz-women','women','party-women'];
+// Agents (Roster) aren't logins -- nobody ever picks their own avatar, so
+// this is a pure display-time identicon: deterministic from the agent's id
+// (stable, no persistence needed) and gender-matched via the honorific in
+// their name. Falls back to the full, ungendered pool (or plain initials
+// if there's truly nothing to key off) rather than guessing.
+function agentAvatarHtml(agent, size){
+  size = size || 42;
+  const gender = _agentGender(agent && agent.name);
+  const cats = gender==='male' ? AVATAR_MALE_CATEGORIES : gender==='female' ? AVATAR_FEMALE_CATEGORIES : null;
+  const pool = (cats ? AVATAR_PRESETS.filter(p=>cats.includes(p.category)) : AVATAR_PRESETS);
+  if(pool.length && agent && agent.id){
+    const idx = _hashToIndex(String(agent.id), pool.length);
+    return avatarImgHtml(avatarSrc(pool[idx].id), size);
+  }
+  const h = Math.round(size/AVATAR_ASPECT);
+  const initial = ((agent&&agent.name)||'?').replace(/^(Mr\.|Ms\.|Mrs\.)\s*/i,'').charAt(0).toUpperCase();
+  return `<div style="width:${size}px;height:${h}px;border-radius:12px;background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;font-weight:800;font-size:${Math.round(size*0.4)}px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${esc(initial)}</div>`;
+}
 // Admin-only bulk action (Settings > Access Management): gives every
 // existing user who hasn't picked an avatar or uploaded a photo a
 // deterministic preset (same user id always maps to the same preset, so
@@ -6071,10 +6104,54 @@ function _bulkAssignDefaultAvatars(){
 // height is derived from the same ratio so every display site stays
 // proportional without callers needing to know the aspect ratio.
 const AVATAR_ASPECT = 3/4;
+// The 120 avatar photos have a baked-in colored background (no alpha --
+// they're JPEGs). True per-pixel background removal was tried (flood-fill
+// from the image edges by local color similarity) and rejected: it works
+// on simple flat backgrounds but silently punches holes through hair or
+// clothing whenever those colors are close to the backdrop -- confirmed
+// on football-genz-men-01-01, where a white jersey got removed almost
+// entirely. Nothing in this codebase can segment these reliably without a
+// real ML model. Background customization is instead a colored MAT around
+// the (untouched, still-full) photo -- a real, safe way to make the
+// avatar's surroundings match a chosen color, white by default.
+const AVATAR_BG_PALETTE = [
+  {name:'White',        hex:'#FFFFFF'}, {name:'Light Gray',   hex:'#F1F5F9'},
+  {name:'Charcoal',     hex:'#1F2937'}, {name:'Cellcard Orange',hex:'#FF7900'},
+  {name:'Sky Blue',     hex:'#DCEBFF'}, {name:'Mint Green',   hex:'#E3F3DC'},
+  {name:'Blush Pink',   hex:'#FCE4EC'}, {name:'Cream',        hex:'#FFF3E0'},
+  {name:'Lavender',     hex:'#EDE7F6'}, {name:'Navy',         hex:'#0F2167'},
+  {name:'Forest Green', hex:'#2F5233'}, {name:'Wine',         hex:'#6B2C3E'},
+  {name:'Teal',         hex:'#1F5F5B'}, {name:'Slate',        hex:'#333333'},
+  {name:'Tan',          hex:'#C9A876'}, {name:'Coral',        hex:'#FF6B6B'},
+  {name:'Sunshine Yellow',hex:'#FFD166'},{name:'Sky Cyan',    hex:'#4ECDC4'},
+  {name:'Royal Purple', hex:'#7C3AED'}, {name:'Rose Gold',    hex:'#E8B4B8'}
+];
+function getAvatarBgColor(){
+  const v = DB.get('avatarBgColor');
+  return (typeof v==='string' && /^#[0-9a-fA-F]{6}$/.test(v)) ? v : '#FFFFFF';
+}
+function setAvatarBgColor(hex){
+  if(!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+  DB.set('avatarBgColor', hex);
+  _refreshAllAvatarDisplays();
+}
 function avatarImgHtml(src, size, alt){
   size = size || 40;
   const h = Math.round(size/AVATAR_ASPECT);
-  return `<img src="${src}" alt="${esc(alt||'')}" loading="lazy" style="width:${size}px;height:${h}px;border-radius:18%;object-fit:cover;display:block;flex-shrink:0;"/>`;
+  const pad = Math.max(1, Math.round(size*0.07));
+  const innerW = size - pad*2, innerH = h - pad*2;
+  return `<span style="display:inline-block;width:${size}px;height:${h}px;padding:${pad}px;box-sizing:border-box;background:${getAvatarBgColor()};border-radius:18%;flex-shrink:0;line-height:0;"><img src="${src}" alt="${esc(alt||'')}" loading="lazy" style="width:${innerW}px;height:${innerH}px;border-radius:14%;object-fit:cover;display:block;"/></span>`;
+}
+// Re-renders every avatar-bearing surface currently in the DOM after the
+// mat color changes -- each guarded so a screen that isn't open right now
+// is a harmless no-op, same pattern used after saving an avatar choice.
+function _refreshAllAvatarDisplays(){
+  try{ const cur=getCurrentUser(); if(cur) document.getElementById('userBarIcon').innerHTML=avatarSelfHtml(cur, 26); }catch(e){}
+  try{ const cur2=getCurrentUser(); const umAv=document.getElementById('umAvatar'); if(umAv && cur2) umAv.innerHTML=avatarHtmlForUser(getUsers().find(x=>x.id===cur2.id), 26); }catch(e){}
+  try{ if(typeof renderUserManagement==='function' && document.getElementById('userManagementList')) renderUserManagement(); }catch(e){}
+  try{ if(typeof renderNpsUserList==='function' && document.getElementById('npsUserTableBody')) renderNpsUserList(); }catch(e){}
+  try{ if(typeof renderRoster==='function' && document.getElementById('rosterGrid')) renderRoster(); }catch(e){}
+  try{ if(document.getElementById('avatarPickerModal').classList.contains('active')) _renderAvatarPickerGrid(); }catch(e){}
 }
 // Renders a user's chosen avatar, falling back to the existing initials look
 // (same visual language used everywhere in the app before this feature,
@@ -6132,10 +6209,24 @@ function openAvatarPicker(){
   _renderAvatarFilterTabs();
   _renderAvatarPickerGrid();
   _renderAvatarUploadPreview();
+  _renderAvatarBgSwatches();
   openModal('avatarPickerModal');
 }
 function _cancelAvatarPicker(){
   closeModal('avatarPickerModal');
+}
+// Personal, unsynced preference (see _DB_LOCAL_ONLY) -- applies to how
+// every avatar renders for this browser, not just the current user's own,
+// so it's surfaced here rather than tucked into per-user settings.
+function _renderAvatarBgSwatches(){
+  const box = document.getElementById('avatarBgSwatches');
+  if(!box) return;
+  const current = getAvatarBgColor();
+  box.innerHTML = AVATAR_BG_PALETTE.map(c=>{
+    const active = c.hex.toUpperCase()===current.toUpperCase();
+    const border = c.hex.toUpperCase()==='#FFFFFF' ? '1.5px solid #e2e8f0' : '1.5px solid transparent';
+    return `<button type="button" onclick="setAvatarBgColor('${c.hex}');_renderAvatarBgSwatches();" title="${esc(c.name)}" aria-label="${esc(c.name)}" aria-pressed="${active}" style="width:26px;height:26px;border-radius:50%;background:${c.hex};border:${border};cursor:pointer;box-shadow:${active?'0 0 0 2px #fff, 0 0 0 4px var(--primary)':'0 1px 2px rgba(0,0,0,.15)'};padding:0;transition:box-shadow .15s;"></button>`;
+  }).join('');
 }
 function _setAvatarMode(mode){
   _avatarMode = mode;
@@ -10165,7 +10256,7 @@ function renderRoster(){
     const avg=agRecs.length?(agRecs.reduce((s,r)=>s+_fs(r),0)/agRecs.length).toFixed(1):null;
     const aName=a.name||'Unknown Agent';
     return `<div class="agent-card" onclick="openAgentModal('${a.id}')">
-      <div class="agent-avatar">${esc(aName.replace(/^(Mr\.|Ms\.|Mrs\.)\s*/i,'').charAt(0).toUpperCase())}</div>
+      ${agentAvatarHtml(a, 42)}
       <div class="agent-info">
         <div class="agent-name">${esc(aName)}</div>
         <div class="agent-meta">${esc(a.staffId)} · ${esc(a.team)||'No Team'}</div>
