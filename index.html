@@ -5206,16 +5206,35 @@ CORS_ORIGIN=https://yourdomain.com</code>
 <div class="modal-overlay" id="avatarPickerModal">
   <div class="modal" style="max-width:720px;">
     <div class="modal-header">
-      <h3>Choose Your Avatar</h3>
-      <button class="modal-close" onclick="closeModal('avatarPickerModal')">✕</button>
+      <h3>Edit Avatar</h3>
+      <button class="modal-close" onclick="_cancelAvatarPicker()">✕</button>
     </div>
     <div class="modal-body" style="padding:22px 24px;">
-      <p style="font-size:12px;color:var(--gray);margin:0 0 14px;">Pick an avatar to represent you across the app. This only changes how you appear to others — it doesn't affect your login or permissions.</p>
-      <div id="avatarPickerTabs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
-      <div id="avatarPickerGrid" style="max-height:50vh;overflow-y:auto;padding-right:4px;"></div>
+      <div id="avatarModeTabs" role="group" aria-label="Avatar source" style="display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:16px;"></div>
+
+      <div id="avatarPanelGallery">
+        <p style="font-size:12px;color:var(--gray);margin:0 0 14px;">These are ready-made — pick the one you like, then confirm below.</p>
+        <div id="avatarPickerTabs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+        <div id="avatarPickerGrid" style="max-height:44vh;overflow-y:auto;padding-right:4px;"></div>
+      </div>
+
+      <div id="avatarPanelUpload" style="display:none;">
+        <p style="font-size:12px;color:var(--gray);margin:0 0 16px;">Upload your own photo — it's resized and compressed automatically. Square-ish, well-lit head-and-shoulders photos work best.</p>
+        <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+          <div id="avatarUploadPreview" style="width:110px;height:147px;border-radius:18%;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:2px dashed var(--border);color:var(--gray);font-size:11px;text-align:center;padding:6px;">No photo selected</div>
+          <div style="flex:1;min-width:200px;">
+            <label class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex;">
+              Choose Photo…
+              <input type="file" id="avatarPhotoFile" accept="image/*" style="display:none;" onchange="_handleAvatarPhotoFile(this)">
+            </label>
+            <div id="avatarUploadStatus" style="font-size:12px;color:var(--gray);margin-top:8px;"></div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-gray" onclick="closeModal('avatarPickerModal')">Close</button>
+      <button class="btn btn-gray" onclick="_cancelAvatarPicker()">Cancel</button>
+      <button class="btn btn-primary" id="avatarConfirmBtn" onclick="_confirmAvatarChoice()">Use This Avatar</button>
     </div>
   </div>
 </div>
@@ -6018,21 +6037,36 @@ function avatarPresetById(id){ return AVATAR_PRESETS.find(p=>p.id===id) || null;
 // height is derived from the same ratio so every display site stays
 // proportional without callers needing to know the aspect ratio.
 const AVATAR_ASPECT = 3/4;
-function avatarImgHtml(preset, size){
+function avatarImgHtml(src, size, alt){
   size = size || 40;
   const h = Math.round(size/AVATAR_ASPECT);
-  return `<img src="${avatarSrc(preset.id)}" alt="" loading="lazy" style="width:${size}px;height:${h}px;border-radius:18%;object-fit:cover;display:block;flex-shrink:0;"/>`;
+  return `<img src="${src}" alt="${esc(alt||'')}" loading="lazy" style="width:${size}px;height:${h}px;border-radius:18%;object-fit:cover;display:block;flex-shrink:0;"/>`;
 }
 // Renders a user's chosen avatar, falling back to the existing initials look
 // (same visual language used everywhere in the app before this feature,
-// now a rounded rect to match the photo avatars' shape) when unset.
+// now a rounded rect to match the photo avatars' shape) when unset. An
+// uploaded photo (avatarPhoto, a compressed data URI) takes precedence over
+// a picked preset (avatarId) -- the picker keeps the two mutually exclusive.
 function avatarHtmlForUser(user, size){
   size = size || 32;
+  if(user && user.avatarPhoto) return avatarImgHtml(user.avatarPhoto, size);
   const preset = user && user.avatarId ? avatarPresetById(user.avatarId) : null;
-  if(preset) return avatarImgHtml(preset, size);
+  if(preset) return avatarImgHtml(avatarSrc(preset.id), size);
   const h = Math.round(size/AVATAR_ASPECT);
   const initial = ((user && (user.displayName||user.username))||'?').charAt(0).toUpperCase();
   return `<div style="width:${size}px;height:${h}px;border-radius:18%;background:linear-gradient(135deg,#FF7900,#E56A00);color:#fff;font-weight:800;font-size:${Math.round(size*0.42)}px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${esc(initial)}</div>`;
+}
+// Small "editable" badge overlay -- used ONLY at the one self-service avatar
+// surface (the bottom user bar). Every other avatarHtmlForUser() call site
+// is a read-only view of someone else's avatar and must NOT get this badge.
+function avatarSelfHtml(user, size){
+  size = size || 26;
+  const h = Math.round(size/AVATAR_ASPECT);
+  const badge = Math.max(14, Math.round(size*0.5));
+  return `<span style="position:relative;display:inline-block;width:${size}px;height:${h}px;line-height:0;">
+    ${avatarHtmlForUser(user, size)}
+    <span style="position:absolute;bottom:-3px;right:-3px;width:${badge}px;height:${badge}px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:${Math.round(badge*0.58)}px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);">✎</span>
+  </span>`;
 }
 
 // Style filters group the 8 shoot categories into the 4 looks users
@@ -6047,19 +6081,51 @@ const AVATAR_FILTER_GROUPS = [
   {key:'all',          label:'View All',     categories:null}
 ];
 let _avatarPickerFilter = 'professional';
+// The whole picker is a pop-up that only ever opens from the edit-avatar
+// trigger, and every pick (gallery or upload) is staged here first --
+// nothing touches the user record until "Use This Avatar" is clicked
+// (matches the confirm-before-apply pattern already shipped in the sibling
+// KMS project, itself based on how Slack/Discord/Xbox handle this).
+let _avatarPending = null; // { avatarId } | { photoDataUrl } | null
+let _avatarMode = 'gallery'; // 'gallery' | 'upload'
 
 function openAvatarPicker(){
   const cur = getCurrentUser();
   if(!cur){ toast('You need to be logged in to change your avatar.','error'); return; }
+  _avatarPending = cur.avatarPhoto ? {photoDataUrl:cur.avatarPhoto} : (cur.avatarId ? {avatarId:cur.avatarId} : null);
+  _avatarMode = cur.avatarPhoto ? 'upload' : 'gallery';
+  _renderAvatarModeTabs();
   _renderAvatarFilterTabs();
-  _renderAvatarPickerGrid(cur.avatarId);
+  _renderAvatarPickerGrid();
+  _renderAvatarUploadPreview();
   openModal('avatarPickerModal');
+}
+function _cancelAvatarPicker(){
+  closeModal('avatarPickerModal');
+}
+function _setAvatarMode(mode){
+  _avatarMode = mode;
+  document.getElementById('avatarPanelGallery').style.display = mode==='gallery' ? '' : 'none';
+  document.getElementById('avatarPanelUpload').style.display = mode==='upload' ? '' : 'none';
+  _renderAvatarModeTabs();
+  _renderAvatarPickerGrid();
+  _renderAvatarUploadPreview();
+}
+function _renderAvatarModeTabs(){
+  const tabs = document.getElementById('avatarModeTabs');
+  if(!tabs) return;
+  const modes = [{key:'gallery',label:'Choose Avatar'},{key:'upload',label:'Upload Photo'}];
+  tabs.innerHTML = modes.map(m=>{
+    const active = m.key===_avatarMode;
+    return `<button type="button" aria-pressed="${active}" onclick="_setAvatarMode('${m.key}')" style="cursor:pointer;padding:7px 16px;border-radius:100px;border:1.5px solid ${active?'var(--primary)':'var(--border)'};background:${active?'var(--primary)':'#fff'};color:${active?'#fff':'var(--dark)'};font-size:13px;font-weight:700;transition:all .15s;">${esc(m.label)}</button>`;
+  }).join('');
+  document.getElementById('avatarPanelGallery').style.display = _avatarMode==='gallery' ? '' : 'none';
+  document.getElementById('avatarPanelUpload').style.display = _avatarMode==='upload' ? '' : 'none';
 }
 function _setAvatarPickerFilter(key){
   _avatarPickerFilter = key;
   _renderAvatarFilterTabs();
-  const cur = getCurrentUser();
-  _renderAvatarPickerGrid(cur ? cur.avatarId : null);
+  _renderAvatarPickerGrid();
 }
 function _renderAvatarFilterTabs(){
   const tabs = document.getElementById('avatarPickerTabs');
@@ -6069,9 +6135,10 @@ function _renderAvatarFilterTabs(){
     return `<button type="button" onclick="_setAvatarPickerFilter('${g.key}')" style="cursor:pointer;padding:6px 14px;border-radius:100px;border:1.5px solid ${active?'var(--primary)':'var(--border)'};background:${active?'var(--primary)':'#fff'};color:${active?'#fff':'var(--dark)'};font-size:12.5px;font-weight:700;transition:all .15s;">${esc(g.label)}</button>`;
   }).join('');
 }
-function _renderAvatarPickerGrid(selectedId){
+function _renderAvatarPickerGrid(){
   const grid = document.getElementById('avatarPickerGrid');
   if(!grid) return;
+  const selectedId = _avatarPending && _avatarPending.avatarId;
   const group = AVATAR_FILTER_GROUPS.find(g=>g.key===_avatarPickerFilter) || AVATAR_FILTER_GROUPS[0];
   const cats = group.categories || Object.keys(AVATAR_CATEGORY_LABELS);
   grid.innerHTML = cats.map(cat=>{
@@ -6079,7 +6146,7 @@ function _renderAvatarPickerGrid(selectedId){
     if(!presets.length) return '';
     const tiles = presets.map(p=>{
       const active = p.id===selectedId;
-      return `<div onclick="_saveAvatarChoice('${p.id}')" title="Select this avatar" style="cursor:pointer;border-radius:20%;padding:3px;border:3px solid ${active?'var(--primary)':'transparent'};transition:border-color .15s;line-height:0;">${avatarImgHtml(p,76)}</div>`;
+      return `<div onclick="_stageAvatarPreset('${p.id}')" title="Select this avatar" style="cursor:pointer;border-radius:20%;padding:3px;border:3px solid ${active?'var(--primary)':'transparent'};transition:border-color .15s;line-height:0;">${avatarImgHtml(avatarSrc(p.id),76)}</div>`;
     }).join('');
     return `<div style="margin-bottom:18px;">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--gray);margin-bottom:8px;">${esc(AVATAR_CATEGORY_LABELS[cat])}</div>
@@ -6087,21 +6154,96 @@ function _renderAvatarPickerGrid(selectedId){
     </div>`;
   }).join('');
 }
-function _saveAvatarChoice(avatarId){
+function _stageAvatarPreset(avatarId){
+  _avatarPending = {avatarId};
+  _renderAvatarPickerGrid();
+}
+function _renderAvatarUploadPreview(){
+  const box = document.getElementById('avatarUploadPreview');
+  if(!box) return;
+  if(_avatarPending && _avatarPending.photoDataUrl){
+    box.style.border = 'none';
+    box.innerHTML = avatarImgHtml(_avatarPending.photoDataUrl, 110, 'Your uploaded photo');
+  } else {
+    box.style.border = '2px dashed var(--border)';
+    box.textContent = 'No photo selected';
+  }
+}
+// Resizes/compresses a picked file entirely client-side (native aspect
+// ratio preserved -- object-fit:cover at every display site handles final
+// framing, same as it already does for the preset photos) so an uploaded
+// avatar stays a few KB, never the multi-MB original. This keeps the photo
+// small enough to live directly on the user record: QMS20's sync layer
+// re-sends the WHOLE 'users' bucket on every save (see db/schema.ts /
+// netlify/functions/data.ts), so an uncompressed upload would make every
+// unrelated user-list edit re-transmit every user's photo bytes.
+const AVATAR_UPLOAD_MAX_DIM = 480;
+const AVATAR_UPLOAD_TARGET_BYTES = 40*1024;
+function _handleAvatarPhotoFile(input){
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  const status = document.getElementById('avatarUploadStatus');
+  if(!file.type.startsWith('image/')){ status.textContent = 'Please choose an image file.'; status.style.color = '#dc2626'; return; }
+  if(file.size > 15*1024*1024){ status.textContent = 'That file is too large (max 15MB).'; status.style.color = '#dc2626'; return; }
+  status.textContent = 'Processing…';
+  status.style.color = 'var(--gray)';
+  const img = new Image();
+  const objectUrl = URL.createObjectURL(file);
+  img.onload = function(){
+    URL.revokeObjectURL(objectUrl);
+    try{
+      const scale = Math.min(1, AVATAR_UPLOAD_MAX_DIM/Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth*scale));
+      const h = Math.max(1, Math.round(img.naturalHeight*scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      let quality = 0.85, dataUrl = canvas.toDataURL('image/jpeg', quality);
+      while(dataUrl.length > AVATAR_UPLOAD_TARGET_BYTES*1.37 && quality > 0.35){
+        quality -= 0.1;
+        dataUrl = canvas.toDataURL('image/jpeg', quality);
+      }
+      _avatarPending = {photoDataUrl:dataUrl};
+      _renderAvatarUploadPreview();
+      const kb = Math.round(dataUrl.length*0.73/1024);
+      status.textContent = `✓ Ready (${kb}KB)`;
+      status.style.color = '#16a34a';
+    }catch(e){
+      status.textContent = 'Could not process that image — try a different file.';
+      status.style.color = '#dc2626';
+    }
+  };
+  img.onerror = function(){
+    URL.revokeObjectURL(objectUrl);
+    status.textContent = 'Could not read that file — try a different image.';
+    status.style.color = '#dc2626';
+  };
+  img.src = objectUrl;
+}
+function _confirmAvatarChoice(){
   const cur = getCurrentUser();
   if(!cur) return;
+  if(!_avatarPending){ toast('Pick an avatar or upload a photo first.','error'); return; }
   const users = getUsers();
   const u = users.find(x=>x.id===cur.id);
   if(!u){ toast('Could not find your user record.','error'); return; }
-  u.avatarId = avatarId;
+  if(_avatarPending.photoDataUrl){
+    u.avatarPhoto = _avatarPending.photoDataUrl;
+    u.avatarId = null;
+  } else if(_avatarPending.avatarId){
+    u.avatarId = _avatarPending.avatarId;
+    u.avatarPhoto = null;
+  }
   saveUsers(users);
-  _renderAvatarPickerGrid(avatarId);
+  closeModal('avatarPickerModal');
   try{ applyRoleUI(); }catch(e){}
   // Refresh every other surface that might currently be showing this
   // user's avatar, if it's rendered right now -- each guarded so a screen
   // that isn't open (or doesn't exist for this role) is a harmless no-op.
   try{ const umAv=document.getElementById('umAvatar'); if(umAv) umAv.innerHTML=avatarHtmlForUser(getUsers().find(x=>x.id===cur.id), 26); }catch(e){}
   try{ if(typeof renderNpsUserList==='function' && document.getElementById('npsUserTableBody')) renderNpsUserList(); }catch(e){}
+  try{ if(typeof renderUserManagement==='function' && document.getElementById('userManagementList')) renderUserManagement(); }catch(e){}
   logChange('settings','Updated','Changed my avatar','QMS');
   toast('Avatar updated.','success');
 }
@@ -12171,7 +12313,7 @@ function getCurrentUser(){
   // Always return role from the canonical DB record — not from client-supplied session data.
   // avatarId is included the same way so every call site can render a
   // user's chosen avatar without a separate getUsers() lookup.
-  return Object.assign({}, sess, { role: u.role, status: u.status, avatarId: u.avatarId });
+  return Object.assign({}, sess, { role: u.role, status: u.status, avatarId: u.avatarId, avatarPhoto: u.avatarPhoto });
 }
 function isLoggedIn(){ return !!getCurrentUser(); }
 function currentRole(){ return getCurrentUser()?.role||null; }
@@ -21327,7 +21469,7 @@ function applyRoleUI(){
   const roleClass={admin:'role-admin',qa:'role-qa',viewer:'role-viewer',tl:'role-tl',manager:'role-manager',superadmin:'role-superadmin',ceo:'role-ceo',chief:'role-chief'};
   roleEl.textContent=roleMap[user.role]||user.role;
   roleEl.className='role-badge '+(roleClass[user.role]||'role-viewer');
-  document.getElementById('userBarIcon').innerHTML=avatarHtmlForUser(user, 26);
+  document.getElementById('userBarIcon').innerHTML=avatarSelfHtml(user, 26);
   document.body.style.paddingBottom='44px';
   // Show/hide Settings nav (Admin + Manager + SuperAdmin)
   const myR=currentRole();
