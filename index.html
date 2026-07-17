@@ -5882,11 +5882,14 @@ function _fs(r){ return +(r?.finalScore ?? r?.score ?? 0) || 0; }
 // (e.g. "av7"); the SVG itself is generated on the fly from that id, so
 // nothing image-sized is duplicated per user record.
 const AVATAR_HAIR = {
-  none:  '',
-  short: '<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L76 34 Q76 24 50 22 Q24 24 24 34 Z" fill="{c}"/>',
-  long:  '<path d="M24 40 Q24 14 50 14 Q76 14 76 40 L76 70 Q68 56 68 40 Q68 26 50 26 Q32 26 32 40 Q32 56 24 70 Z" fill="{c}"/>',
-  bun:   '<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L76 34 Q76 24 50 22 Q24 24 24 34 Z" fill="{c}"/><circle cx="50" cy="9" r="9" fill="{c}"/>',
-  curly: '<path d="M22 38 Q19 28 26 24 Q25 15 34 13 Q36 5 46 6 Q50 -1 58 4 Q67 1 71 10 Q80 10 79 20 Q86 24 82 33 Q84 40 78 41 Q77 27 65 22 Q58 16 49 19 Q40 15 32 21 Q23 21 22 38 Z" fill="{c}"/>'
+  none:     '',
+  short:    '<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L76 34 Q76 24 50 22 Q24 24 24 34 Z" fill="{c}"/>',
+  long:     '<path d="M24 40 Q24 14 50 14 Q76 14 76 40 L76 70 Q68 56 68 40 Q68 26 50 26 Q32 26 32 40 Q32 56 24 70 Z" fill="{c}"/>',
+  bun:      '<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L76 34 Q76 24 50 22 Q24 24 24 34 Z" fill="{c}"/><circle cx="50" cy="9" r="9" fill="{c}"/>',
+  curly:    '<path d="M22 38 Q19 28 26 24 Q25 15 34 13 Q36 5 46 6 Q50 -1 58 4 Q67 1 71 10 Q80 10 79 20 Q86 24 82 33 Q84 40 78 41 Q77 27 65 22 Q58 16 49 19 Q40 15 32 21 Q23 21 22 38 Z" fill="{c}"/>',
+  buzzcut:  '<path d="M26 30 Q26 18 50 18 Q74 18 74 30 Q74 24 50 22 Q26 24 26 30 Z" fill="{c}"/>',
+  ponytail: '<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L76 34 Q76 24 50 22 Q24 24 24 34 Z" fill="{c}"/><path d="M68 20 Q81 23 78 41 Q85 56 76 73 Q69 60 70 42 Q68 29 68 20 Z" fill="{c}"/>',
+  spacebuns:'<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L76 34 Q76 24 50 22 Q24 24 24 34 Z" fill="{c}"/><circle cx="33" cy="13" r="7.5" fill="{c}"/><circle cx="67" cy="13" r="7.5" fill="{c}"/>'
 };
 const AVATAR_FACIAL_HAIR = {
   none:     '',
@@ -5910,13 +5913,26 @@ const AVATAR_PRESETS = [
   {id:'av13', bg:'#FCE4EC', skin:'#E8B18C', hair:'long',  hairColor:'#1a1410', glasses:false, facialHair:'none',     cloth:'#0F2167'},
   {id:'av14', bg:'#FFF3E0', skin:'#C68863', hair:'short', hairColor:'#6b6b6b', glasses:false, facialHair:'mustache', cloth:'#2F5233'},
   {id:'av15', bg:'#EDE7F6', skin:'#F3C9A0', hair:'bun',   hairColor:'#4a2f1f', glasses:false, facialHair:'none',     cloth:'#6B2C3E'},
-  {id:'av16', bg:'#DCEBFF', skin:'#8D5A3B', hair:'curly', hairColor:'#1a1410', glasses:true,  facialHair:'none',     cloth:'#C9A876'}
+  {id:'av16', bg:'#DCEBFF', skin:'#8D5A3B', hair:'curly',     hairColor:'#1a1410', glasses:true,  facialHair:'none', cloth:'#C9A876'},
+  {id:'av17', bg:'#DCEBFF', skin:'#F3C9A0', hair:'ponytail',  hairColor:'#6b6b6b', glasses:true,  facialHair:'none', cloth:'#0F2167', earrings:true},
+  {id:'av18', bg:'#E3F3DC', skin:'#E8B18C', hair:'buzzcut',   hairColor:'#1a1410', glasses:false, facialHair:'none', cloth:'#333333'},
+  {id:'av19', bg:'#FCE4EC', skin:'#8D5A3B', hair:'spacebuns', hairColor:'#1a1410', glasses:false, facialHair:'none', cloth:'#6B2C3E', earrings:true},
+  {id:'av20', bg:'#FFF3E0', skin:'#C68863', hair:'buzzcut',   hairColor:'#4a2f1f', glasses:false, facialHair:'goatee', cloth:'#0F2167'},
+  {id:'av21', bg:'#EDE7F6', skin:'#F3C9A0', hair:'ponytail',  hairColor:'#2b1b12', glasses:false, facialHair:'none', cloth:'#1F5F5B', earrings:true},
+  {id:'av22', bg:'#DCEBFF', skin:'#6B4226', hair:'spacebuns', hairColor:'#1a1410', glasses:true,  facialHair:'none', cloth:'#C9A876', earrings:true},
+  {id:'av23', bg:'#E3F3DC', skin:'#E8B18C', hair:'ponytail',  hairColor:'#8a8a8a', glasses:false, facialHair:'none', cloth:'#2F5233', earrings:true},
+  {id:'av24', bg:'#FCE4EC', skin:'#F3C9A0', hair:'buzzcut',   hairColor:'#6b6b6b', glasses:true,  facialHair:'none', cloth:'#333333'},
+  {id:'av25', bg:'#FFF3E0', skin:'#8D5A3B', hair:'ponytail',  hairColor:'#1a1410', glasses:false, facialHair:'none', cloth:'#6B2C3E', earrings:true},
+  {id:'av26', bg:'#EDE7F6', skin:'#C68863', hair:'spacebuns', hairColor:'#4a2f1f', glasses:false, facialHair:'none', cloth:'#0F2167', earrings:true},
+  {id:'av27', bg:'#DCEBFF', skin:'#F3C9A0', hair:'buzzcut',   hairColor:'#2b1b12', glasses:false, facialHair:'mustache', cloth:'#1F5F5B'},
+  {id:'av28', bg:'#E3F3DC', skin:'#8D5A3B', hair:'ponytail',  hairColor:'#1a1410', glasses:true,  facialHair:'none', cloth:'#C9A876', earrings:true}
 ];
 function avatarSvg(p, size){
   size = size || 40;
   const hair    = (AVATAR_HAIR[p.hair]||'').replace(/\{c\}/g, p.hairColor||'#2b1b12');
   const facial  = (AVATAR_FACIAL_HAIR[p.facialHair]||'').replace(/\{c\}/g, p.hairColor||'#2b1b12');
-  const glasses = p.glasses ? '<circle cx="38" cy="49" r="8" fill="none" stroke="#1e293b" stroke-width="2.5"/><circle cx="62" cy="49" r="8" fill="none" stroke="#1e293b" stroke-width="2.5"/><line x1="46" y1="49" x2="54" y2="49" stroke="#1e293b" stroke-width="2.5"/>' : '';
+  const glasses  = p.glasses  ? '<circle cx="38" cy="49" r="8" fill="none" stroke="#1e293b" stroke-width="2.5"/><circle cx="62" cy="49" r="8" fill="none" stroke="#1e293b" stroke-width="2.5"/><line x1="46" y1="49" x2="54" y2="49" stroke="#1e293b" stroke-width="2.5"/>' : '';
+  const earrings = p.earrings ? `<circle cx="24" cy="62" r="2.4" fill="${p.earringColor||'#D4AF37'}"/><circle cx="76" cy="62" r="2.4" fill="${p.earringColor||'#D4AF37'}"/>` : '';
   return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <circle cx="50" cy="50" r="50" fill="${p.bg}"/>
     <path d="M16 98 Q50 72 84 98 L84 100 L16 100 Z" fill="${p.cloth}"/>
@@ -5931,6 +5947,7 @@ function avatarSvg(p, size){
     ${hair}
     ${facial}
     ${glasses}
+    ${earrings}
   </svg>`;
 }
 function avatarPresetById(id){ return AVATAR_PRESETS.find(p=>p.id===id) || null; }
