@@ -2325,6 +2325,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
           <span id="resetBadgeSettings" style="display:none;background:#e74c3c;color:#fff;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-left:8px;">Pending Resets</span>
         </h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-outline btn-sm" id="assignAvatarsBtn" onclick="_bulkAssignDefaultAvatars()" title="Give every user without an avatar a preset photo">🖼 Assign Avatars</button>
           <button class="btn btn-outline btn-sm" id="batchUploadBtn" onclick="document.getElementById('userBatchFile').click()" title="Upload CSV to add multiple users at once">⬆ Batch Upload</button>
           <button class="btn btn-gray btn-sm" id="downloadUserTemplateBtn" onclick="downloadUserTemplate()">⬇ Template</button>
           <input type="file" id="userBatchFile" accept=".csv" style="display:none;" onchange="previewUserBatch(this)">
@@ -6032,6 +6033,39 @@ const AVATAR_PRESETS = [
 ];
 function avatarSrc(id){ return 'avatars/'+id+'.jpg'; }
 function avatarPresetById(id){ return AVATAR_PRESETS.find(p=>p.id===id) || null; }
+function _hashToIndex(str, mod){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
+  return Math.abs(h) % mod;
+}
+// Admin-only bulk action (Settings > Access Management): gives every
+// existing user who hasn't picked an avatar or uploaded a photo a
+// deterministic preset (same user id always maps to the same preset, so
+// re-running this is a safe no-op for anyone already assigned). Never
+// touches Super Admin, which intentionally keeps its own protected-account
+// badge instead of a photo. Deliberately a manual, admin-triggered action
+// (not an automatic on-load migration) so it only ever runs once the app's
+// _DbSync has had time to pull real synced user data -- writing this early
+// in init(), before that pull resolves, is the exact bug class already
+// documented and removed from the old super-admin-reseed logic above.
+function _bulkAssignDefaultAvatars(){
+  const users = getUsers();
+  let changed = 0;
+  users.forEach(u=>{
+    if(u.role==='superadmin') return;
+    if(u.avatarPhoto || u.avatarId) return;
+    const idx = _hashToIndex(String(u.id), AVATAR_PRESETS.length);
+    u.avatarId = AVATAR_PRESETS[idx].id;
+    changed++;
+  });
+  if(!changed){ toast('Every user already has an avatar.','info'); return; }
+  saveUsers(users);
+  try{ renderUserManagement(); }catch(e){}
+  try{ if(typeof renderNpsUserList==='function' && document.getElementById('npsUserTableBody')) renderNpsUserList(); }catch(e){}
+  try{ applyRoleUI(); }catch(e){}
+  logChange('settings','Updated',`Assigned default avatars to ${changed} user(s)`,'QMS');
+  toast(`Assigned avatars to ${changed} user${changed>1?'s':''}.`,'success');
+}
 // Photos are 3:4 (width:height) portraits -- full head-to-shoulders, no
 // circular crop, so clothing/accessories are never clipped. size = width;
 // height is derived from the same ratio so every display site stays
@@ -21816,8 +21850,10 @@ function renderUserManagement(){
   if(addBtn) addBtn.style.display=(canAdmin||canManager)?'':'none';
   const batchBtn=document.getElementById('batchUploadBtn');
   const tplBtn=document.getElementById('downloadUserTemplateBtn');
+  const avatarsBtn=document.getElementById('assignAvatarsBtn');
   if(batchBtn) batchBtn.style.display=canAdmin?'':'none';
   if(tplBtn) tplBtn.style.display=canAdmin?'':'none';
+  if(avatarsBtn) avatarsBtn.style.display=canAdmin?'':'none';
 
   // Managers only see TL rows they can manage + all rows for viewing
   el.innerHTML=users.map(u=>{
