@@ -1607,7 +1607,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <button class="rpt-side-item" data-rpt-view="pareto" onclick="switchRptView('pareto',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><path d="M12 2v10l7 5"/></svg>Pareto Analysis</button>
       <button class="rpt-side-item" data-rpt-view="coaching-compliance" onclick="switchRptView('coaching-compliance',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Coaching Compliance</button>
       <button class="rpt-side-item" data-rpt-view="disputes" onclick="switchRptView('disputes',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Disputes</button>
-      <button class="rpt-side-item admin-only-tab" data-rpt-view="edit-requests" onclick="switchRptView('edit-requests',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Edit Requests</button>
+      <button class="rpt-side-item admin-or-manager-tab" data-rpt-view="edit-requests" onclick="switchRptView('edit-requests',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Edit Requests<span id="editReqNavBadge" style="display:none;background:#e74c3c;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:6px;"></span></button>
     </div>
 
     <div style="flex:1;min-width:0;">
@@ -2039,6 +2039,13 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <div class="table-wrap"><table>
         <thead><tr><th>Agent</th><th>Eval Date</th><th>Score at Request</th><th>Requested By / Reason</th><th>Proposed</th><th>Status</th><th>Final Score</th><th>Action</th></tr></thead>
         <tbody id="editReqReportBody"></tbody>
+      </table></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-title">✎ Direct Edits <small style="color:var(--gray);font-weight:400;">— 7-day self-edit window, applied immediately without approval</small></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Agent</th><th>Eval Date</th><th>Edited By</th><th>Edited At</th><th>Reason</th><th>Current Score</th><th>Result</th></tr></thead>
+        <tbody id="directEditReportBody"></tbody>
       </table></div>
     </div>
   </div>
@@ -5651,6 +5658,11 @@ const _DbSync = (function(){
         else if(nid==='nps-screen-surveys'&&typeof renderNpsSurveys==='function') renderNpsSurveys();
         else if(nid==='nps-screen-roster'&&typeof renderNpsRoster==='function') renderNpsRoster();
       }
+      // A synced editRequests change previously only reached an admin/
+      // manager's bell badge on their next login -- an already-open tab
+      // never noticed a new pending request until an unrelated notif
+      // interaction happened to recompute it.
+      if(typeof checkPendingEditRequests==='function') checkPendingEditRequests();
     }catch(e){}
   }
 
@@ -8499,6 +8511,71 @@ function updateScore(){
   return { finalScore, autoFailTriggered, autoFailItems, totalEarned, totalPossible, sectionData };
 }
 
+// Pure (no DOM) version of updateScore()'s scoring math -- the single
+// source of truth for turning answers into a score everywhere OTHER than
+// the live evaluation form itself (which keeps its own copy above since
+// it's tightly coupled to per-section DOM chips/alerts already proven
+// correct; duplicating just the math here is lower-risk than threading
+// this through that DOM-heavy function).
+//
+// Before this existed, _applyAnswersAndRecalc(), _erRecalc(), and
+// submitEditRequest()'s proposed-score preview each had their own older,
+// simpler copy: always weighted (summing item.points), never checking a
+// section's own scoringMode/the form's globalScoringMode, and always
+// zeroing the score on auto-fail regardless of settings.autoFailMode. That
+// was harmless while every form used weighted per-item points, but once
+// the live "Standard QA Form" was switched to all-or-nothing scoring
+// (item.points now legitimately 0 everywhere; totalPoints carries the
+// section's weight instead), those three copies silently computed 0/0
+// for every section on every edit -- confirmed via the changeLog audit
+// trail, every single "Direct Edit" and edit-request approval landed
+// records at exactly 0%, regardless of what the evaluator actually
+// changed. Mirrors updateScore()'s math exactly (same section-mode
+// resolution, same conditional auto-fail zeroing), so it does not drift
+// out of sync with the live evaluation form the next time scoring rules
+// change; that function copy should always be re-derived from here.
+function computeScoreFromAnswers(form, answers, settings, formSettings){
+  settings = settings || {};
+  const globalMode = settings.globalScoringMode || 'per-section';
+  let totalEarned=0, totalPossible=0;
+  let autoFailTriggered=false, autoFailItems=[];
+  const sectionScores={};
+  (form||[]).forEach(sec=>{
+    const mode = globalMode === 'per-section' ? (sec.scoringMode || 'weighted') : globalMode;
+    const answeredItems = sec.items.filter(item=>{
+      const ans = answers[item.id] || '';
+      return ans !== '' && ans !== 'NA';
+    });
+    const noItems = answeredItems.filter(item=>answers[item.id]==='N');
+    noItems.forEach(item=>{ if(item.autoFail){ autoFailTriggered=true; autoFailItems.push(item.title); } });
+    let secEarned=0, secPossible=0;
+    if(mode==='all-or-nothing'){
+      if(answeredItems.length>0){
+        secPossible = sec.totalPoints;
+        secEarned = noItems.length>0 ? 0 : sec.totalPoints;
+      }
+    } else {
+      answeredItems.forEach(item=>{
+        secPossible += item.points;
+        if(answers[item.id]==='Y') secEarned += item.points;
+      });
+    }
+    totalEarned += secEarned;
+    totalPossible += secPossible;
+    sectionScores[sec.id] = { earned:secEarned, possible:secPossible, title:sec.title, total:sec.totalPoints, mode, hasNoItems:noItems.length>0 };
+  });
+  // Matches updateScore()'s own precedence exactly: only the GLOBAL
+  // autoFailMode setting decides whether auto-fail zeroes the score, not
+  // any per-form override (updateScore() reads settings.autoFailMode with
+  // no form-specific fallback, unlike passScore just below it -- kept
+  // identical here rather than "improving" it, since that's a separate,
+  // unreported behavior and not part of this bug).
+  let finalScore = totalPossible>0 ? (totalEarned/totalPossible*100) : 0;
+  if(autoFailTriggered && settings.autoFailMode==='zero') finalScore = 0;
+  finalScore = +finalScore.toFixed(1);
+  return { finalScore, autoFailTriggered, autoFailItems, totalEarned, totalPossible, sectionScores };
+}
+
 function populateAgentDropdown(){
   // Typeahead — no static select to rebuild. Just re-validate the hidden ID
   // in case the roster changed while the form was open.
@@ -8962,7 +9039,7 @@ function renderRecords(){
     <td>${fmtDate(r.evalDate)}</td>
     <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.refNo)||''}">${r.refNo&&/^https?:\/\//i.test(r.refNo)?`<a href="${esc(r.refNo)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;font-size:12px;" title="${esc(r.refNo)}">${esc(r.refNo.length>22?r.refNo.slice(0,22)+'…':r.refNo)}</a>`:esc(r.refNo)||'—'}</td>
     <td style="font-weight:800;color:${r.finalScore>=80?'var(--success)':r.finalScore>=60?'var(--warning)':'var(--danger)'}">${r.finalScore.toFixed(1)}%</td>
-    <td>${resultBadge(r.result)}${r.editApproved?'<span title="Score edited by QA, approved by Admin" style="margin-left:4px;background:#fef9c3;color:#92400e;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:700;vertical-align:middle;">EDITED</span>':''}</td>
+    <td>${resultBadge(r.result)}${r.editApproved?'<span title="Score edited by QA, approved by Admin" style="margin-left:4px;background:#fef9c3;color:#92400e;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:700;vertical-align:middle;">EDITED</span>':''}${r.directEdit?`<span title="Directly edited by ${esc(r.directEditBy||'the QA officer')} within the 7-day self-edit window — no admin approval required. Reason: ${esc(r.directEditReason||'')}" style="margin-left:4px;background:#dbeafe;color:#1e40af;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:700;vertical-align:middle;">DIRECT EDIT</span>`:''}</td>
     <td style="white-space:nowrap">
       <button class="btn btn-sm btn-outline" onclick="viewRecord('${r.id}')" style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View</button>
       ${isAdmin()?`<button class="btn btn-sm btn-danger" style="margin-left:4px;display:inline-flex;align-items:center;gap:4px;" onclick="confirmDelete('records','${r.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>`:''}
@@ -8996,6 +9073,14 @@ function viewRecord(id){
   </div>`;
 
   if(r.remarks) html+=`<div style="background:#fef9c3;padding:10px 14px;border-radius:var(--radius-sm);margin-bottom:14px;font-size:13px;"><strong>Remarks:</strong> ${esc(r.remarks)}</div>`;
+
+  // Direct edits bypass admin approval entirely (7-day self-edit window) --
+  // surfaced here explicitly since the record itself is otherwise the only
+  // place this is visible outside a raw change-log lookup.
+  if(r.directEdit) html+=`<div style="background:#dbeafe;border:1px solid #93c5fd;padding:10px 14px;border-radius:var(--radius-sm);margin-bottom:14px;font-size:13px;color:#1e40af;">
+    <strong>✎ Directly Edited</strong> — by ${esc(r.directEditBy||'the QA officer')} on ${r.directEditAt?new Date(r.directEditAt).toLocaleString():'—'} (within the 7-day self-edit window, no admin approval required)
+    ${r.directEditReason?`<br><strong>Reason:</strong> ${esc(r.directEditReason)}`:''}
+  </div>`;
 
   form.forEach(sec=>{
     const sd=r.sectionScores?r.sectionScores[sec.id]:null;
@@ -20021,8 +20106,8 @@ function buildNotifications(){
     }
   }
 
-  // ── Pending Edit Requests (Admin / SuperAdmin / QA) ───
-  if(isAdmin() || isQA() || isSuperAdmin()){
+  // ── Pending Edit Requests (Admin / SuperAdmin / Manager / QA) ───
+  if(isAdmin() || isQA() || isSuperAdmin() || isManager()){
     const editReqs = (DB.get('editRequests')||[]).filter(r=>r.status==='pending');
     if(editReqs.length){
       notifs.push({
@@ -20034,12 +20119,37 @@ function buildNotifications(){
         desc:'Evaluation records submitted for correction.',
         action:()=>{
           toggleNotifPanel();
-          if(isAdmin()){
+          if(isAdmin()||isManager()){
             showScreen('reports', document.querySelector('.nav-btn[onclick*="reports"]'));
             setTimeout(()=>{ const t=document.querySelector('.rpt-side-item[onclick*="edit-requests"]'); if(t) t.click(); },200);
           } else {
             showScreen('records', document.querySelector('.nav-btn[onclick*="records"]'));
           }
+        }
+      });
+    }
+  }
+
+  // ── Recent Direct Edits (Admin / SuperAdmin / Manager) ───
+  // Direct edits (7-day self-edit window) never enter the editRequests
+  // queue above -- they apply immediately with no approval step, which
+  // previously meant zero admin-facing trace beyond a raw change-log
+  // entry. Surfaces anything edited in the last 3 days as an FYI (not a
+  // todo -- nothing to action, just something worth being aware of).
+  if(isAdmin() || isSuperAdmin() || isManager()){
+    const recentDirectEdits = getRecords().filter(r=>r.directEdit && r.directEditAt && (Date.now()-new Date(r.directEditAt).getTime()) < 3*24*3600000);
+    if(recentDirectEdits.length){
+      notifs.push({
+        id:'direct_edit',
+        type:'todo',
+        priority:'medium',
+        icon:'✎',
+        title:`${recentDirectEdits.length} Direct Edit${recentDirectEdits.length>1?'s':''} in the last 3 days`,
+        desc:'Evaluations self-edited by QA/TL within the 7-day window — no approval needed, shown for awareness.',
+        action:()=>{
+          toggleNotifPanel();
+          showScreen('reports', document.querySelector('.nav-btn[onclick*="reports"]'));
+          setTimeout(()=>{ const t=document.querySelector('.rpt-side-item[onclick*="edit-requests"]'); if(t) t.click(); },200);
         }
       });
     }
@@ -23615,6 +23725,9 @@ applyRoleUI = function(){
   if(enBtn) enBtn.style.display = (isQA()||isAdmin())?'':'none';
   // Admin-only tabs
   document.querySelectorAll('.admin-only-tab').forEach(el=>el.style.display=isAdmin()?'':'none');
+  // Edit Requests is admin OR manager -- managers approve their own team's
+  // requests too, unlike Eval Timing above which stays admin-only.
+  document.querySelectorAll('.admin-or-manager-tab').forEach(el=>el.style.display=(isAdmin()||isManager())?'':'none');
   // Disputes nav badge for QA/Admin
   if(isQA()) refreshDisputeBadge();
 }
@@ -24321,7 +24434,7 @@ function clearDisputeFilters(){
 // REPORTS — EDIT REQUESTS
 // ═══════════════════════════════════════════════════
 function renderEditRequestsReport(){
-  if(!isAdmin()){ document.getElementById('editReqReportBody').innerHTML='<tr class="empty-row"><td colspan="8">Admin only.</td></tr>'; return; }
+  if(!isAdmin() && !isManager()){ document.getElementById('editReqReportBody').innerHTML='<tr class="empty-row"><td colspan="8">Admin or Manager only.</td></tr>'; return; }
   const statusFilter = document.getElementById('editReqStatusFilter').value;
   const editReqClearEl=document.getElementById('editReqFilterClear');
   if(editReqClearEl) editReqClearEl.style.display=statusFilter?'inline-flex':'none';
@@ -24350,6 +24463,29 @@ function renderEditRequestsReport(){
     <div class="kpi green"><div class="kpi-val" style="color:var(--success)">${approved}</div><div class="kpi-lbl">Approved</div></div>
     <div class="kpi red"><div class="kpi-val" style="color:var(--danger)">${rejected}</div><div class="kpi-lbl">Rejected</div></div>
   `;
+
+  // Direct edits bypass the editRequests queue entirely (7-day self-edit
+  // window, applied immediately) -- they only ever show up as flags on the
+  // record itself, so this scans records directly rather than reqs. Placed
+  // before the editRequests early-return below so it still populates even
+  // on a period/status filter that leaves zero pending/approved/rejected
+  // requests.
+  const directEditRecords = getRecords().filter(r=>r.directEdit)
+    .sort((a,b)=>new Date(b.directEditAt||0)-new Date(a.directEditAt||0));
+  const deTbody = document.getElementById('directEditReportBody');
+  if(deTbody){
+    deTbody.innerHTML = !directEditRecords.length
+      ? '<tr class="empty-row"><td colspan="7">No direct edits found.</td></tr>'
+      : directEditRecords.map(r=>'<tr>'
+          +'<td><strong>'+esc(r.agentName)+'</strong></td>'
+          +'<td>'+fmtDate(r.evalDate)+'</td>'
+          +'<td>'+esc(r.directEditBy||'—')+'</td>'
+          +'<td>'+(r.directEditAt?new Date(r.directEditAt).toLocaleString():'—')+'</td>'
+          +'<td><small>'+esc(r.directEditReason||'—')+'</small></td>'
+          +'<td style="font-weight:700;">'+r.finalScore.toFixed(1)+'%</td>'
+          +'<td>'+resultBadge(r.result)+'</td>'
+          +'</tr>').join('');
+  }
 
   const tbody = document.getElementById('editReqReportBody');
   if(!reqs.length){ tbody.innerHTML='<tr class="empty-row"><td colspan="8">No edit requests found.</td></tr>'; return; }
@@ -24747,23 +24883,24 @@ function openEditRequest(){
 }
 
 function _erRecalc(){
-  // Recalculate proposed score from current select values
-  const form = getForm(); if(!form) return;
-  const selects = document.querySelectorAll('.edit-req-ans');
-  let earned=0, possible=0, autoFail=false;
-  selects.forEach(function(sel){
-    const pts = +sel.getAttribute('data-pts')||0;
-    const af  = sel.getAttribute('data-af')==='1';
-    const val = sel.value;
-    if(val!=='NA'){ possible += pts; }   // N/A excluded from denominator
-    if(val==='Y') earned += pts;
-    if(val==='N' && af) autoFail=true;
+  // Recalculate proposed score from current select values -- via the same
+  // computeScoreFromAnswers() engine the live evaluation form and the actual
+  // commit path use. Used to have its own older, simpler copy of this math
+  // (see computeScoreFromAnswers' comment for what that drift caused).
+  const rec = getRecords().find(r=>r.id===_currentViewRecordId);
+  if(!rec) return;
+  const formObj = (rec.formId && getFormById(rec.formId)) || null;
+  const form = formObj ? formObj.sections : getForm();
+  if(!form) return;
+  const answers = Object.assign({}, rec.answers||{});
+  document.querySelectorAll('.edit-req-ans').forEach(function(sel){
+    answers[sel.getAttribute('data-item')] = sel.value;
   });
-  const pct = possible>0 ? (earned/possible*100).toFixed(1) : '0.0';
+  const scored = computeScoreFromAnswers(form, answers, getSettings(), formObj && formObj.settings);
   const preview = document.getElementById('editReqScorePreview');
   if(preview){
-    preview.textContent = autoFail ? 'AUTO FAIL (0%)' : pct + '%';
-    preview.style.color = autoFail ? 'var(--danger)' : (+pct>=80?'var(--success)':+pct>=60?'var(--warning)':'var(--danger)');
+    preview.textContent = (scored.autoFailTriggered ? 'AUTO FAIL — ' : '') + scored.finalScore + '%';
+    preview.style.color = scored.autoFailTriggered ? 'var(--danger)' : (scored.finalScore>=80?'var(--success)':scored.finalScore>=60?'var(--warning)':'var(--danger)');
   }
 }
 
@@ -24772,6 +24909,8 @@ function submitEditRequest(){
   const reason=document.getElementById('editReqReason').value.trim();
   if(!reason){ toast('Please describe what needs to be changed.','error'); return; }
 
+  const origRec = getRecords().find(r=>r.id===recordId);
+
   // Capture proposed answers from item editor
   var proposedAnswers = null;
   var proposedScore   = null;
@@ -24779,24 +24918,24 @@ function submitEditRequest(){
   const selects = document.querySelectorAll('.edit-req-ans');
   if(selects.length){
     proposedAnswers = {};
-    let earned=0, possible=0;
     selects.forEach(function(sel){
-      const itemId = sel.getAttribute('data-item');
-      const pts    = +sel.getAttribute('data-pts')||0;
-      const af     = sel.getAttribute('data-af')==='1';
-      const val    = sel.value;
-      proposedAnswers[itemId] = val;
-      if(val!=='NA'){ possible += pts; }   // N/A excluded from denominator
-      if(val==='Y') earned += pts;
-      if(val==='N' && af) autoFail=true;
+      proposedAnswers[sel.getAttribute('data-item')] = sel.value;
     });
-    proposedScore = autoFail ? '0' : possible>0 ? (earned/possible*100).toFixed(1) : '0';
     // Block submission if nothing actually changed
-    const origRec = getRecords().find(r=>r.id===recordId);
     if(origRec && origRec.answers){
       const changed = Object.keys(proposedAnswers).some(k=>proposedAnswers[k]!==(origRec.answers[k]||''));
       if(!changed){ toast('No answers have been changed — adjust at least one item before submitting.','error'); return; }
     }
+    // Score the full merged answer set (not just the changed items) against
+    // the record's real form, via the same engine _applyAnswersAndRecalc()
+    // uses when this proposal is later approved/applied -- keeps what's
+    // previewed/stored here consistent with what actually gets committed.
+    const _erFormObj = (origRec && origRec.formId && getFormById(origRec.formId)) || null;
+    const _erForm = _erFormObj ? _erFormObj.sections : getForm();
+    const _erMerged = Object.assign({}, (origRec&&origRec.answers)||{}, proposedAnswers);
+    const _erScored = computeScoreFromAnswers(_erForm, _erMerged, getSettings(), _erFormObj && _erFormObj.settings);
+    proposedScore = String(_erScored.finalScore);
+    autoFail = _erScored.autoFailTriggered;
   }
 
   // 7-day direct-edit bypass: the record's own QA officer, or the agent's TL,
@@ -24844,14 +24983,28 @@ function submitEditRequest(){
   checkPendingEditRequests();
 }
 
+// Was a dead stub (computed a count, then discarded it -- "Could show
+// badge — keep simple for now"). Now mirrors the working
+// _refreshAccessReqBadge() pattern: updates the sidebar tab's badge and
+// the bell's unread count. Runs unconditionally rather than gating on the
+// CURRENT user's role -- the caller is usually the QA/TL who just
+// submitted the request (never admin/manager), so the old isAdmin() guard
+// meant this was a no-op for the common case; the badge elements
+// themselves are only ever visible to admin/manager via the surrounding
+// role-based show/hide, so nothing extra leaks by computing this for
+// anyone.
 function checkPendingEditRequests(){
-  if(!isAdmin()) return;
-  const pending=getEditRequests().filter(r=>r.status==='pending');
-  // Could show badge — keep simple for now
+  const pending=getEditRequests().filter(r=>r.status==='pending').length;
+  const el=document.getElementById('editReqNavBadge');
+  if(el){
+    if(pending>0){ el.textContent=pending; el.style.display='inline'; }
+    else { el.style.display='none'; }
+  }
+  setTimeout(refreshNotifBadge,50);
 }
 
 function openEditReview(reqId){
-  if(!isAdmin()){ toast('Admin only','error'); return; }
+  if(!isAdmin() && !isManager()){ toast('Admin or Manager only','error'); return; }
   const req=getEditRequests().find(r=>r.id===reqId); if(!req) return;
   const rec=getRecords().find(r=>r.id===req.recordId);
   document.getElementById('editReviewBody').innerHTML=`
@@ -24951,26 +25104,19 @@ function _applyAnswersAndRecalc(record, proposedAnswers){
   });
   record.answers = mergedAnswers;
   const settings = getSettings();
-  const passScore = +(settings.passScore||80);
-  const form = getForm();
-  let totalEarned=0, totalPossible=0, autoFail=false;
-  const sectionScores={};
-  form.forEach(function(sec){
-    let secEarned=0, secPossible=0;
-    sec.items.forEach(function(item){
-      const ans = mergedAnswers[item.id];
-      if(ans!=='NA'){ secPossible += item.points; }   // N/A excluded
-      if(ans==='Y') secEarned += item.points;
-      if(ans==='N' && item.autoFail) autoFail=true;
-    });
-    sectionScores[sec.id]={earned:secEarned,possible:secPossible};
-    totalEarned   += secEarned;
-    totalPossible += secPossible;
-  });
-  record.sectionScores = sectionScores;
-  const pct = autoFail ? 0 : (totalPossible>0 ? totalEarned/totalPossible*100 : 0);
-  record.finalScore = +pct.toFixed(1);
-  record.result = autoFail ? 'AUTO FAIL' : (record.finalScore>=passScore?'PASS':'FAIL');
+  // Score against the SAME form the record was actually created against
+  // (viewRecord() already does this for display, for the same reason:
+  // getForm() alone always returns the first published form, which can
+  // silently be the wrong one, or have drifted from what this record's
+  // answers were keyed to).
+  const formObj = (record.formId && getFormById(record.formId)) || null;
+  const form = formObj ? formObj.sections : getForm();
+  const passScore = +((formObj && formObj.settings && formObj.settings.passScore) || settings.passScore || 80);
+  const scored = computeScoreFromAnswers(form, mergedAnswers, settings, formObj && formObj.settings);
+  record.sectionScores = scored.sectionScores;
+  record.finalScore = scored.finalScore;
+  record.autoFail = scored.autoFailTriggered;
+  record.result = scored.autoFailTriggered ? 'AUTO FAIL' : (record.finalScore>=passScore?'PASS':'FAIL');
   return record;
 }
 
@@ -25028,6 +25174,10 @@ function _renderFullFormWithChanges(record, changedAnswers){
 }
 
 function resolveEditRequest(status){
+  // Previously relied entirely on openEditReview()'s gate to keep this
+  // screen out of reach -- this function itself (the one that actually
+  // changes a score) had no role check of its own.
+  if(!isAdmin() && !isManager()){ toast('Admin or Manager only','error'); return; }
   const reqId=document.getElementById('reviewEditReqId').value;
   const adminNote=document.getElementById('adminEditNote').value.trim();
   const reqs=getEditRequests();
@@ -25060,7 +25210,11 @@ function resolveEditRequest(status){
       _applyAnswersAndRecalc(records[ri], finalAnswers);
     } else if(reqs[idx].proposedScore!=null && reqs[idx].proposedScore!==''){
       records[ri].finalScore=+reqs[idx].proposedScore;
-      records[ri].result=records[ri].finalScore>=passScore?'PASS':'FAIL';
+      records[ri].autoFail=!!reqs[idx].proposedAutoFail;
+      // proposedAutoFail was previously dropped here -- approving a request
+      // that hadn't been re-scored on the review screen could silently turn
+      // a genuine AUTO FAIL back into a plain PASS/FAIL.
+      records[ri].result = reqs[idx].proposedAutoFail ? 'AUTO FAIL' : (records[ri].finalScore>=passScore?'PASS':'FAIL');
       // sectionScores cannot be reconstructed from score alone — mark as edited
       records[ri].sectionScores = records[ri].sectionScores || {};
     }
