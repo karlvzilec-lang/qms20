@@ -45,6 +45,24 @@ function rowCount(data: unknown): number | null {
   return Array.isArray(data) ? data.length : null;
 }
 
+// De-duplicate a JSON-array bucket by its "id" field before writing it to the
+// losing side of a drift fix. Auto-fix picks a winner purely by updatedAt
+// timestamp with no data-quality check -- without this, a side that already
+// carries duplicate-id entries (e.g. from a client-side import bug) could have
+// a newer timestamp than a clean side and silently overwrite it, spreading the
+// corruption to both databases instead of fixing anything.
+function dedupeById(data: unknown): unknown {
+  if (!Array.isArray(data)) return data;
+  const seen = new Set<unknown>();
+  return data.filter((item) => {
+    const id = item && typeof item === "object" ? (item as Record<string, unknown>).id : undefined;
+    if (id === undefined || id === null || id === "") return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
 export default async (req: Request) => {
   // Reconcile is an admin-only operation — require a valid token when configured.
   if (process.env.QMS_SESSION_SECRET) {
@@ -157,7 +175,7 @@ export default async (req: Request) => {
         // Netlify is authoritative — push to Supabase
         entry.winner = "netlify";
         fixes.push(
-          upsertToSupabase(bucket, n!.data, n!.updatedAt ?? new Date())
+          upsertToSupabase(bucket, dedupeById(n!.data), n!.updatedAt ?? new Date())
             .then(() => { entry.fixed = true; })
             .catch((e) => { console.error(`fix→supabase ${bucket}`, e); entry.fixed = false; }),
         );
@@ -167,10 +185,10 @@ export default async (req: Request) => {
         fixes.push(
           db
             .insert(qamsData)
-            .values({ bucket, data: s!.data as any, updatedAt: s!.updatedAt ?? new Date() })
+            .values({ bucket, data: dedupeById(s!.data) as any, updatedAt: s!.updatedAt ?? new Date() })
             .onConflictDoUpdate({
               target: qamsData.bucket,
-              set: { data: s!.data as any, updatedAt: s!.updatedAt ?? new Date() },
+              set: { data: dedupeById(s!.data) as any, updatedAt: s!.updatedAt ?? new Date() },
             })
             .then(() => { entry.fixed = true; })
             .catch((e) => { console.error(`fix→netlify ${bucket}`, e); entry.fixed = false; }),

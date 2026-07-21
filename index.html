@@ -5560,8 +5560,23 @@ const _DbSync = (function(){
     // Union by id — remote wins on conflict (server copy takes precedence).
     // Local-only entries are preserved so no device ever loses data on sync.
     if(!Array.isArray(remoteArr)||!Array.isArray(localArr)) return remoteArr||localArr||[];
-    var merged = remoteArr.slice();
-    var remoteIds = new Set(remoteArr.map(function(x){ return x&&x.id; }));
+    // De-duplicate the remote array itself first. A merge that only ever ADDS
+    // local-only items can never remove a duplicate id that already exists
+    // remotely -- any corruption (a bad import, a direct DB edit, a since-fixed
+    // bug) would otherwise get pulled down and re-persisted by every device,
+    // forever, since this is the only place local/remote ever reconcile for
+    // these buckets. Keeping the first occurrence of each id makes every
+    // future sync self-healing instead of just carrying old corruption forward.
+    var seenIds = new Set();
+    var dedupedRemote = remoteArr.filter(function(x){
+      var id = x&&x.id;
+      if(!id) return true; // nothing to key on -- leave as-is
+      if(seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
+    var merged = dedupedRemote.slice();
+    var remoteIds = new Set(dedupedRemote.map(function(x){ return x&&x.id; }));
     localArr.forEach(function(item){
       if(item&&item.id&&!remoteIds.has(item.id)) merged.push(item);
     });
@@ -10149,6 +10164,13 @@ function saveAgent(){
   if(!sid){  toast('Staff ID is required.','error'); return; }
   const id=document.getElementById('agentId').value;
   const agents=getAgents();
+  // Adding a brand-new agent must not silently create a second roster card
+  // sharing a Staff ID that's already in use -- editing an existing agent
+  // (id set) is unaffected since that's matched by internal id, not staffId.
+  if(!id){
+    const dupe = agents.find(a=>(a.staffId||'').trim().toUpperCase()===sid.toUpperCase());
+    if(dupe){ toast(`Staff ID "${sid}" is already used by ${dupe.name}.`,'error'); return; }
+  }
   const obj={
     id:id||uuid(), name, staffId:sid,
     team:document.getElementById('agentTeam').value.trim(),
@@ -10423,10 +10445,23 @@ function handleCSVFile(inp){ if(inp.files[0]) readCSV(inp.files[0]); }
 function readCSV(file){
   const reader=new FileReader();
   reader.onload=e=>{
-    const lines=e.target.result.trim().split('\n');
-    const headers=lines[0].split(',').map(h=>h.trim().replace(/"/g,''));
+    const lines=e.target.result.trim().split('\n').filter(l=>l.trim());
+    // Quoted-field-aware parser -- a bare split(',') silently shifts every later
+    // column whenever a Team/Supervisor/Campaign/Email value contains a comma,
+    // corrupting that row's data and breaking the staffId match in importCSVAgents().
+    const parseRow = line => {
+      const out=[]; let cur='', inQ=false;
+      for(let i=0;i<line.length;i++){
+        const c=line[i];
+        if(c==='"'){ inQ=!inQ; }
+        else if(c===','&&!inQ){ out.push(cur.trim()); cur=''; }
+        else cur+=c;
+      }
+      out.push(cur.trim()); return out;
+    };
+    const headers=parseRow(lines[0]).map(h=>h.replace(/"/g,''));
     csvParsed=lines.slice(1).map(l=>{
-      const vals=l.split(',').map(v=>v.trim().replace(/"/g,''));
+      const vals=parseRow(l);
       const obj={};
       headers.forEach((h,i)=>obj[h.toLowerCase()]=vals[i]||'');
       return { name:obj.name||'', staffId:obj.staffid||obj['staff id']||'', team:obj.team||'', supervisor:obj.supervisor||'', campaign:obj.campaign||'', status:obj.status||'Active', email:obj.email||'', hired:obj['hire date']||obj.hired||obj['date hired']||'' };
@@ -10446,7 +10481,13 @@ function importCSVAgents(){
   const agents=getAgents();
   let added=0, updated=0;
   csvParsed.forEach(a=>{
-    const existing=agents.find(x=>x.staffId===a.staffId);
+    // A blank staffId must never match another blank-staffId agent -- two
+    // different people with no staff ID would otherwise silently collapse
+    // into one record, overwriting whichever was already there. Comparison
+    // is trim+case-normalized so drift between two roster exports (e.g.
+    // "MO2713" vs "mo2713") doesn't mint a duplicate for the same person.
+    const sid=(a.staffId||'').trim().toUpperCase();
+    const existing = sid ? agents.find(x=>(x.staffId||'').trim().toUpperCase()===sid) : null;
     if(existing){ Object.assign(existing,a); updated++; }
     else{ agents.push({...a,id:uuid(),createdAt:new Date().toISOString()}); added++; }
   });
