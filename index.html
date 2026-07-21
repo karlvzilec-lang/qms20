@@ -5507,10 +5507,26 @@ const _DbSync = (function(){
     _status('syncing');
     var failed=[];
     var sends=buckets.map(function(k){
+      // De-duplicate by id before pushing. _mergeBucket only cleans the PULL
+      // path -- a push is a blind full-array replace on the server (no merge),
+      // so a browser tab that's been open since before a duplicate got fixed
+      // server-side would otherwise re-overwrite the clean copy with its own
+      // stale, still-duplicated local cache the next time it pushes anything.
+      var payload = DB.get(k);
+      if(_MERGE_BUCKETS.has(k) && Array.isArray(payload)){
+        var _seen=new Set();
+        payload = payload.filter(function(x){
+          var id=x&&x.id;
+          if(!id) return true;
+          if(_seen.has(id)) return false;
+          _seen.add(id);
+          return true;
+        });
+      }
       return fetch(API,{
         method:'POST',
         headers:Object.assign({'Content-Type':'application/json'},_authHeaders()),
-        body:JSON.stringify({bucket:k,data:DB.get(k)})
+        body:JSON.stringify({bucket:k,data:payload})
       }).then(function(r){
         if(!r.ok) throw r.status;
       }).catch(function(e){
