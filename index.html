@@ -825,7 +825,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 ::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
 ::-webkit-scrollbar-thumb:hover{background:#cbd5e1;}
 @media print{
-  .header,.nav,.score-panel,.btn,.toolbar,.toast-wrap,.modal-overlay,.no-print{display:none!important;}
+  .header,.nav,.score-panel,.btn,.toolbar,.toast-wrap,.modal-overlay,.no-print,.rpt-sidebar{display:none!important;}
   .screen{display:block!important;padding:0;}
   .section-card{box-shadow:none;border:1px solid #ddd;}
   .qa-header-card{background:var(--primary)!important;-webkit-print-color-adjust:exact;}
@@ -907,14 +907,6 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <button class="login-btn" onclick="submitResetRequest()">Submit Reset Request</button>
       <div style="margin-top:10px;text-align:center;">
         <a onclick="showLoginForm()">← Back to Login</a>
-      </div>
-    </div>
-    <div class="login-body" id="npsFormView" style="display:none;">
-      <div class="nps-coming-panel">
-        <div class="nps-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
-        <h3>NPS Module</h3>
-        <p>Net Promoter Score tracking is coming soon.</p>
-        <p style="margin-top:10px;font-size:12px;color:#94a3b8;">Contact your administrator to enable this feature.</p>
       </div>
     </div>
     <!-- Request Access Form -->
@@ -1088,7 +1080,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
           <input type="date" id="qaCustomTo" onchange="_qaCustomRangeChange()" style="font-size:11px;padding:3px 5px;border:1px solid #e2e8f0;border-radius:6px;">
         </span>
       </div>
-      <button class="btn btn-primary" id="dashNewEvalBtn" onclick="showScreen('evaluation',document.querySelectorAll('.nav-btn')[1])"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> New Evaluation</button>
+      <button class="btn btn-primary" id="dashNewEvalBtn" onclick="showScreen('evaluation',Array.from(document.querySelectorAll('.nav-btn')).find(b=>b.textContent.includes('New Evaluation')))"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> New Evaluation</button>
     </div>
   </div>
 
@@ -1174,6 +1166,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         </div>
         <div style="padding:16px 18px;position:relative;height:240px;">
           <canvas id="qaScoreChart"></canvas>
+          <div id="qaScoreChartEmpty" style="display:none;"></div>
         </div>
       </div>
       <!-- Row 2: three side-by-side panels -->
@@ -1414,7 +1407,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         <div id="failAlert"></div>
         <div class="section-scores" id="sectionScoresList"></div>
         <div style="margin-top:14px;font-size:11px;color:var(--gray);text-align:center;">
-          Y=Full pts · N=0 pts · N/A=Excluded<br>Auto-Fail=Score becomes 0%
+          Y=Full pts · N=0 pts · N/A=Excluded<br><span id="autoFailLegendText">Auto-Fail=Score becomes 0%</span>
         </div>
         <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="submitEval()">✅ Submit</button>
       </div>
@@ -1451,7 +1444,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       </div>
       <select id="recResult" onchange="renderRecords()">
         <option value="">All Results</option>
-        <option>PASS</option><option>FAIL</option><option>AUTO FAIL</option>
+        <option>PASS</option><option>FAIL</option><option>AUTO FAIL</option><option>PENDING</option>
       </select>
       <select id="recMonth" onchange="renderRecords()">
         <option value="">All Months</option>
@@ -1576,7 +1569,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       </div>
       <!-- hidden: keep rptMonth for any legacy references, but no longer shown -->
       <select id="rptMonth" style="display:none;"><option value=""></option></select>
-      <button class="btn btn-gray btn-sm" onclick="renderReports()">↻ Refresh</button>
+      <button class="btn btn-gray btn-sm" onclick="renderReports();_refreshActiveRptView()">↻ Refresh</button>
       <button class="btn btn-gray btn-sm" onclick="window.print()">🖨 Print</button>
     </div>
   </div>
@@ -3272,14 +3265,14 @@ CORS_ORIGIN=https://yourdomain.com</code>
       <!-- Unified filter bar (Day/Week/Month/Quarter/Custom) -->
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:3px;display:flex;gap:2px;align-items:center;">
-          <button class="nps-ch-btn active" data-chf="dow"     onclick="setNpsChannelFilter('dow',this)">Day</button>
+          <button class="nps-ch-btn" data-chf="dow"     onclick="setNpsChannelFilter('dow',this)">Day</button>
           <button class="nps-ch-btn"        data-chf="week"    onclick="setNpsChannelFilter('week',this)">Week</button>
-          <button class="nps-ch-btn"        data-chf="month"   onclick="setNpsChannelFilter('month',this)">Month</button>
+          <button class="nps-ch-btn active" data-chf="month"   onclick="setNpsChannelFilter('month',this)">Month</button>
           <button class="nps-ch-btn"        data-chf="quarter" onclick="setNpsChannelFilter('quarter',this)">Quarter</button>
           <button class="nps-ch-btn"        data-chf="custom"  onclick="setNpsChannelFilter('custom',this)">Custom</button>
         </div>
         <!-- Day-of-week picker -->
-        <div id="npsChFilterDow" style="display:flex;align-items:center;gap:4px;">
+        <div id="npsChFilterDow" style="display:none;align-items:center;gap:4px;">
           <select id="npsChDow" onchange="this.dataset.userSet='1';renderNpsChannelChart()" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:8px;font-size:12px;font-weight:600;color:#f1f5f9;background:#1e293b;">
             <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
             <option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option>
@@ -3292,7 +3285,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
           </select>
         </div>
         <!-- Month picker -->
-        <div id="npsChFilterMonth" style="display:none;align-items:center;gap:4px;">
+        <div id="npsChFilterMonth" style="display:flex;align-items:center;gap:4px;">
           <select id="npsChMonth" onchange="renderNpsChannelChart()" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:8px;font-size:12px;font-weight:600;color:#f1f5f9;background:#1e293b;">
             <option value="0">This Month</option><option value="1">Last Month</option><option value="2">2 Months Ago</option>
             <option value="3">3 Months Ago</option><option value="4">4 Months Ago</option><option value="5">5 Months Ago</option>
@@ -4141,7 +4134,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
       </div>
       <!-- Batch Upload Tab -->
       <div id="gPanel_upload" style="display:none;">
-        <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Upload a CSV file containing bulk survey responses. Use the template to ensure correct formatting.</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Upload a CSV file containing bulk survey responses. Use the template to ensure correct formatting. <strong>These become aggregate NPS data for the Executive Dashboard -- they will not appear in, or be editable from, the NPS Records list.</strong></div>
         <!-- Format guide -->
         <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
           <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px;">📋 Required CSV Columns</div>
@@ -4237,11 +4230,11 @@ CORS_ORIGIN=https://yourdomain.com</code>
           </div>
           <div>
             <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;display:block;margin-bottom:4px;">Promoter Threshold (min score)</label>
-            <input type="number" value="9" min="0" max="10" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+            <input type="number" id="npsPromoterThreshold" value="9" min="0" max="10" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
           </div>
           <div>
             <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;display:block;margin-bottom:4px;">Detractor Threshold (max score)</label>
-            <input type="number" value="6" min="0" max="10" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+            <input type="number" id="npsDetractorThreshold" value="6" min="0" max="10" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
           </div>
         </div>
       </div>
@@ -4250,15 +4243,15 @@ CORS_ORIGIN=https://yourdomain.com</code>
         <div style="display:flex;flex-direction:column;gap:14px;">
           <div>
             <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;display:block;margin-bottom:4px;">Default Reporting Period</label>
-            <select style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;"><option>Monthly</option><option>Quarterly</option><option>Weekly</option></select>
+            <select id="npsReportingPeriod" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;"><option>Monthly</option><option>Quarterly</option><option>Weekly</option></select>
           </div>
           <div>
             <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;display:block;margin-bottom:4px;">Dashboard Default View</label>
-            <select style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;"><option>Last 6 Months</option><option>Last 3 Months</option><option>Last 12 Months</option></select>
+            <select id="npsDashboardDefaultView" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;"><option>Last 6 Months</option><option>Last 3 Months</option><option>Last 12 Months</option></select>
           </div>
           <div>
             <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;display:block;margin-bottom:4px;">Benchmark Comparison</label>
-            <select style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;"><option>Telco Industry Average (+35)</option><option>World Class (+50)</option><option>Custom Target</option></select>
+            <select id="npsBenchmarkComparison" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;"><option>Telco Industry Average (+35)</option><option>World Class (+50)</option><option>Custom Target</option></select>
           </div>
         </div>
       </div>
@@ -4267,15 +4260,15 @@ CORS_ORIGIN=https://yourdomain.com</code>
         <div style="display:flex;flex-direction:column;gap:14px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div><div style="font-size:13px;font-weight:600;color:#1e293b;">Detractor Alert Email</div><div style="font-size:11px;color:#64748b;">Notify when score ≤ 6 received</div></div>
-            <select style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:12px;"><option>Enabled</option><option>Disabled</option></select>
+            <select id="npsDetractorAlertEmail" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:12px;"><option>Enabled</option><option>Disabled</option></select>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div><div style="font-size:13px;font-weight:600;color:#1e293b;">Weekly NPS Report</div><div style="font-size:11px;color:#64748b;">Auto-send summary every Monday</div></div>
-            <select style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:12px;"><option>Enabled</option><option>Disabled</option></select>
+            <select id="npsWeeklyReport" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:12px;"><option>Enabled</option><option>Disabled</option></select>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div><div style="font-size:13px;font-weight:600;color:#1e293b;">Score Drop Alert</div><div style="font-size:11px;color:#64748b;">Notify when NPS drops &gt;5 points</div></div>
-            <select style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:12px;"><option>Enabled</option><option>Disabled</option></select>
+            <select id="npsScoreDropAlert" style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:12px;"><option>Enabled</option><option>Disabled</option></select>
           </div>
         </div>
       </div>
@@ -4284,11 +4277,11 @@ CORS_ORIGIN=https://yourdomain.com</code>
         <div style="display:flex;flex-direction:column;gap:14px;">
           <div>
             <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;display:block;margin-bottom:4px;">CSV Import Delimiter</label>
-            <select style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;"><option>Comma (,)</option><option>Semicolon (;)</option><option>Tab</option></select>
+            <select id="npsCsvDelimiter" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;"><option>Comma (,)</option><option>Semicolon (;)</option><option>Tab</option></select>
           </div>
           <div>
             <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;display:block;margin-bottom:4px;">QMS Link — Share Agent Scores</label>
-            <select style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;"><option>Enabled (show NPS in QMS agent view)</option><option>Disabled</option></select>
+            <select id="npsQmsLinkShareScores" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;"><option>Enabled (show NPS in QMS agent view)</option><option>Disabled</option></select>
           </div>
           <button class="btn btn-outline btn-sm" onclick="document.getElementById('npsImportFile2').click()">⬆ Bulk Import NPS Data</button>
           <input type="file" id="npsImportFile2" accept=".csv" style="display:none;" onchange="importNpsData(this)">
@@ -4340,12 +4333,10 @@ CORS_ORIGIN=https://yourdomain.com</code>
           <div>
             <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Role</label>
             <select id="npsNewUserRole" style="width:100%;padding:8px 10px;border:1.5px solid #fde68a;border-radius:7px;font-size:13px;background:#fff;">
-              <option value="viewer">Viewer</option>
-              <option value="qa">QA Officer</option>
-              <option value="tl">Team Leader</option>
-              <option value="manager">Manager</option>
               <option value="admin">Admin</option>
               <option value="superadmin">Super Admin</option>
+              <option value="ceo">CEO (Executive — Read Only)</option>
+              <option value="chief">Chief (Dept. Head — Read Only)</option>
             </select>
           </div>
           <div style="display:flex;gap:6px;">
@@ -4381,7 +4372,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
     </div>
 
     <!-- Pending Access Requests -->
-    <div class="section-card" style="padding:20px;margin-top:16px;" id="npsAccessReqSection" style="display:none;">
+    <div class="section-card" style="padding:20px;margin-top:16px;display:none;" id="npsAccessReqSection">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
         <div style="font-weight:700;font-size:14px;color:#d97706;">🔓 Pending Access Requests</div>
         <span id="npsAccessReqBadge" style="background:#f97316;color:#fff;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;display:none;"></span>
@@ -4563,12 +4554,10 @@ CORS_ORIGIN=https://yourdomain.com</code>
         <div>
           <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Role</label>
           <select id="npsEumRole" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;">
-            <option value="viewer">Viewer</option>
-            <option value="qa">QA Officer</option>
-            <option value="tl">Team Leader</option>
-            <option value="manager">Manager</option>
             <option value="admin">Admin</option>
             <option value="superadmin">Super Admin</option>
+            <option value="ceo">CEO (Executive — Read Only)</option>
+            <option value="chief">Chief (Dept. Head — Read Only)</option>
           </select>
         </div>
         <div>
@@ -4909,7 +4898,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
     <div class="modal-footer">
       <button class="btn btn-gray" onclick="closeModal('agentModal')">Cancel</button>
       <button class="btn btn-danger btn-sm" id="agentDeleteBtn" style="display:none" onclick="deleteAgent()">🗑 Delete</button>
-      <button class="btn btn-primary" onclick="saveAgent()">💾 Save Agent</button>
+      <button class="btn btn-primary" id="agentSaveBtn" onclick="saveAgent()">💾 Save Agent</button>
     </div>
   </div>
 </div>
@@ -5253,38 +5242,6 @@ CORS_ORIGIN=https://yourdomain.com</code>
 </div>
 
 <!-- Admin Login Modal -->
-<div class="modal-overlay" id="adminLoginModal">
-  <div class="modal" style="max-width:400px;">
-    <div class="modal-header" style="background:var(--primary-dark);">
-      <h3>🔐 Admin Access Required</h3>
-      <button class="modal-close" onclick="closeModal('adminLoginModal')">✕</button>
-    </div>
-    <div class="modal-body" style="text-align:center;padding:32px 28px;">
-      <div style="font-size:52px;margin-bottom:12px;">🛡️</div>
-      <div style="font-size:15px;font-weight:700;color:#222;margin-bottom:6px;">Settings Panel</div>
-      <div style="font-size:13px;color:var(--gray);margin-bottom:24px;">This area is restricted to administrators only.</div>
-      <div style="text-align:left;">
-        <div class="form-group" style="margin-bottom:14px;">
-          <label>Username</label>
-          <input type="text" id="loginUser" placeholder="Enter username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
-        </div>
-        <div class="form-group" style="margin-bottom:6px;">
-          <label>Password</label>
-          <div style="position:relative;">
-            <input type="password" id="loginPass" placeholder="Enter password" onkeydown="if(event.key==='Enter')doAdminLogin()">
-            <button onclick="togglePwVis()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray);font-size:16px;" id="pwToggleBtn">👁</button>
-          </div>
-        </div>
-        <div id="loginError" style="display:none;color:var(--danger);font-size:12px;font-weight:600;margin-top:8px;padding:8px 12px;background:#fee2e2;border-radius:6px;">❌ Invalid username or password.</div>
-      </div>
-    </div>
-    <div class="modal-footer" style="justify-content:space-between;">
-      <button class="btn btn-gray" onclick="closeModal('adminLoginModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="doAdminLogin()" style="min-width:120px;">🔓 Login</button>
-    </div>
-  </div>
-</div>
-
 <!-- Unified User Bar -->
 <div id="userBar" style="display:none;">
   <div class="user-bar-info">
@@ -5293,7 +5250,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
     <span id="userBarRole" class="role-badge" style="margin-left:4px;"></span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
-    <span id="resetBadge" style="display:none;background:#e74c3c;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;" onclick="showScreen('settings',document.querySelector('.nav-btn:last-child'))">⚠ Pending Resets</span>
+    <span id="resetBadge" style="display:none;background:#e74c3c;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;" onclick="if(_activeSystem==='NPS')switchActiveSystem('QMS');showScreen('settings',document.querySelector('.nav-btn:last-child'))">⚠ Pending Resets</span>
     <button onclick="sysLogout()" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);">🔒 Logout</button>
   </div>
 </div>
@@ -6168,7 +6125,7 @@ function _refreshAllAvatarDisplays(){
   try{ if(typeof renderUserManagement==='function' && document.getElementById('userManagementList')) renderUserManagement(); }catch(e){}
   try{ if(typeof renderNpsUserList==='function' && document.getElementById('npsUserTableBody')) renderNpsUserList(); }catch(e){}
   try{ if(typeof renderRoster==='function' && document.getElementById('rosterGrid')) renderRoster(); }catch(e){}
-  try{ if(document.getElementById('avatarPickerModal').classList.contains('active')) _renderAvatarPickerGrid(); }catch(e){}
+  try{ if(document.getElementById('avatarPickerModal').classList.contains('open')) _renderAvatarPickerGrid(); }catch(e){}
 }
 // Renders a user's chosen avatar, falling back to the existing initials look
 // (same visual language used everywhere in the app before this feature,
@@ -6413,7 +6370,11 @@ function fmtMon(d){ if(!d)return''; return new Date(d+'T00:00:00').toLocaleDateS
 // ═══════════════════════════════════════════════════
 // TOAST
 // ═══════════════════════════════════════════════════
-function toast(msg, type='success', title=''){
+function toast(msg, type='success', title='', duration=4000){
+  // A handful of call sites pass a number as the 3rd arg meaning "show this
+  // longer", not a title -- accept that shape instead of silently rendering
+  // the number as a bold heading.
+  if(typeof title==='number'){ duration=title; title=''; }
   const icons = {
     success: `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`,
     error:   `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
@@ -6438,7 +6399,7 @@ function toast(msg, type='success', title=''){
     t.style.cssText = 'animation:toastOut .3s forwards;';
     setTimeout(() => t.remove(), 300);
   };
-  setTimeout(dismiss, 4000);
+  setTimeout(dismiss, duration);
 }
 
 // ═══════════════════════════════════════════════════
@@ -6448,8 +6409,18 @@ function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){
   document.getElementById(id).classList.remove('open');
   if(id==='confirmModal') _confirmClearCountdown();
+  if(id==='uploadModal') resetUploadModal();
 }
-document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m.id);}));
+
+// Clears the staged CSV preview whenever the Batch Upload modal closes without a completed import,
+// so reopening it later doesn't show a stale preview with Import still active.
+function resetUploadModal(){
+  csvParsed=[];
+  const preview=document.getElementById('csvPreview'); if(preview) preview.innerHTML='';
+  const importBtn=document.getElementById('csvImportBtn'); if(importBtn) importBtn.style.display='none';
+  const fileInput=document.getElementById('csvFile'); if(fileInput) fileInput.value='';
+}
 
 // ═══════════════════════════════════════════════════
 // NAVIGATION
@@ -6841,7 +6812,7 @@ function renderDashboard(){
   const _agentsById2=new Map(getAgents().map(ag=>[ag.id,ag]));
   const recent=[...records].sort((a,b)=>new Date(b.evalDate||b.date||b.createdAt||0)-new Date(a.evalDate||a.date||a.createdAt||0)).slice(0,6);
   document.getElementById('dashRecent').innerHTML=!recent.length
-    ?emptyState('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>','No evaluations yet','Complete your first evaluation to see recent activity here.','+ New Evaluation',"showScreen('evaluation',document.querySelectorAll('.nav-btn')[1])")
+    ?emptyState('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>','No evaluations yet','Complete your first evaluation to see recent activity here.','+ New Evaluation',"showScreen('evaluation',Array.from(document.querySelectorAll('.nav-btn')).find(b=>b.textContent.includes('New Evaluation')))")
     :recent.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
       ${agentAvatarHtml(_agentsById2.get(r.agentId)||{id:r.agentId||r.agentName,name:r.agentName},28)}
       <div style="flex:1;"><div style="font-weight:600;font-size:13px;">${esc(r.agentName)}</div><div style="font-size:11px;color:var(--gray)">${fmtDate(r.evalDate||r.date)} · ${esc(r.qaOfficer||r.evaluator||'—')}</div></div>
@@ -6937,9 +6908,9 @@ function renderDashAI(allRecs, periodRecs, user, settings){
   const atRisk=agList.filter(a=>a.avg<passScore).sort((a,b)=>a.avg-b.avg).slice(0,4);
   const topAgents=agList.sort((a,b)=>b.avg-a.avg).slice(0,3);
 
-  // Coverage gaps (agents not evaluated in last 14 days)
+  // Coverage gaps (agents not evaluated in last 14 days) -- built from the active roster, not just agents who already have an evaluation, so never-evaluated agents are included
   const recentSet=new Set(allRecs.filter(r=>new Date(r.evalDate||r.date||0)>=twoWeeksAgo).map(r=>r.agentName));
-  const allAgentNames=[...new Set(allRecs.map(r=>r.agentName).filter(Boolean))];
+  const allAgentNames=[...new Set(getAgents().filter(a=>(a.status||'Active')==='Active').map(a=>a.name).filter(Boolean))];
   const coverageGap=allAgentNames.filter(n=>!recentSet.has(n));
 
   // QA officer workload (period scope)
@@ -7294,7 +7265,7 @@ function renderAMDashboard(allRecords, agents){
 
   // ── Evals vs Target ──────────────────────────────────
   const completed  = periodRecs.length;
-  const agentCount = agents.length || 1;
+  const agentCount = agents.filter(a=>(a.status||'Active')==='Active').length || 1;
   // Weekly target = agentCount * 2; scale to period
   const weeklyTarget = agentCount * 2;
   let target;
@@ -7317,7 +7288,7 @@ function renderAMDashboard(allRecords, agents){
 
   const passCount = periodRecs.filter(r=>r.result==='PASS').length;
   const passRate  = completed > 0 ? ((passCount/completed)*100).toFixed(0) : 0;
-  const avgScore  = completed > 0 ? (periodRecs.reduce((s,r)=>s+r.finalScore,0)/completed).toFixed(1) : '—';
+  const avgScore  = completed > 0 ? (periodRecs.reduce((s,r)=>s+_fs(r),0)/completed).toFixed(1) : '—';
 
   const evtBody = document.getElementById('amEvtBody');
   if(evtBody) evtBody.innerHTML = `
@@ -7603,7 +7574,7 @@ function renderQAScoreChart(myRecs){
       const day=d.toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'});
       const recs=myRecs.filter(r=>r.evalDate===key);
       labels.push(day);
-      scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+r.finalScore,0)/recs.length).toFixed(1) : null);
+      scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+_fs(r),0)/recs.length).toFixed(1) : null);
       countData.push(recs.length);
     }
   } else if(_qaPeriod==='month'){
@@ -7613,7 +7584,7 @@ function renderQAScoreChart(myRecs){
       const wEnd=new Date(wStart); wEnd.setDate(wStart.getDate()+6); wEnd.setHours(23,59,59,999);
       const recs=myRecs.filter(r=>{ const d=new Date(r.evalDate+'T00:00:00'); return d>=wStart&&d<=wEnd; });
       labels.push(`Wk ${wStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`);
-      scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+r.finalScore,0)/recs.length).toFixed(1) : null);
+      scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+_fs(r),0)/recs.length).toFixed(1) : null);
       countData.push(recs.length);
     }
   } else if(_qaPeriod==='custom'){
@@ -7637,7 +7608,7 @@ function renderQAScoreChart(myRecs){
         const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         const recs=myRecs.filter(r=>r.evalDate===key);
         labels.push(d.toLocaleDateString('en-US',{month:'short',day:'numeric'}));
-        scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+r.finalScore,0)/recs.length).toFixed(1) : null);
+        scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+_fs(r),0)/recs.length).toFixed(1) : null);
         countData.push(recs.length);
       }
     } else if(rangeDays<=180){
@@ -7648,7 +7619,7 @@ function renderQAScoreChart(myRecs){
         const wEnd=new Date(wStart); wEnd.setDate(wStart.getDate()+7);
         const recs=myRecs.filter(r=>{ const d=new Date(r.evalDate+'T00:00:00'); return d>=wStart&&d<wEnd&&d<cEnd; });
         labels.push(`Wk ${wStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`);
-        scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+r.finalScore,0)/recs.length).toFixed(1) : null);
+        scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+_fs(r),0)/recs.length).toFixed(1) : null);
         countData.push(recs.length);
       }
     } else {
@@ -7660,7 +7631,7 @@ function renderQAScoreChart(myRecs){
         const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
         const recs=myRecs.filter(r=>r.evalDate&&r.evalDate.startsWith(key));
         labels.push(d.toLocaleDateString('en-US',{month:'short',year:'2-digit'}));
-        scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+r.finalScore,0)/recs.length).toFixed(1) : null);
+        scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+_fs(r),0)/recs.length).toFixed(1) : null);
         countData.push(recs.length);
       }
     }
@@ -7671,7 +7642,7 @@ function renderQAScoreChart(myRecs){
       const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       const recs=myRecs.filter(r=>r.evalDate&&r.evalDate.startsWith(key));
       labels.push(d.toLocaleDateString('en-US',{month:'short',year:'2-digit'}));
-      scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+r.finalScore,0)/recs.length).toFixed(1) : null);
+      scoreData.push(recs.length ? +(recs.reduce((s,r)=>s+_fs(r),0)/recs.length).toFixed(1) : null);
       countData.push(recs.length);
     }
   }
@@ -7680,6 +7651,16 @@ function renderQAScoreChart(myRecs){
 
   // Destroy old chart
   if(_qaScoreChart){ try{ _qaScoreChart.destroy(); }catch(e){} _qaScoreChart=null; }
+
+  const emptyEl = document.getElementById('qaScoreChartEmpty');
+  if(!scoreData.some(v=>v!==null)){
+    canvas.style.display='none';
+    if(emptyEl){ emptyEl.style.display=''; emptyEl.innerHTML=emptyState('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>','No evaluations yet','No evaluations in this period to chart.'); }
+    _chartHeadline('qaScoreChart', []);
+    return;
+  }
+  canvas.style.display='';
+  if(emptyEl) emptyEl.style.display='none';
 
   if(typeof Chart==='undefined') return;
   _qaScoreChart = new Chart(canvas, {
@@ -7956,7 +7937,7 @@ function renderEvalSummaryTable(){
     if(r.result==='PASS')      byEval[k].pass++;
     else if(r.result==='AUTO FAIL') byEval[k].afail++;
     else                            byEval[k].fail++;
-    byEval[k].scores.push(r.finalScore);
+    byEval[k].scores.push(_fs(r));
     if(r.agentName) byEval[k].agents.add(r.agentName.trim());
   });
 
@@ -8185,9 +8166,9 @@ function renderPendingReviewTab(){
   const settings=getSettings();
   const passScore=settings.passScore||80;
 
-  // All team records not yet reviewed (no coaching entry)
+  // All team FAIL/AUTO FAIL records not yet reviewed (no coaching entry) -- matches the Dashboard KPI's definition
   const pending=allRecords
-    .filter(r=>myIds.has(r.agentId)&&!coachings.find(c=>c.recordId===r.id))
+    .filter(r=>myIds.has(r.agentId)&&(r.result==='FAIL'||r.result==='AUTO FAIL')&&!coachings.find(c=>c.recordId===r.id))
     .sort((a,b)=>new Date(a.evalDate)-new Date(b.evalDate)); // oldest first
 
   // Update tab badge
@@ -8341,6 +8322,14 @@ function buildEvalForm(){
     html += `</div></div>`;
   });
   document.getElementById('qaSections').innerHTML = html;
+  // Reset the Expand/Collapse toggle to match the freshly-rendered, all-collapsed state
+  const detailsIcon = document.getElementById('evalDetailsToggleAllIcon');
+  const detailsLabel = document.getElementById('evalDetailsToggleAllLabel');
+  if(detailsIcon) detailsIcon.textContent = '▾';
+  if(detailsLabel) detailsLabel.textContent = 'Expand All Details';
+  // Auto-Fail legend reflects the org's actual configured behavior
+  const afLegend = document.getElementById('autoFailLegendText');
+  if(afLegend) afLegend.textContent = getSettings().autoFailMode==='zero' ? 'Auto-Fail=Score becomes 0%' : 'Auto-Fail=Flags result, score unaffected';
   updateScore();
   populateCampaignDropdown();
 }
@@ -8385,6 +8374,10 @@ function setRating(itemId, val, btn){
     if(b.classList.contains('na')||b.textContent.includes('N/A')) b.classList.add('na');
   });
   btn.classList.add('selected');
+  if(val==='N'){
+    const isAutoFailItem = document.querySelector('#item-'+itemId+' .qa-item-num')?.classList.contains('autofail');
+    if(isAutoFailItem) btn.classList.add('autofail-sel');
+  }
   updateScore();
 }
 
@@ -8464,7 +8457,9 @@ function updateScore(){
   });
 
   let finalScore = totalPossible > 0 ? (totalEarned / totalPossible * 100) : 0;
-  if(autoFailTriggered && settings.autoFailMode==='zero') finalScore = 0;
+  // Per-form Auto-Fail Trigger override, same fallback pattern as _liveThreshold below
+  const _liveAutoFailMode = (_activeFormObj && _activeFormObj.settings && _activeFormObj.settings.autoFailMode) || settings.autoFailMode;
+  if(autoFailTriggered && _liveAutoFailMode==='zero') finalScore = 0;
 
   // Same threshold resolution _doSubmitEval() uses for the actual saved
   // result -- was hardcoded 80/60 plus global-only settings.passScore below,
@@ -8472,11 +8467,18 @@ function updateScore(){
   // reverse) against a form with its own passScore, right before the record
   // saves with the correct, different, per-form result.
   const _liveThreshold = (_activeFormObj && _activeFormObj.settings && _activeFormObj.settings.passScore) || settings.passScore || 80;
-  const color = finalScore>=_liveThreshold?'var(--success)':finalScore>=_liveThreshold-20?'var(--warning)':'var(--danger)';
-  document.getElementById('scoreBig').textContent = finalScore.toFixed(1)+'%';
-  document.getElementById('scoreBig').style.color = color;
-  document.getElementById('scoreBarFill').style.width  = finalScore+'%';
-  document.getElementById('scoreBarFill').style.background = color;
+  if(totalPossible===0){
+    document.getElementById('scoreBig').textContent = '—';
+    document.getElementById('scoreBig').style.color = 'var(--gray)';
+    document.getElementById('scoreBarFill').style.width = '0%';
+    document.getElementById('scoreBarFill').style.background = 'var(--gray)';
+  } else {
+    const color = finalScore>=_liveThreshold?'var(--success)':finalScore>=_liveThreshold-20?'var(--warning)':'var(--danger)';
+    document.getElementById('scoreBig').textContent = finalScore.toFixed(1)+'%';
+    document.getElementById('scoreBig').style.color = color;
+    document.getElementById('scoreBarFill').style.width  = finalScore+'%';
+    document.getElementById('scoreBarFill').style.background = color;
+  }
 
   // Alerts
   const faEl = document.getElementById('failAlert');
@@ -8564,14 +8566,11 @@ function computeScoreFromAnswers(form, answers, settings, formSettings){
     totalPossible += secPossible;
     sectionScores[sec.id] = { earned:secEarned, possible:secPossible, title:sec.title, total:sec.totalPoints, mode, hasNoItems:noItems.length>0 };
   });
-  // Matches updateScore()'s own precedence exactly: only the GLOBAL
-  // autoFailMode setting decides whether auto-fail zeroes the score, not
-  // any per-form override (updateScore() reads settings.autoFailMode with
-  // no form-specific fallback, unlike passScore just below it -- kept
-  // identical here rather than "improving" it, since that's a separate,
-  // unreported behavior and not part of this bug).
+  // Per-form Auto-Fail Trigger override, falling back to the global setting --
+  // matches updateScore()'s own resolution (and the passScore fallback below it).
   let finalScore = totalPossible>0 ? (totalEarned/totalPossible*100) : 0;
-  if(autoFailTriggered && settings.autoFailMode==='zero') finalScore = 0;
+  const _autoFailMode = (formSettings && formSettings.autoFailMode) || settings.autoFailMode;
+  if(autoFailTriggered && _autoFailMode==='zero') finalScore = 0;
   finalScore = +finalScore.toFixed(1);
   return { finalScore, autoFailTriggered, autoFailItems, totalEarned, totalPossible, sectionScores };
 }
@@ -8684,7 +8683,11 @@ function startEvaluateAgent(agentId){
 function onAgentSelect(){
   const id=document.getElementById('evalAgent').value;
   const agent=getAgents().find(a=>a.id===id);
-  if(agent && agent.campaign) document.getElementById('evalCampaign').value=agent.campaign;
+  if(agent && agent.campaign){
+    const campaignEl=document.getElementById('evalCampaign');
+    campaignEl.value=agent.campaign;
+    if(campaignEl.value!==agent.campaign) toast(`${agent.name}'s roster campaign ("${agent.campaign}") isn't in the campaign list — pick one manually.`,'info');
+  }
 }
 
 // Reason field is relevant for Inbound, Chat, and Email — the channels where a
@@ -8783,7 +8786,7 @@ function submitEval(){
           logChange('evaluation','Override',`48h cooldown overridden for "${_agent48?.name||agentId}" (last eval ${_hrsAgo}h ago) by ${getCurrentUser()?.displayName||'Admin'}`,'QMS');
           _doSubmitEval();
         } : null,
-        cancelLabel: _canOverride ? 'Cancel' : null,
+        hideCancel: !_canOverride,
       });
       return;
     }
@@ -8927,18 +8930,14 @@ function showEvalResult(record){
     ${autoFailItems ? `<div class="er-failed-list"><div class="er-failed-list-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Auto-Fail Triggers</div>${autoFailItems}</div>` : ''}
     <div class="er-message er-message-${theme}">${msg}</div>
     <div class="er-actions">
-      <button class="er-btn er-btn-primary-${theme}" onclick="closeEvalResult();showScreen('evaluation',document.querySelectorAll('.nav-btn')[1])">
+      <button class="er-btn er-btn-primary-${theme}" onclick="closeEvalResult();showScreen('evaluation',Array.from(document.querySelectorAll('.nav-btn')).find(b=>b.textContent.includes('New Evaluation')))">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         New Evaluation
       </button>
-      <button class="er-btn er-btn-secondary" onclick="closeEvalResult();showScreen('records',document.querySelectorAll('.nav-btn')[2])">
+      <button class="er-btn er-btn-secondary" onclick="closeEvalResult();showScreen('records',Array.from(document.querySelectorAll('.nav-btn')).find(b=>b.textContent.includes('Records')))">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         View Records
       </button>
-      ${(isFAIL||isAUTOFAIL) ? `<button class="er-btn er-btn-secondary" onclick="closeEvalResult();openCoachingFor('${record.id}')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        Add Coaching
-      </button>` : ''}
     </div>
   `;
 
@@ -8950,15 +8949,6 @@ function showEvalResult(record){
 function closeEvalResult(){
   const screen = document.getElementById('evalResultScreen');
   if(screen){ screen.classList.remove('active'); screen.className = ''; }
-}
-
-function openCoachingFor(recordId){
-  // Navigate to records and try to open coaching modal for this record
-  showScreen('records', document.querySelectorAll('.nav-btn')[2]);
-  setTimeout(()=>{
-    const btn = document.querySelector(`[data-coaching-record="${recordId}"]`);
-    if(btn) btn.click();
-  }, 300);
 }
 
 // ═══════════════════════════════════════════════════
@@ -9042,7 +9032,7 @@ function renderRecords(){
     <td>${resultBadge(r.result)}${r.editApproved?'<span title="Score edited by QA, approved by Admin" style="margin-left:4px;background:#fef9c3;color:#92400e;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:700;vertical-align:middle;">EDITED</span>':''}${r.directEdit?`<span title="Directly edited by ${esc(r.directEditBy||'the QA officer')} within the 7-day self-edit window — no admin approval required. Reason: ${esc(r.directEditReason||'')}" style="margin-left:4px;background:#dbeafe;color:#1e40af;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:700;vertical-align:middle;">DIRECT EDIT</span>`:''}</td>
     <td style="white-space:nowrap">
       <button class="btn btn-sm btn-outline" onclick="viewRecord('${r.id}')" style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View</button>
-      ${isAdmin()?`<button class="btn btn-sm btn-danger" style="margin-left:4px;display:inline-flex;align-items:center;gap:4px;" onclick="confirmDelete('records','${r.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>`:''}
+      ${hasPermission('eval_delete')?`<button class="btn btn-sm btn-danger" style="margin-left:4px;display:inline-flex;align-items:center;gap:4px;" onclick="confirmDelete('records','${r.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>`:''}
     </td>
   </tr>`).join('');
 }
@@ -9118,7 +9108,7 @@ function viewRecord(id){
     _erBtn.textContent = _canDirectEditRecord(r) ? '✏️ Edit Directly' : '✏️ Request Edit';
   }
   if(_enBtn) _enBtn.style.display = (isQA()||isAdmin())?'':'none';
-  if(_delBtn) _delBtn.style.display = isAdmin()?'':'none';
+  if(_delBtn) _delBtn.style.display = hasPermission('eval_delete')?'':'none';
 }
 
 // ── Print Eval as PDF ──────────────────────────────
@@ -9417,8 +9407,8 @@ function confirmDelete(type, id, cb){
   // on the default matrix). Agent/user deletion aren't modeled in the
   // matrix, so they keep the original admin-only gate.
   const allowed = type==='records' ? hasPermission('eval_delete') : isAdmin();
-  if(!allowed){ toast('Only Admin or Super Admin can delete records.','error'); return; }
   const labels = { records:'evaluation record', agents:'agent', users:'user' };
+  if(!allowed){ toast(`Only Admin or Super Admin can delete ${labels[type]||'this item'}s.`,'error'); return; }
   showConfirm({
     title: 'Delete ' + (labels[type]||'item'),
     message: 'Are you sure you want to permanently delete this ' + (labels[type]||'item') + '?',
@@ -9487,7 +9477,13 @@ function clearRecordFilters(){
 }
 
 function exportCSV(type){
-  const data=type==='records'?getRecords():getAgents();
+  const _user=getCurrentUser();
+  let data=type==='records'?getRecords():getAgents();
+  // Viewer role only gets their own records -- matches exportMyPersonalBackup()'s scoping;
+  // this button previously dumped every company record regardless of role.
+  if(type==='records' && _user && _user.role==='viewer'){
+    data = data.filter(r=>r.agentId===_user.id || r.agentName===(_user.displayName||_user.username));
+  }
   if(!data.length){ toast('Nothing to export.','info'); return; }
   const keys=Object.keys(data[0]).filter(k=>!['id','answers','comments','sectionScores'].includes(k));
   const csv=[keys.join(','),...data.map(r=>keys.map(k=>`"${(r[k]||'').toString().replace(/"/g,'""')}"`).join(','))].join('\n');
@@ -9720,7 +9716,7 @@ function dihValidateAgents(headers, rows){
 // ── Validate Users ───────────────────────────────
 function dihValidateUsers(headers, rows){
   const existing = getUsers ? getUsers() : [];
-  const validRoles = ['admin','qa','tl','manager','viewer'];
+  const validRoles = typeof VALID_ROLES!=='undefined' ? VALID_ROLES : ['admin','qa','tl','manager','ceo','chief','viewer'];
   _dihParsed = rows.filter(r=>r.join('').trim()).map((row,i)=>{
     const username = (_dihGet(headers,row,'username')||'').toLowerCase().trim();
     const role     = (_dihGet(headers,row,'role')||'qa').toLowerCase().trim();
@@ -9854,7 +9850,7 @@ function dihCommitImport(){
 
   showLoading('Importing data…');
 
-  setTimeout(()=>{
+  setTimeout(async ()=>{
     let added=0, updated=0, skipped=0;
 
     if(_dihType==='records'){
@@ -9896,17 +9892,18 @@ function dihCommitImport(){
       renderRoster && renderRoster(); populateTeamFilter && populateTeamFilter(); populateAgentDropdown && populateAgentDropdown();
     } else if(_dihType==='users'){
       const users = getUsers ? getUsers() : [];
-      toProcess.forEach(r=>{
+      for(const r of toProcess){
         const d=r.data;
+        if(d.password) d.password = await hashPw(d.password); // hash before storing, matching saveUser()'s behavior
         if(r.isDup){
-          if(dupOpt==='skip'){ skipped++; return; }
+          if(dupOpt==='skip'){ skipped++; continue; }
           const idx=users.findIndex(u=>u.username.toLowerCase()===d.username.toLowerCase());
           if(idx>=0){ const pw=users[idx].password; users[idx]={...users[idx],...d}; if(!d.password) users[idx].password=pw; updated++; }
           else { users.push({...d,id:uuid(),createdAt:new Date().toISOString()}); added++; }
         } else {
           users.push({...d,id:uuid(),createdAt:new Date().toISOString()}); added++;
         }
-      });
+      }
       saveUsers && saveUsers(users);
       renderUserManagement && renderUserManagement();
     }
@@ -10131,8 +10128,10 @@ function openAgentModal(id){
     document.getElementById('agentHired').value=a.hired||'';
     document.getElementById('agentStatus').value=a.status||'Active';
     document.getElementById('agentModalTitle').textContent='Edit Agent';
-    document.getElementById('agentDeleteBtn').style.display='inline-flex';
+    document.getElementById('agentDeleteBtn').style.display=isAdmin()?'inline-flex':'none';
   }
+  const _saveBtn=document.getElementById('agentSaveBtn');
+  if(_saveBtn) _saveBtn.style.display=isAdmin()?'':'none';
   openModal('agentModal');
 }
 
@@ -10143,6 +10142,7 @@ function deleteAgent(){
 }
 
 function saveAgent(){
+  if(!isAdmin()){ toast('Admin or Super Admin only.','error'); return; }
   const name=document.getElementById('agentName').value.trim();
   const sid=document.getElementById('agentStaffId').value.trim();
   if(!name){ toast('Agent name is required.','error'); return; }
@@ -10203,7 +10203,7 @@ function switchRosterTab(tab, btn){
   if(adminBtns) adminBtns.style.display = showAdmin ? '' : 'none';
   if(batchCard) batchCard.style.display  = showAdmin ? '' : 'none';
   if(tab==='coverage') renderEvalCoverage();
-  else renderRoster();
+  else { populateTeamFilter(); renderRoster(); }
 }
 
 // Get Mon–Sun bounds for a given week offset from today
@@ -10294,6 +10294,11 @@ function renderEvalCoverage(){
     </div>`).join('');
 
   // Build table
+  const wrap = document.getElementById('coverageTableWrap');
+  if(!rows.length){
+    if(wrap) wrap.innerHTML = emptyState('<circle cx="9" cy="7" r="4"/><path d="M17 11l2 2 4-4"/><path d="M1 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/>','No agents found','No active agents match this view.');
+    return;
+  }
   let html = `<table class="cov-table">
     <thead><tr>
       <th>Agent</th>
@@ -10328,7 +10333,6 @@ function renderEvalCoverage(){
   }
 
   html += `</tbody></table>`;
-  const wrap = document.getElementById('coverageTableWrap');
   if(wrap) wrap.innerHTML = html;
 }
 
@@ -10588,6 +10592,7 @@ function setRptRangePeriod(months, btn){
   if(fromSel) fromSel.value = _rptFrom;
   if(toSel)   toSel.value   = _rptTo;
   renderReports();
+  _refreshActiveRptView();
 }
 
 function onRptRangeChange(){
@@ -10606,6 +10611,7 @@ function onRptRangeChange(){
   }
   _rptFrom=from; _rptTo=to;
   renderReports();
+  _refreshActiveRptView();
 }
 
 // Legacy shim — keep old name working
@@ -11575,7 +11581,7 @@ function renderWeeklyTrend(){
 
   const wkData=wkKeys.map(wk=>{
     const recs=weeks[wk];
-    const avg2=recs.reduce((s,r)=>s+r.finalScore,0)/recs.length;
+    const avg2=recs.reduce((s,r)=>s+_fs(r),0)/recs.length;
     const pass2=recs.filter(r=>r.result==='PASS').length;
     const fail2=recs.filter(r=>r.result==='FAIL').length;
     const af2=recs.filter(r=>r.result==='AUTO FAIL').length;
@@ -11759,7 +11765,13 @@ const SCORING_MODES = [
 ];
 
 function renderSettings(){
-  const form=getForm();
+  if(typeof initDangerZoneVisibility==='function') initDangerZoneVisibility();
+  // getEditForm(), not getForm() -- getForm() always re-reads the live saved
+  // form, which threw away every in-progress edit on the very next render
+  // (Add/Remove/checkbox toggles all call renderSettings() right after
+  // mutating the _form buffer). getEditForm() returns that same buffer so
+  // edits actually stick until Save or a page reload.
+  const form=getEditForm();
   const settings=getSettings();
   document.getElementById('settingPassScore').value=settings.passScore;
   document.getElementById('settingAutoFailMode').value=settings.autoFailMode;
@@ -12454,7 +12466,19 @@ function saveSettings(){
   if(!(['admin','superadmin','ceo','chief'].includes(_myRole) || hasPermission('settings_qa'))){
     toast('You do not have permission to manage QA form settings.','error'); return;
   }
-  if(_form){ DB.set('form',_form); _form=null; }
+  if(_form){
+    // Persist into the same place getForm() actually reads from: the first
+    // published form's sections, not the orphaned legacy 'form' DB key.
+    const pub = getPublishedForms();
+    if(pub.length){
+      const forms = getForms();
+      const idx = forms.findIndex(f=>f.id===pub[0].id);
+      if(idx>=0){ forms[idx].sections = _form; forms[idx].updatedAt = new Date().toISOString(); saveForms(forms); }
+    } else {
+      DB.set('form',_form);
+    }
+    _form=null;
+  }
   const activeBtn = document.querySelector('.scoring-mode-btn.active');
   const globalScoringMode = activeBtn ? activeBtn.dataset.mode : 'per-section';
   // Spread existing settings first so keys not on this form (e.g. disable48hCooldown,
@@ -12583,7 +12607,6 @@ function switchLoginSystem(sys, btnEl){
   // Always show the login form
   document.getElementById('loginFormView').style.display  = 'block';
   document.getElementById('resetFormView').style.display  = 'none';
-  document.getElementById('npsFormView').style.display    = 'none';
   document.getElementById('requestAccessView').style.display = 'none';
   // Update hint text below the form
   const hint = document.getElementById('loginSystemHint');
@@ -12592,7 +12615,6 @@ function switchLoginSystem(sys, btnEl){
 function showLoginForm(){
   document.getElementById('loginFormView').style.display='block';
   document.getElementById('resetFormView').style.display='none';
-  document.getElementById('npsFormView').style.display='none';
   document.getElementById('requestAccessView').style.display='none';
   document.getElementById('sysLoginError').style.display='none';
   document.getElementById('sysInactiveError').style.display='none';
@@ -12605,7 +12627,6 @@ function showLoginForm(){
 function showResetForm(){
   document.getElementById('loginFormView').style.display='none';
   document.getElementById('resetFormView').style.display='block';
-  document.getElementById('npsFormView').style.display='none';
   document.getElementById('requestAccessView').style.display='none';
   document.getElementById('resetError').style.display='none';
   document.getElementById('resetSuccess').style.display='none';
@@ -12614,7 +12635,6 @@ function showResetForm(){
 function showRequestAccessForm(){
   document.getElementById('loginFormView').style.display='none';
   document.getElementById('resetFormView').style.display='none';
-  document.getElementById('npsFormView').style.display='none';
   document.getElementById('requestAccessView').style.display='block';
   document.getElementById('reqError').style.display='none';
   document.getElementById('reqSuccess').style.display='none';
@@ -12767,9 +12787,11 @@ let _activeSystem = 'QMS';
 let _npsChartInstances = {};
 
 function switchActiveSystem(sys){
-  if(!isSuperAdmin()&&!isAdmin()){ toast('Admin access required.','error'); return; }
-  // NPS system is Super Admin + Admin only (not manager/qa/tl/viewer)
-  if(sys==='NPS'&&!isAdmin()){ toast('Admin or Super Admin access required for NPS.','error'); return; }
+  // NPS access: Admin/Super Admin plus CEO/Chief (read-only exec roles) -- matches the
+  // header pill's own visibility condition and the User Manual's documented role access.
+  const _npsEligible = isAdmin()||isSuperAdmin()||['ceo','chief'].includes(currentRole());
+  if(!_npsEligible){ toast('Admin access required.','error'); return; }
+  if(sys==='NPS'&&!_npsEligible){ toast('Admin, Super Admin, CEO, or Chief access required for NPS.','error'); return; }
   _activeSystem = sys;
   const qmsBtn=document.getElementById('hssQMS');
   const npsBtn=document.getElementById('hssNPS');
@@ -12795,7 +12817,7 @@ function switchActiveSystem(sys){
 }
 
 function showNpsScreen(name, btn){
-  if(!isAdmin()){ toast('Admin access required.','error'); return; }
+  if(!(isAdmin()||isSuperAdmin()||['ceo','chief'].includes(currentRole()))){ toast('Admin access required.','error'); return; }
   // Update nav active state
   document.querySelectorAll('.nps-nav-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
@@ -12834,7 +12856,11 @@ function showNpsScreen(name, btn){
     const seedWrap=document.getElementById('seedBtnWrap');
     if(seedWrap) seedWrap.style.display=isSuperAdmin()?'flex':'none';
   }
-  if(name==='roster')   renderNpsRoster();
+  if(name==='roster'){
+    // Same staleness guard as the records branch above -- renderNpsRoster() reads this same shared variable
+    _npsRecordsData = DB.get('npsRecords')||[];
+    renderNpsRoster();
+  }
   if(name==='settings'){
     initDangerZoneVisibility();
     var nitBtn=document.getElementById('npsStab_integrations');
@@ -16828,7 +16854,7 @@ function renderNpsRecords(){
     if(channelF && (r.channel||'')!==channelF) return false;
     if(teamF    && (r.team||'')!==teamF)    return false;
     if(campF    && (r.campaign||'')!==campF) return false;
-    if(search   && !JSON.stringify(r).toLowerCase().includes(search)) return false;
+    if(search && !((r.agent||'').toLowerCase().includes(search) || (r.mobile||'').toLowerCase().includes(search) || (r.comment||'').toLowerCase().includes(search))) return false;
     return true;
   });
 
@@ -16924,6 +16950,7 @@ function _npsRefreshFilterOptions(){
 }
 
 function exportNpsData(){
+  if(!hasNpsPermission('Export CSV Data')){ toast('You do not have permission to export NPS data.','error'); return; }
   if(!_npsRecordsData.length){ toast('No NPS data to export.','info'); return; }
   const q=s=>`"${String(s??'').replace(/"/g,'""')}"`;
   const header='Date of Interaction,Agent,Team,Channel,Category,Reason / Interaction,Mobile Number,Product / Service,Campaign / Program,NPS Rating,NPS Category,Customer Comment (Verbatim)';
@@ -17105,6 +17132,7 @@ function editNpsRecord(id, idx){
 }
 
 function deleteNpsRecord(id, idx){
+  if(!hasNpsPermission('Delete Records')){ toast('You do not have permission to delete NPS records.','error'); return; }
   const rec = id ? _npsRecordsData.find(r=>r.id===id) : _npsRecordsData[idx];
   if(!rec){ toast('Record not found.','error'); return; }
   showConfirm({
@@ -17203,7 +17231,7 @@ function _doSeedNpsData(){
   DB.set('users',users);
 
   /* ── 3. NPS INPUT DATA (13 weeks × 5 channels) ── */
-  const CHANNELS=['Hotline','Store','Chat','Email','Social Media'];
+  const CHANNELS=['Hotline','Store','Chat','Email','Social Media','Cellcard App','Reseller App','Digital Sales Channel'];
   const DSAT_KEYS=['Long Wait Time','Agent Knowledge Gap','Transfer Issues','Unresolved Issue','Poor Attitude','IVR Complexity','Billing Confusion'];
   const SAT_KEYS =['Quick Resolution','Friendly Agent','Clear Explanation','First Call Resolve','Professional Tone','Easy Process','Proactive Help'];
 
@@ -17214,6 +17242,9 @@ function _doSeedNpsData(){
     'Chat':        {baseNps:48,vol:[120,200],ovsatBase:4.1},
     'Email':       {baseNps:40,vol:[60,110], ovsatBase:3.9},
     'Social Media':{baseNps:36,vol:[40,80],  ovsatBase:3.7},
+    'Cellcard App':          {baseNps:44,vol:[100,180],ovsatBase:4.0},
+    'Reseller App':          {baseNps:38,vol:[50,90],  ovsatBase:3.9},
+    'Digital Sales Channel': {baseNps:50,vol:[70,130], ovsatBase:4.2},
   };
 
   const today=new Date();
@@ -17425,8 +17456,10 @@ function _doSeedNpsData(){
   if(changed) saveNpsSurveyData(surveys);
 
   /* ── 6. DONE ── */
-  logChange('Seed Data','Demo data seeded',`Agents:${SEED_AGENTS.length} | NPS records:${newRecords.length} | Evals:${newEvals.length}`,'System');
-  toast(`✅ Seeded! ${newRecords.length} NPS records · ${newEvals.length} QMS evals · ${SEED_AGENTS.length} agents · surveys enriched.`,'success');
+  logChange('Seed Data','Demo data seeded',`Agents:${SEED_AGENTS.length} | NPS weekly data points:${newRecords.length} | Evals:${newEvals.length}`,'System');
+  // Note: this seeds aggregate weekly NPS/OVSAT data (Executive Dashboard charts) and QMS evaluation
+  // records, NOT the NPS Records table -- use "+400" to seed individual, reviewable NPS Records.
+  toast(`✅ Seeded! ${newRecords.length} NPS weekly data points · ${newEvals.length} QMS evals · ${SEED_AGENTS.length} agents · surveys enriched. (Use "+400" to seed individual NPS Records.)`,'success');
 
   // Refresh all visible UI
   try{ renderNpsSurveys(); }catch(e){}
@@ -17816,7 +17849,13 @@ function printQrCode() {
 // SELF-SERVICE EXPORT — available to all roles
 // ═══════════════════════════════════════════════════
 function exportJSON(type){
-  const data = type === 'records' ? getRecords() : getAgents();
+  const _user = getCurrentUser();
+  let data = type === 'records' ? getRecords() : getAgents();
+  // Viewer role only gets their own records -- matches exportMyPersonalBackup()'s scoping;
+  // this button previously dumped every company record regardless of role.
+  if(type==='records' && _user && _user.role==='viewer'){
+    data = data.filter(r=>r.agentId===_user.id || r.agentName===(_user.displayName||_user.username));
+  }
   if(!data.length){ toast('Nothing to export.','info'); return; }
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -18071,7 +18110,7 @@ function confirmBatchImport() {
   showConfirm({
     title: 'Import Batch Responses',
     message: `Import <strong>${rows.length} NPS responses</strong> from CSV?`,
-    sub: 'Records will be added to your NPS data. This cannot be undone.',
+    sub: 'These become aggregate NPS data feeding the Executive Dashboard -- they will NOT appear in, or be editable from, the NPS Records list. This cannot be undone.',
     icon: '📤',
     btnLabel: `✅ Import ${rows.length} Rows`,
     btnClass: 'btn-primary',
@@ -18964,6 +19003,13 @@ function renderSurveyReport(){
   </div>`;
 
   body.innerHTML = `
+  <div style="display:flex;align-items:center;gap:10px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
+    <span style="font-size:18px;">⚠️</span>
+    <div>
+      <div style="font-size:12.5px;font-weight:800;color:#92400e;">Illustrative sample analysis</div>
+      <div style="font-size:11.5px;color:#a16207;">This report's charts, scores, and recommendations are generated sample data for preview purposes — they are not computed from this survey's real responses.</div>
+    </div>
+  </div>
   <!-- Export Dropdown -->
   <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:4px;">
     <div style="position:relative;display:inline-block;" id="srdExportWrap">
@@ -19284,14 +19330,15 @@ function _srdBuildWordFreq(d, caps){
   if(d.verbatims) d.verbatims.forEach(v=>addWords(v.text));
   // From theme labels
   if(d.themes) d.themes.forEach((t,i)=>{ for(let k=0;k<Math.ceil((d.themeVals?.[i]||1)/2);k++) addWords(t); });
-  // From npsInputData sat/dsat reason keys
-  const npsRecs = DB.get('npsInputData')||[];
+  // From npsInputData sat/dsat reason keys -- scoped to this survey
+  const _sid = _srd?.survey?.id;
+  const npsRecs = (DB.get('npsInputData')||[]).filter(r=>r.surveyId===_sid);
   npsRecs.slice(0,60).forEach(r=>{
     if(r.satReasons)  Object.keys(r.satReasons).forEach(k=>addWords(k));
     if(r.dsatReasons) Object.keys(r.dsatReasons).forEach(k=>addWords(k));
   });
-  // From npsRecords comments
-  const indRecs = DB.get('npsRecords')||[];
+  // From npsRecords comments -- scoped to this survey
+  const indRecs = (DB.get('npsRecords')||[]).filter(r=>r.surveyId===_sid);
   indRecs.slice(0,120).forEach(r=>addWords(r.comment));
 
   return Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,60);
@@ -19739,14 +19786,14 @@ function srdDownloadXLS(){
 
 // NPS Roster
 function renderNpsRoster(){
-  const agents=getAgents();
+  const agents=getAgents().filter(a=>(a.status||'Active')==='Active'); // matches the app-wide Active-only roster convention
   const search=(document.getElementById('npsRosterSearch')?.value||'').toLowerCase();
   const npsRosterClearEl=document.getElementById('npsRosterFilterClear');
   if(npsRosterClearEl) npsRosterClearEl.style.display=search?'inline-flex':'none';
   const records=_npsRecordsData;
   const tbody=document.getElementById('npsRosterTableBody'); if(!tbody) return;
   let rows=agents.filter(a=>!search||(a.name||'').toLowerCase().includes(search)).map(a=>{
-    const aRecs=records.filter(r=>r.agent===a.name);
+    const aRecs=records.filter(r=>r.agent===a.name).sort((r1,r2)=>new Date(r1.date||0)-new Date(r2.date||0)); // oldest first, so the trend arrow compares in chronological order
     const total=aRecs.length;
     const promoters=aRecs.filter(r=>r.score>=9).length;
     const detractors=aRecs.filter(r=>r.score<=6).length;
@@ -19774,7 +19821,42 @@ function clearNpsRosterFilters(){
   renderNpsRoster();
 }
 
-function saveNpsSettings(){ toast('NPS settings saved successfully.','success'); }
+const NPS_GENERAL_SETTINGS_KEY = 'npsGeneralSettings';
+function getNpsGeneralSettings(){ return DB.get(NPS_GENERAL_SETTINGS_KEY) || {}; }
+function loadNpsGeneralSettings(){
+  const s = getNpsGeneralSettings();
+  const setVal = (id, val, fallback) => { const el=document.getElementById(id); if(el && val!==undefined) el.value = val; else if(el && fallback!==undefined) el.value = fallback; };
+  setVal('npsTargetScore', s.targetScore, 50);
+  setVal('npsPromoterThreshold', s.promoterThreshold, 9);
+  setVal('npsDetractorThreshold', s.detractorThreshold, 6);
+  setVal('npsReportingPeriod', s.reportingPeriod);
+  setVal('npsDashboardDefaultView', s.dashboardDefaultView);
+  setVal('npsBenchmarkComparison', s.benchmarkComparison);
+  setVal('npsDetractorAlertEmail', s.detractorAlertEmail);
+  setVal('npsWeeklyReport', s.weeklyReport);
+  setVal('npsScoreDropAlert', s.scoreDropAlert);
+  setVal('npsCsvDelimiter', s.csvDelimiter);
+  setVal('npsQmsLinkShareScores', s.qmsLinkShareScores);
+}
+function saveNpsSettings(){
+  const getVal = id => document.getElementById(id)?.value;
+  const settings = {
+    targetScore: +getVal('npsTargetScore') || 50,
+    promoterThreshold: +getVal('npsPromoterThreshold') || 9,
+    detractorThreshold: +getVal('npsDetractorThreshold') || 6,
+    reportingPeriod: getVal('npsReportingPeriod'),
+    dashboardDefaultView: getVal('npsDashboardDefaultView'),
+    benchmarkComparison: getVal('npsBenchmarkComparison'),
+    detractorAlertEmail: getVal('npsDetractorAlertEmail'),
+    weeklyReport: getVal('npsWeeklyReport'),
+    scoreDropAlert: getVal('npsScoreDropAlert'),
+    csvDelimiter: getVal('npsCsvDelimiter'),
+    qmsLinkShareScores: getVal('npsQmsLinkShareScores'),
+  };
+  DB.set(NPS_GENERAL_SETTINGS_KEY, settings);
+  logChange('nps','Settings saved','Updated NPS general settings','NPS');
+  toast('NPS settings saved successfully.','success');
+}
 
 // ══════════════════════════════════════════════════════
 // ── SESSION TRACKING ──────────────────────────────────
@@ -20036,8 +20118,22 @@ function clearChangeHistoryFilters(){
 }
 
 function exportChangeHistory(){
-  const log = DB.get('changeLog')||[];
+  let log = DB.get('changeLog')||[];
   if(!log.length){ toast('No change history to export.','info'); return; }
+  // Match whichever Change History screen is currently visible (QMS ch* ids, or NPS npsCh* ids)
+  // so the export reflects the same search/type/user filters currently applied on screen.
+  const _visible = id => { const el=document.getElementById(id); return el && el.offsetParent!==null; };
+  const _prefix = _visible('npsChSearch') ? 'npsCh' : 'ch';
+  const search = (document.getElementById(_prefix+'Search')?.value||'').toLowerCase();
+  const fType  = document.getElementById(_prefix+'FilterType')?.value||'';
+  const fUser  = document.getElementById(_prefix+'FilterUser')?.value||'';
+  log = log.filter(e=>{
+    if(fType&&e.type!==fType) return false;
+    if(fUser&&(e.displayName||e.username)!==fUser) return false;
+    if(search&&!(e.action||'').toLowerCase().includes(search)&&!(e.details||'').toLowerCase().includes(search)&&!(e.displayName||e.username||'').toLowerCase().includes(search)) return false;
+    return true;
+  });
+  if(!log.length){ toast('No change history matches the current filters.','info'); return; }
   const csv = ['Date/Time,User,Role,Type,Action,Details,System',
     ...log.map(e=>[_fmtDt(e.ts),e.displayName||e.username,e.role,e.type,e.action,`"${(e.details||'').replace(/"/g,'""')}"`,e.system||'QMS'].join(','))
   ].join('\n');
@@ -20086,7 +20182,7 @@ function buildNotifications(){
         icon:'🔓',
         title:`${pendingReqs.length} Pending Access Request${pendingReqs.length>1?'s':''}`,
         desc:'New users awaiting account approval and role assignment.',
-        action:()=>{ toggleNotifPanel(); requireAdminRole(document.getElementById('settingsNavBtn')); setTimeout(()=>{ const t=document.querySelector('[data-stab="access"]'); if(t) t.click(); },200); }
+        action:()=>{ toggleNotifPanel(); if(typeof _activeSystem!=='undefined'&&_activeSystem==='NPS') switchActiveSystem('QMS'); requireAdminRole(document.getElementById('settingsNavBtn')); setTimeout(()=>{ const t=document.querySelector('[data-stab="access-mgmt"]'); if(t) t.click(); },200); }
       });
     }
   }
@@ -20102,7 +20198,7 @@ function buildNotifications(){
         icon:'🔑',
         title:`${pendingResets.length} Password Reset Request${pendingResets.length>1?'s':''}`,
         desc:'Users waiting for password reset approval.',
-        action:()=>{ toggleNotifPanel(); requireAdminRole(document.getElementById('settingsNavBtn')); setTimeout(()=>{ const t=document.querySelector('[data-stab="resets"]'); if(t) t.click(); },200); }
+        action:()=>{ toggleNotifPanel(); if(typeof _activeSystem!=='undefined'&&_activeSystem==='NPS') switchActiveSystem('QMS'); requireAdminRole(document.getElementById('settingsNavBtn')); setTimeout(()=>{ const t=document.querySelector('[data-stab="access-mgmt"]'); if(t) t.click(); },200); }
       });
     }
   }
@@ -20411,6 +20507,7 @@ function showNpsSettingsTab(tab){
     btn.style.color = active?'#d97706':'#64748b';
     btn.style.borderBottomColor = active?'#f59e0b':'transparent';
   });
+  if(tab==='general')     loadNpsGeneralSettings();
   if(tab==='users')     { renderNpsUserList(); renderNpsAccessRequests(); }
   if(tab==='matrix')      renderNpsRoleMatrix();
   if(tab==='usermon')     renderNpsUserMonitoring();
@@ -20754,6 +20851,7 @@ function npsToggleUserStatus(uid){
 }
 
 function npsRemoveUser(uid){
+  if(!hasNpsPermission('User Access Management')){ toast('You do not have permission to manage NPS user access.','error'); return; }
   const users = DB.get('users')||[];
   const u = users.find(x=>x.id===uid);
   if(!u) return;
@@ -20826,9 +20924,11 @@ function renderNpsAccessRequests(){
   section.style.display = '';
   const reqs = (DB.get('accessRequests')||[]).filter(r=>r.status==='pending');
   if(badge){ badge.textContent=reqs.length; badge.style.display=reqs.length?'':'none'; }
+  // Only roles that can actually reach the NPS module (Admin/Super Admin/CEO/Chief) --
+  // Viewer/QA/TL/Manager accounts approved here would never be able to open NPS.
   const ROLES=[
-    {value:'viewer',label:'Viewer'},{value:'qa',label:'QA Officer'},{value:'tl',label:'Team Leader'},
-    {value:'manager',label:'Manager'},{value:'admin',label:'Admin'},...(isSuperAdmin()?[{value:'superadmin',label:'Super Admin'}]:[])
+    {value:'admin',label:'Admin'},...(isSuperAdmin()?[{value:'superadmin',label:'Super Admin'}]:[]),
+    {value:'ceo',label:'CEO (Executive — Read Only)'},{value:'chief',label:'Chief (Dept. Head — Read Only)'}
   ];
   list.innerHTML = reqs.length===0
     ? '<p style="color:#64748b;font-size:13px;font-style:italic;">No pending requests.</p>'
@@ -20929,6 +21029,19 @@ function _getNpsMatrix(){
   return JSON.parse(JSON.stringify(_NPS_ROLE_MATRIX));
 }
 
+// Real enforcement for the Role Matrix editor -- only a '✅' cell for the current
+// role grants the action; '👁' (view-only) and '✗' do not.
+function hasNpsPermission(featureName){
+  if(isSuperAdmin()) return true;
+  const role = currentRole();
+  const matrix = _getNpsMatrix();
+  for(const group of matrix){
+    const feature = (group.features||[]).find(f=>f.name===featureName);
+    if(feature) return feature[role]==='✅';
+  }
+  return false;
+}
+
 function renderNpsRoleMatrix(){
   const tbody = document.getElementById('npsRoleMatrixBody');
   if(!tbody) return;
@@ -21012,7 +21125,7 @@ function resetNpsRoleMatrix(){
 }
 
 // ── NPS Channel Distribution Chart ───────────────────
-let _npsChFilter = 'dow'; // dow | week | month | custom
+let _npsChFilter = 'month'; // dow | week | month | custom -- defaults to match the rest of the Exec Dashboard's period control instead of a silent all-time day-of-week slice
 
 // NPS Channel chart reads from DB.get('npsInputData') — no seed data needed
 
@@ -21685,36 +21798,6 @@ function showForcedPasswordChange(userId){
   });
 }
 
-// doAdminLogin — secondary admin auth modal (legacy support)
-async function doAdminLogin(){
-  const username=(document.getElementById('loginUser')?.value||'').trim();
-  const password=document.getElementById('loginPass')?.value||'';
-  const errEl=document.getElementById('loginError');
-  if(errEl) errEl.style.display='none';
-  const users=getUsers();
-  let found=null;
-  for(const u of users){
-    if(u.username.toLowerCase()!==username.toLowerCase()) continue;
-    if(!['admin','superadmin'].includes(u.role)) continue;
-    if(await verifyPw(password,u.password)){ found=u; break; }
-  }
-  if(!found){
-    if(errEl) errEl.style.display='block';
-    return;
-  }
-  closeModal('adminLoginModal');
-  toast('Admin verified.','success');
-}
-
-// togglePwVis — show/hide password in the admin re-auth modal
-function togglePwVis(){
-  const inp=document.getElementById('loginPass');
-  const btn=document.getElementById('pwToggleBtn');
-  if(!inp) return;
-  if(inp.type==='password'){ inp.type='text'; if(btn) btn.textContent='🙈'; }
-  else { inp.type='password'; if(btn) btn.textContent='👁'; }
-}
-
 function sysLogout(){
   logChange('access','Logout','User logged out','QMS');
   recordLogout();
@@ -21728,6 +21811,11 @@ function sysLogout(){
   document.getElementById('screen-dashboard').classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.nav-btn').classList.add('active');
+  // Reset the top nav bar back to QMS so the next login in this tab doesn't inherit a leftover NPS view
+  _activeSystem = 'QMS';
+  const _qmsNavEl=document.getElementById('qmsNav'), _npsNavEl=document.getElementById('npsNav');
+  if(_qmsNavEl) _qmsNavEl.style.display='';
+  if(_npsNavEl) _npsNavEl.style.display='none';
   // Show login screen
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('sysLoginUser').value='';
@@ -22281,17 +22369,17 @@ function previewUserBatch(input){
   reader.readAsText(file);
 }
 
-function importUserBatch(){
+async function importUserBatch(){
   if(!isAdmin()){ toast('Admin only.','error'); return; }
   const toImport=_userBatchParsed.filter(r=>r.valid);
   if(!toImport.length){ toast('No valid rows to import.','error'); return; }
   const users=getUsers();
   let added=0;
-  toImport.forEach(r=>{
+  for(const r of toImport){
     users.push({
       id: uuid(),
       username: r.username,
-      password: r.password,
+      password: r.password ? await hashPw(r.password) : r.password, // hash before storing, matching saveUser()'s behavior
       role: r.role,
       status: r.status,
       displayName: r.displayName||r.username,
@@ -22300,7 +22388,7 @@ function importUserBatch(){
       createdAt: new Date().toISOString()
     });
     added++;
-  });
+  }
   saveUsers(users);
   closeModal('userBatchModal');
   toast(`✅ ${added} user${added!==1?'s':''} imported successfully.`, 'success');
@@ -23986,6 +24074,7 @@ function saveTLReview(){
   toast('TL Review submitted successfully!','success');
   closeModal('tlReviewModal');
   if(document.getElementById('screen-tlteam')?.classList.contains('active')) renderTLTeamView();
+  else if(document.getElementById('screen-dashboard')?.classList.contains('active')) renderPendingReviewTab();
   else renderRecords();
 }
 
@@ -24471,7 +24560,12 @@ function renderEditRequestsReport(){
   // before the editRequests early-return below so it still populates even
   // on a period/status filter that leaves zero pending/approved/rejected
   // requests.
-  const directEditRecords = getRecords().filter(r=>r.directEdit)
+  const directEditRecords = getRecords().filter(r=>{
+      if(!r.directEdit) return false;
+      if(!(_rptFrom && _rptTo)) return true;
+      const mon=r.evalDate?.slice(0,7);
+      return mon && mon>=_rptFrom && mon<=_rptTo;
+    })
     .sort((a,b)=>new Date(b.directEditAt||0)-new Date(a.directEditAt||0));
   const deTbody = document.getElementById('directEditReportBody');
   if(deTbody){
@@ -24531,6 +24625,16 @@ switchRptView = function(view, btn){
   else if(view==='pareto') renderPareto();
   else if(view==='eval-timing') renderEvalTiming();
 };
+
+// Re-renders whichever report view is currently active (not just Overview), so
+// period/refresh controls keep every tab live instead of only the Overview tab.
+function _refreshActiveRptView(){
+  const activeView = document.querySelector('.rpt-view.active');
+  if(!activeView || activeView.id==='rptv-overview') return;
+  const view = activeView.id.replace('rptv-','');
+  const activeBtn = document.querySelector('.rpt-side-item.active');
+  switchRptView(view, activeBtn);
+}
 
 function populateRepeatAgentFilter(){
   const sel = document.getElementById('repeatAgent');
@@ -24838,7 +24942,10 @@ function openEditRequest(){
   if(!_currentViewRecordId) return;
   const rec = getRecords().find(r=>r.id===_currentViewRecordId);
   if(!rec){ toast('Record not found.','error'); return; }
-  const form = getForm();
+  // Resolve the form THIS record was actually scored against, not whatever form is
+  // currently first-published -- matches _erRecalc()/viewRecord()/_applyAnswersAndRecalc().
+  const _formObj = (rec.formId && getFormById(rec.formId)) || null;
+  const form = _formObj ? _formObj.sections : getForm();
   document.getElementById('editReqRecordId').value = _currentViewRecordId;
   document.getElementById('editReqReason').value='';
   document.getElementById('editReqRemarks').value = rec.remarks||'';
@@ -25372,11 +25479,12 @@ function _runSeedSampleData(){
           }
           const fn = agentFirstNames[n] || 'Agent'+n;
           const ln = agentLastNames[n]  || 'Team'+ti;
+          const honorific = n%2===0 ? 'Mr.' : 'Ms.'; // gives the gender-matched avatar system an honorific to key off, matching the app-wide "Mr./Ms. First Last" convention
           newAgents.push({
-            id:_uid(), name:`${fn} ${ln}`, staffId:sid,
+            id:_uid(), name:`${honorific} ${fn} ${ln}`, staffId:sid,
             team:t.name, supervisor:t.tl, campaign:t.campaign,
             status:'Active', email:`${fn.toLowerCase()}.${ln.toLowerCase()}@cellcard.com.kh`,
-            hireDate: _iso(_dt(Math.floor(Math.random()*365+30))),
+            hired: _iso(_dt(Math.floor(Math.random()*365+30))),
             createdAt:new Date().toISOString()
           });
         }
@@ -25563,7 +25671,7 @@ function executeWipeEntryData(){
   if(!isAdmin()) return;
   var inp=document.getElementById('wipeConfirmInput');
   if(!inp||inp.value.trim().toUpperCase()!=='WIPE'){ toast('Please type WIPE to confirm.','error'); return; }
-  var keys=['records','npsInputData','evaluations','npsRecords','npsSurveys'];
+  var keys=['records','npsInputData','evaluations','npsRecords','npsSurveys','npsResponses','npsPartialSessions'];
   keys.forEach(function(k){ try{ DB.set(k,[]); }catch(e){} });
   closeModal('wipeDataModal');
   try{ _IntegrationHub.fire('data.wiped', {wipedBy: (getCurrentUser()||{}).username, ts: new Date().toISOString()}); }catch(_e){}
