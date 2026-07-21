@@ -9866,7 +9866,7 @@ function dihCommitImport(){
   showLoading('Importing data…');
 
   setTimeout(async ()=>{
-    let added=0, updated=0, skipped=0;
+    let added=0, updated=0, skipped=0, accountsCreated=0;
 
     if(_dihType==='records'){
       const records = getRecords();
@@ -9892,18 +9892,22 @@ function dihCommitImport(){
       DB.set('records', records);
     } else if(_dihType==='agents'){
       const agents = getAgents();
-      toProcess.forEach(r=>{
+      const newlyAdded=[];
+      for(const r of toProcess){
         const d=r.data;
         if(r.isDup){
-          if(dupOpt==='skip'){ skipped++; return; }
+          if(dupOpt==='skip'){ skipped++; continue; }
           const idx=agents.findIndex(a=>a.staffId===d.staffId);
           if(idx>=0){ agents[idx]={...agents[idx],...d}; updated++; }
-          else { agents.push({...d,id:uuid(),createdAt:new Date().toISOString()}); added++; }
+          else { const obj={...d,id:uuid(),createdAt:new Date().toISOString()}; agents.push(obj); newlyAdded.push(obj); added++; }
         } else {
-          agents.push({...d,id:uuid(),createdAt:new Date().toISOString()}); added++;
+          const obj={...d,id:uuid(),createdAt:new Date().toISOString()}; agents.push(obj); newlyAdded.push(obj); added++;
         }
-      });
+      }
       DB.set('agents', agents);
+      const _dihUsers = getUsers ? getUsers() : [];
+      for(const obj of newlyAdded){ if(await _autoProvisionAgentViewer(obj, _dihUsers)) accountsCreated++; }
+      if(accountsCreated) saveUsers(_dihUsers);
       renderRoster && renderRoster(); populateTeamFilter && populateTeamFilter(); populateAgentDropdown && populateAgentDropdown();
     } else if(_dihType==='users'){
       const users = getUsers ? getUsers() : [];
@@ -9927,13 +9931,13 @@ function dihCommitImport(){
     dihLogEntry(_dihType, added, updated, skipped, _dihFileName);
     closeModal('dataImportModal');
     renderDashboard && renderDashboard();
-    toast(`✅ Import complete — ${added} added, ${updated} updated, ${skipped} skipped.`, 'success');
+    toast(`✅ Import complete — ${added} added, ${updated} updated, ${skipped} skipped.`+(accountsCreated?` ${accountsCreated} Viewer login${accountsCreated!==1?'s':''} created.`:''), 'success');
     dihRefreshLog();
   }, 500);
 }
 
-function dihMergeBackup(json, dupOpt){
-  let totalAdded=0, totalUpdated=0, totalSkipped=0;
+async function dihMergeBackup(json, dupOpt){
+  let totalAdded=0, totalUpdated=0, totalSkipped=0, totalAccountsCreated=0;
 
   // Records
   if(json.records && json.records.length){
@@ -9963,22 +9967,26 @@ function dihMergeBackup(json, dupOpt){
     // incoming row has no staffId, since blank staffId used to bypass
     // dedup entirely (the `x.staffId&&` guard never matches two blanks).
     const seenAgentKeys = new Set();
-    json.agents.forEach(a=>{
+    const newlyAdded = [];
+    for(const a of json.agents){
       const key = ((a.staffId||a.name||'')+'').toLowerCase().trim();
       const idx = agents.findIndex(x=>(x.staffId&&a.staffId&&x.staffId===a.staffId)||(!a.staffId&&x.name&&a.name&&x.name.toLowerCase()===a.name.toLowerCase()));
       const dupInBatch = key && seenAgentKeys.has(key);
       if(key) seenAgentKeys.add(key);
-      if(dupInBatch){ totalSkipped++; return; } // same person already handled earlier in this same file
-      if(idx>=0 && dupOpt==='skip'){ totalSkipped++; return; }
+      if(dupInBatch){ totalSkipped++; continue; } // same person already handled earlier in this same file
+      if(idx>=0 && dupOpt==='skip'){ totalSkipped++; continue; }
       if(idx>=0){ agents[idx]={...agents[idx],...a}; totalUpdated++; }
       // Always mint a fresh id -- carrying through a.id here was the one
       // path in the app that could put an externally-supplied id (already
       // duplicated across several entries in a bad backup file) onto more
       // than one roster card, which is also why they'd render the exact
       // same avatar (a deterministic hash of the agent's id).
-      else { agents.push({...a, id:uuid()}); totalAdded++; }
-    });
+      else { const obj={...a, id:uuid()}; agents.push(obj); newlyAdded.push(obj); totalAdded++; }
+    }
     DB.set('agents', agents);
+    const _dmbUsers = getUsers();
+    for(const obj of newlyAdded){ if(await _autoProvisionAgentViewer(obj, _dmbUsers)) totalAccountsCreated++; }
+    if(totalAccountsCreated) saveUsers(_dmbUsers);
     renderRoster && renderRoster(); populateTeamFilter && populateTeamFilter(); populateAgentDropdown && populateAgentDropdown();
   }
 
@@ -10000,7 +10008,7 @@ function dihMergeBackup(json, dupOpt){
   dihLogEntry('json-backup', totalAdded, totalUpdated, totalSkipped, _dihFileName);
   closeModal('dataImportModal');
   renderDashboard && renderDashboard();
-  toast(`✅ Backup merged — ${totalAdded} added, ${totalUpdated} updated, ${totalSkipped} skipped.`, 'success');
+  toast(`✅ Backup merged — ${totalAdded} added, ${totalUpdated} updated, ${totalSkipped} skipped.`+(totalAccountsCreated?` ${totalAccountsCreated} Viewer login${totalAccountsCreated!==1?'s':''} created.`:''), 'success');
   dihRefreshLog();
 }
 
@@ -10181,10 +10189,17 @@ function saveAgent(){
     status:document.getElementById('agentStatus').value,
     createdAt: id?(agents.find(a=>a.id===id)?.createdAt||new Date().toISOString()):new Date().toISOString(),
   };
-  const doSave = () => {
+  const doSave = async () => {
+    const isNew = !id;
     if(id){ agents[agents.findIndex(a=>a.id===id)]=obj; toast('Agent updated!'); }
-    else  { agents.push(obj); toast('Agent added!'); }
+    else  { agents.push(obj); }
     DB.set('agents',agents);
+    if(isNew){
+      const users=getUsers();
+      const provisioned = await _autoProvisionAgentViewer(obj, users);
+      if(provisioned) saveUsers(users);
+      toast(provisioned ? 'Agent added! Viewer login created (password: cellcard).' : 'Agent added!');
+    }
     closeModal('agentModal');
     renderRoster(); populateTeamFilter(); populateAgentDropdown();
   };
@@ -10476,11 +10491,12 @@ function readCSV(file){
   };
   reader.readAsText(file);
 }
-function importCSVAgents(){
+async function importCSVAgents(){
   if(!csvParsed.length) return;
   const agents=getAgents();
   let added=0, updated=0;
-  csvParsed.forEach(a=>{
+  const newlyAdded=[];
+  for(const a of csvParsed){
     // A blank staffId must never match another blank-staffId agent -- two
     // different people with no staff ID would otherwise silently collapse
     // into one record, overwriting whichever was already there. Comparison
@@ -10489,11 +10505,15 @@ function importCSVAgents(){
     const sid=(a.staffId||'').trim().toUpperCase();
     const existing = sid ? agents.find(x=>(x.staffId||'').trim().toUpperCase()===sid) : null;
     if(existing){ Object.assign(existing,a); updated++; }
-    else{ agents.push({...a,id:uuid(),createdAt:new Date().toISOString()}); added++; }
-  });
+    else{ const obj={...a,id:uuid(),createdAt:new Date().toISOString()}; agents.push(obj); newlyAdded.push(obj); added++; }
+  }
   DB.set('agents',agents);
+  const users=getUsers();
+  let accountsCreated=0;
+  for(const obj of newlyAdded){ if(await _autoProvisionAgentViewer(obj, users)) accountsCreated++; }
+  if(accountsCreated) saveUsers(users);
   closeModal('uploadModal');
-  toast(`Imported: ${added} added, ${updated} updated.`,'success');
+  toast(`Imported: ${added} added, ${updated} updated.`+(accountsCreated?` ${accountsCreated} Viewer login${accountsCreated!==1?'s':''} created.`:''),'success');
   renderRoster(); populateTeamFilter(); populateAgentDropdown();
   csvParsed=[];
   document.getElementById('csvPreview').innerHTML='';
@@ -12599,6 +12619,29 @@ function getUsers(){
   ];
 }
 function saveUsers(u){ DB.set('users',u); }
+
+// Auto-provisions a Viewer login (username=email, password="cellcard") for a
+// roster agent so every agent gets system access without a separate manual
+// "Add User" step. Skips agents with no real email (blank or a placeholder
+// like "No Have"), and never overwrites an existing account already using
+// that email/username. Mutates `users` in place and returns true if it added
+// one, so callers can batch many agents into a single saveUsers(users) write.
+async function _autoProvisionAgentViewer(agent, users){
+  const email = ((agent && agent.email) || '').trim().toLowerCase();
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+  const exists = users.find(u=>(u.username||'').toLowerCase()===email || (u.email||'').toLowerCase()===email);
+  if(exists) return false;
+  users.push({
+    id: uuid(), username: email, email,
+    password: await hashPw('cellcard'),
+    role: 'viewer', status: 'active',
+    displayName: agent.name || email,
+    team: agent.team || '',
+    createdAt: new Date().toISOString(),
+  });
+  return true;
+}
+
 function getResets(){ return DB.get('pwresets')||[]; }
 function saveResets(r){ DB.set('pwresets',r); }
 
