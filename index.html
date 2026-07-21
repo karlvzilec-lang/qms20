@@ -4925,7 +4925,7 @@ CORS_ORIGIN=https://yourdomain.com</code>
       <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFile').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDrop(event)">
         <div class="drop-zone-icon">📂</div>
         <p><strong>Click to browse</strong> or drag &amp; drop your CSV file here</p>
-        <p style="font-size:12px;margin-top:6px;color:var(--gray);">Required columns: Name, StaffID, Team, Supervisor, Campaign, Status, Email</p>
+        <p style="font-size:12px;margin-top:6px;color:var(--gray);">Required columns: Name, StaffID, Team, Supervisor, Campaign, Status, Email &middot; Optional: Hire Date</p>
         <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleCSVFile(this)">
       </div>
       <div id="csvPreview" style="margin-top:14px;"></div>
@@ -9507,13 +9507,13 @@ const DIH_LOG_KEY = 'qms2_importLog';
 // ── Column mappings & templates ──────────────────
 const DIH_COLUMNS = {
   records: ['agentName','agentId','qaOfficer','evalDate','callDateTime','duration','refNo','callType','campaign','finalScore','result','autoFail','remarks','formName'],
-  agents:  ['Name','StaffID','Team','Supervisor','Campaign','Status','Email'],
+  agents:  ['Name','StaffID','Team','Supervisor','Campaign','Status','Email','HireDate'],
   users:   ['Username','DisplayName','Password','Role','Status','Email','Team'],
 };
 
 const DIH_TEMPLATES = {
   records: 'agentName,agentId,qaOfficer,evalDate,callDateTime,duration,refNo,callType,campaign,finalScore,result,autoFail,remarks,formName\nJohn Doe,A001,QA Officer,2026-06-01,2026-06-01 09:00,300,REF-001,Inbound,FTTH,92.5,PASS,false,,Standard QA Form',
-  agents:  'Name,StaffID,Team,Supervisor,Campaign,Status,Email\nJohn Doe,A001,FTTH Team A,Supervisor Name,FTTH,Active,john@example.com',
+  agents:  'Name,StaffID,Team,Supervisor,Campaign,Status,Email,Hire Date\nJohn Doe,A001,FTTH Team A,Supervisor Name,FTTH,Active,john@example.com,2023-01-15',
   users:   'Username,DisplayName,Password,Role,Status,Email,Team\njdoe,John Doe,Pass@1234,qa,active,jdoe@example.com,Team A',
 };
 
@@ -9543,7 +9543,7 @@ function dihSelectType(type, btn){
 
   const hints = {
     records: 'Accepts: CSV or Excel with columns: agentName, qaOfficer, evalDate, finalScore, result…',
-    agents:  'Accepts: CSV or Excel with columns: Name, StaffID, Team, Supervisor, Campaign, Status, Email',
+    agents:  'Accepts: CSV or Excel with columns: Name, StaffID, Team, Supervisor, Campaign, Status, Email, Hire Date (optional)',
     users:   'Accepts: CSV or Excel with columns: Username, DisplayName, Password, Role, Status, Email, Team',
     json:    'Accepts: a .json backup file exported from any QMS instance'
   };
@@ -9710,6 +9710,7 @@ function dihValidateAgents(headers, rows){
       campaign:   _dihGet(headers,row,'campaign')||'',
       status:     _dihGet(headers,row,'status')||'Active',
       email:      _dihGet(headers,row,'email')||'',
+      hired:      _dihGet(headers,row,'hireDate')||_dihGet(headers,row,'hired')||'',
     };
     return { row:i+2, data, errors, isDup, status: errors.length>0?'error':isDup?'duplicate':'new' };
   });
@@ -10410,7 +10411,7 @@ function clearRosterFilters(){
 // ── CSV Upload ──
 let csvParsed=[];
 function downloadRosterTemplate(){
-  const csv='Name,StaffID,Team,Supervisor,Campaign,Status,Email\nMs. Sample Agent,CC-001,FTTH Team A,Mr. Supervisor,FTTH,Active,agent@cellcard.com.kh';
+  const csv='Name,StaffID,Team,Supervisor,Campaign,Status,Email,Hire Date\nMs. Sample Agent,CC-001,FTTH Team A,Mr. Supervisor,FTTH,Active,agent@cellcard.com.kh,2023-01-15';
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='Agent_Roster_Template.csv';a.click();
 }
 function handleDrop(e){ e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('drag-over'); const f=e.dataTransfer.files[0]; if(f) readCSV(f); }
@@ -10424,7 +10425,7 @@ function readCSV(file){
       const vals=l.split(',').map(v=>v.trim().replace(/"/g,''));
       const obj={};
       headers.forEach((h,i)=>obj[h.toLowerCase()]=vals[i]||'');
-      return { name:obj.name||'', staffId:obj.staffid||obj['staff id']||'', team:obj.team||'', supervisor:obj.supervisor||'', campaign:obj.campaign||'', status:obj.status||'Active', email:obj.email||'' };
+      return { name:obj.name||'', staffId:obj.staffid||obj['staff id']||'', team:obj.team||'', supervisor:obj.supervisor||'', campaign:obj.campaign||'', status:obj.status||'Active', email:obj.email||'', hired:obj['hire date']||obj.hired||obj['date hired']||'' };
     }).filter(a=>a.name);
     const preview=`<div style="font-weight:700;color:var(--success);margin-bottom:8px;">✅ ${csvParsed.length} agents ready to import</div>
     <div class="table-wrap" style="max-height:200px;overflow-y:auto;"><table>
