@@ -5578,8 +5578,15 @@ const _DbSync = (function(){
   // never saw the "this staffId already exists" signal (confirmed live: a
   // June-dated stale session kept reintroducing old copies of ~80 agents
   // alongside their correct, current records). Plain id-based dedup can't
-  // catch this since the ids really are different. Collapse by staffId too,
-  // keeping whichever copy actually has a hire date filled in, or failing
+  // catch this since the ids really are different. Collapse by staffId too --
+  // but ONLY when the name also matches. A shared Staff ID can legitimately
+  // belong to two DIFFERENT real people (a roster data-entry collision, e.g.
+  // a new hire assigned an ID already used by someone else) -- collapsing
+  // those would silently delete a real employee's roster record. Same-name
+  // collisions are safe to auto-heal; different-name collisions are left
+  // alone (they still show as a Staff ID clash for a human to resolve, which
+  // is far better than one of the two people silently disappearing).
+  // Keeps whichever copy actually has a hire date filled in, or failing
   // that, whichever was created more recently. Shared by both the pull-side
   // merge and the push-side de-dupe so neither direction can reintroduce it.
   function _dedupeAgentsByStaffId(arr){
@@ -5590,6 +5597,13 @@ const _DbSync = (function(){
       if(!sid){ noStaffId.push(x); return; }
       var existing = byStaffId.get(sid);
       if(!existing){ byStaffId.set(sid, x); return; }
+      var sameName = (x.name||'').trim().toLowerCase() === (existing.name||'').trim().toLowerCase();
+      if(!sameName){
+        // Different people sharing one Staff ID by data-entry error -- do not
+        // collapse. Key the second one under a synthetic key so both survive.
+        byStaffId.set(sid+'__'+((x&&x.id)||Math.random()), x);
+        return;
+      }
       var xIsBetter = !!x.hired !== !!existing.hired
         ? !!x.hired
         : new Date(x.createdAt||0) > new Date(existing.createdAt||0);
