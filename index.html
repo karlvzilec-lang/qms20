@@ -2168,9 +2168,8 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         </div>
         <div class="form-group">
           <label>Auto-Fail Trigger</label>
-          <select id="settingAutoFailMode">
+          <select id="settingAutoFailMode" disabled title="Auto-Fail always zeroes the score -- this is a compliance rule, not configurable.">
             <option value="zero">Score = 0% (Full Fail)</option>
-            <option value="flag">Flag only (still shows score)</option>
           </select>
         </div>
         <div class="form-group" id="globalScoringHidden" style="display:none;">
@@ -4782,9 +4781,8 @@ CORS_ORIGIN=https://yourdomain.com</code>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <label style="font-size:12px;font-weight:700;color:var(--gray);">Auto-Fail Trigger</label>
-        <select id="fbAutoFailMode" style="padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;" onchange="fbDirty=true">
+        <select id="fbAutoFailMode" style="padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;" disabled title="Auto-Fail always zeroes the score -- this is a compliance rule, not configurable.">
           <option value="zero">Score = 0% (Full Fail)</option>
-          <option value="flag">Flag only</option>
         </select>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
@@ -8399,9 +8397,9 @@ function buildEvalForm(){
   const detailsLabel = document.getElementById('evalDetailsToggleAllLabel');
   if(detailsIcon) detailsIcon.textContent = '▾';
   if(detailsLabel) detailsLabel.textContent = 'Expand All Details';
-  // Auto-Fail legend reflects the org's actual configured behavior
+  // Auto-Fail always zeroes the score -- hard rule, not configurable (see updateScore())
   const afLegend = document.getElementById('autoFailLegendText');
-  if(afLegend) afLegend.textContent = getSettings().autoFailMode==='zero' ? 'Auto-Fail=Score becomes 0%' : 'Auto-Fail=Flags result, score unaffected';
+  if(afLegend) afLegend.textContent = 'Auto-Fail=Score becomes 0%';
   updateScore();
   populateCampaignDropdown();
 }
@@ -8529,9 +8527,15 @@ function updateScore(){
   });
 
   let finalScore = totalPossible > 0 ? (totalEarned / totalPossible * 100) : 0;
-  // Per-form Auto-Fail Trigger override, same fallback pattern as _liveThreshold below
-  const _liveAutoFailMode = (_activeFormObj && _activeFormObj.settings && _activeFormObj.settings.autoFailMode) || settings.autoFailMode;
-  if(autoFailTriggered && _liveAutoFailMode==='zero') finalScore = 0;
+  // Auto-Fail always zeroes the score -- this is a hard compliance rule, not a
+  // configurable preference. It used to be conditional on settings.autoFailMode
+  // (a per-form override falling back to the global setting), but that global
+  // setting was frequently absent/stale on real client sessions (the "flag only"
+  // fallback silently won whenever a form's own override didn't resolve), which
+  // let ~80% of real AUTO FAIL evaluations across every QA officer keep a
+  // nonzero score for over a month before QA caught it. Unconditional zeroing
+  // removes the entire failure class instead of chasing the staleness.
+  if(autoFailTriggered) finalScore = 0;
 
   // Same threshold resolution _doSubmitEval() uses for the actual saved
   // result -- was hardcoded 80/60 plus global-only settings.passScore below,
@@ -8638,11 +8642,11 @@ function computeScoreFromAnswers(form, answers, settings, formSettings){
     totalPossible += secPossible;
     sectionScores[sec.id] = { earned:secEarned, possible:secPossible, title:sec.title, total:sec.totalPoints, mode, hasNoItems:noItems.length>0 };
   });
-  // Per-form Auto-Fail Trigger override, falling back to the global setting --
-  // matches updateScore()'s own resolution (and the passScore fallback below it).
   let finalScore = totalPossible>0 ? (totalEarned/totalPossible*100) : 0;
-  const _autoFailMode = (formSettings && formSettings.autoFailMode) || settings.autoFailMode;
-  if(autoFailTriggered && _autoFailMode==='zero') finalScore = 0;
+  // Auto-Fail always zeroes the score -- see the matching comment in updateScore()
+  // above (the single source of truth this function mirrors). No longer
+  // conditional on settings.autoFailMode.
+  if(autoFailTriggered) finalScore = 0;
   finalScore = +finalScore.toFixed(1);
   return { finalScore, autoFailTriggered, autoFailItems, totalEarned, totalPossible, sectionScores };
 }
@@ -15981,7 +15985,7 @@ const _UM_CONTENT = {
       `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">⚙️ TAB 1 — QA Settings</div>`+
       M.P(2,'<strong>Global Scoring Mode:</strong> This setting determines how the system calculates the final evaluation score. Choose one mode for the entire system:<br><br>'+'<strong>Weighted</strong> — Each QA section has an assigned weight percentage (e.g. Opening = 20%, Handling = 50%, Closing = 30%). The final score is a weighted average. Best practice when some sections are more business-critical than others.<br><br>'+'<strong>All or Nothing</strong> — Every individual question has equal weight. Answering N on any item reduces the score equally. Simple but less nuanced.<br><br>'+'<strong>Per Section</strong> — Each section can have its own scoring mode configured independently. Most flexible option for complex QA frameworks.')+
       M.P(3,'<strong>Passing Score (%):</strong> The minimum percentage an evaluation must achieve to receive a PASS verdict. The industry standard is 80%. Click the field, type the new value (e.g. 85), and click <strong>💾 Save Settings</strong>. All future evaluations will use this threshold immediately. Historical evaluations are not re-calculated.')+
-      M.P(4,'<strong>Auto-Fail Trigger behavior:</strong> When a critical item is answered N, the system can respond in two ways:<br><br>'+'<strong>Full Score Zero</strong> — The final score becomes 0% and the result shows AUTO FAIL.<br>'+'<strong>Flag Only</strong> — The score reflects the actual answers but an AUTO FAIL flag is added to the record.')+
+      M.P(4,'<strong>Auto-Fail Trigger behavior:</strong> When a critical item (marked ⚡ Auto Fail) is answered N, the final score always becomes 0% and the result shows AUTO FAIL. This is a fixed compliance rule and is not configurable.')+
       M.P(5,'After configuring QA Settings, click the orange <strong>💾 Save Settings</strong> button at the top-right of the Settings screen. A success toast confirms the save.')+
       `<div style="font-size:12px;font-weight:800;color:#FF7900;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #fff3e0;">📝 TAB — Forms</div>`+
       M.P('5b','The <strong>Forms</strong> tab manages the QA scorecard(s) themselves — more than one form can exist at once (e.g. a Hotline form and a Chat form with different sections). Each form card shows its status (Published / Draft), section and item counts, and how many evaluations have used it.')+
