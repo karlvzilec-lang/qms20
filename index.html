@@ -5522,6 +5522,7 @@ const _DbSync = (function(){
           _seen.add(id);
           return true;
         });
+        if(k==='agents') payload = _dedupeAgentsByStaffId(payload);
       }
       return fetch(API,{
         method:'POST',
@@ -5572,6 +5573,31 @@ const _DbSync = (function(){
   // protect against a client overwriting both mirrors with an incomplete array.
   var _MERGE_BUCKETS = new Set(['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','npsInputData','accessRequests','pwresets']);
 
+  // Same real person can end up under two different internal ids -- e.g. a
+  // device with a stale cached copy re-adds someone because its own copy
+  // never saw the "this staffId already exists" signal (confirmed live: a
+  // June-dated stale session kept reintroducing old copies of ~80 agents
+  // alongside their correct, current records). Plain id-based dedup can't
+  // catch this since the ids really are different. Collapse by staffId too,
+  // keeping whichever copy actually has a hire date filled in, or failing
+  // that, whichever was created more recently. Shared by both the pull-side
+  // merge and the push-side de-dupe so neither direction can reintroduce it.
+  function _dedupeAgentsByStaffId(arr){
+    var byStaffId = new Map();
+    var noStaffId = [];
+    arr.forEach(function(x){
+      var sid = x && (x.staffId||'').trim();
+      if(!sid){ noStaffId.push(x); return; }
+      var existing = byStaffId.get(sid);
+      if(!existing){ byStaffId.set(sid, x); return; }
+      var xIsBetter = !!x.hired !== !!existing.hired
+        ? !!x.hired
+        : new Date(x.createdAt||0) > new Date(existing.createdAt||0);
+      if(xIsBetter) byStaffId.set(sid, x);
+    });
+    return noStaffId.concat(Array.from(byStaffId.values()));
+  }
+
   function _mergeBucket(bucket, remoteArr, localArr){
     // Union by id — remote wins on conflict (server copy takes precedence).
     // Local-only entries are preserved so no device ever loses data on sync.
@@ -5596,6 +5622,7 @@ const _DbSync = (function(){
     localArr.forEach(function(item){
       if(item&&item.id&&!remoteIds.has(item.id)) merged.push(item);
     });
+    if(bucket==='agents') merged = _dedupeAgentsByStaffId(merged);
     return merged;
   }
 
