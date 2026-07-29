@@ -2115,6 +2115,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <strong>🤖 Auto QA Drafts</strong> — AI-scored chat evaluations (manual queue or the daily scheduled batch) awaiting QA review. Nothing here counts toward any KPI, score, or agent history until approved.
     </div>
     <div class="kpi-grid" id="autoQaDraftsKpi"></div>
+    <div id="autoQaBotAccuracyCard"></div>
     <div class="card">
       <div class="card-title">📋 Draft Queue
         <div style="display:flex;gap:8px;">
@@ -9100,6 +9101,9 @@ async function autoQAFetchAll(){
       q.agentMatchSource = r.agentMatchSource;
       q.agentNameGuess = r.agentNameGuess;
       q.draftScore = r.draftScore;
+      q.scoringMethod = r.scoringMethod;
+      q.languageNote = r.languageNote;
+      q.scoringWarning = r.scoringWarning;
       q.formId = r.formId;
       q.resolvedCampaign = r.resolvedCampaign;
       q.resolvedEvalDate = r.resolvedEvalDate;
@@ -9177,7 +9181,9 @@ function saveAutoQAItemAsDraft(id){
     createdBy: user ? (user.displayName||user.username) : 'unknown',
     createdAt: new Date().toISOString(),
     transcript: q.transcript,
-    scoringMethod: 'rule-based',
+    scoringMethod: q.scoringMethod || 'rule-based',
+    languageNote: q.languageNote || '',
+    scoringWarning: q.scoringWarning || null,
     proposedAnswers: q.prefill.answers,
     proposedComments: q.prefill.comments,
     needsReview: q.prefill.needsReview,
@@ -9396,7 +9402,8 @@ async function autoQaCheckLinkNow(rowId){
       id: uuid(), link: row.link, status: 'pending',
       createdBy: user ? (user.displayName||user.username) : 'unknown',
       createdAt: new Date().toISOString(),
-      transcript: r.transcript, scoringMethod: 'rule-based',
+      transcript: r.transcript, scoringMethod: r.scoringMethod || 'rule-based',
+      languageNote: r.languageNote || '', scoringWarning: r.scoringWarning || null,
       proposedAnswers: r.prefill.answers, proposedComments: r.prefill.comments, needsReview: r.prefill.needsReview,
       draftScore: r.draftScore, formId: r.formId,
       proposedAgentId: r.agentMatch ? r.agentMatch.id : '',
@@ -25286,12 +25293,56 @@ function renderAutoQaDraftsReport(){
   const approved = all.filter(r=>r.status==='approved').length;
   const rejected = all.filter(r=>r.status==='rejected').length;
 
+  // Bot Accuracy — how often the bot's proposed answers matched what the QA
+  // officer actually approved. Only approved drafts with finalAnswers count;
+  // per item, agreement = proposedAnswers[itemId]===finalAnswers[itemId].
+  const reviewed = all.filter(r=>r.status==='approved' && r.finalAnswers);
+  let agreements = 0, disagreements = 0;
+  const perItem = {}; // itemId -> {confirmed, corrected}
+  reviewed.forEach(d=>{
+    Object.keys(d.proposedAnswers||{}).forEach(itemId=>{
+      if(!(itemId in d.finalAnswers)) return;
+      if(!perItem[itemId]) perItem[itemId] = {confirmed:0, corrected:0};
+      if(d.proposedAnswers[itemId]===d.finalAnswers[itemId]){ agreements++; perItem[itemId].confirmed++; }
+      else { disagreements++; perItem[itemId].corrected++; }
+    });
+  });
+  const accTotal = agreements + disagreements;
+  const accuracyTxt = accTotal>0 ? (agreements/accTotal*100).toFixed(1)+'%' : '—';
+
   document.getElementById('autoQaDraftsKpi').innerHTML = `
     <div class="kpi blue"><div class="kpi-val" style="color:var(--primary)">${total}</div><div class="kpi-lbl">Total Drafts</div></div>
     <div class="kpi orange"><div class="kpi-val" style="color:var(--warning)">${pending}</div><div class="kpi-lbl">Pending</div></div>
     <div class="kpi green"><div class="kpi-val" style="color:var(--success)">${approved}</div><div class="kpi-lbl">Approved</div></div>
     <div class="kpi red"><div class="kpi-val" style="color:var(--danger)">${rejected}</div><div class="kpi-lbl">Rejected</div></div>
+    <div class="kpi teal"><div class="kpi-val" style="color:#0d9488">${accuracyTxt}</div><div class="kpi-lbl">Bot Accuracy</div></div>
   `;
+
+  // Per-item bot accuracy — which rubric items the bot gets corrected on most,
+  // so QA leadership can see at a glance where the bot struggles.
+  const accCard = document.getElementById('autoQaBotAccuracyCard');
+  if(accCard){
+    const itemTitles = {};
+    getForm().forEach(sec=>{ (sec.items||[]).forEach(item=>{ itemTitles[item.id]=item.title; }); });
+    const itemRows = Object.entries(perItem)
+      .filter(([,v])=>v.confirmed+v.corrected>0)
+      .sort((a,b)=>b[1].corrected-a[1].corrected);
+    let accHtml;
+    if(!itemRows.length){
+      accHtml = '<div style="color:var(--gray);font-size:12px;padding:8px 0;">Not enough approved drafts yet to compute per-item accuracy.</div>';
+    } else {
+      accHtml = '<div class="table-wrap"><table>'
+        + '<thead><tr><th>Item ID</th><th>Item Title</th><th style="text-align:center">Times Corrected</th><th style="text-align:center">Times Confirmed</th></tr></thead><tbody>'
+        + itemRows.map(([itemId,v])=>'<tr>'
+          + '<td style="font-weight:700;">'+esc(itemId)+'</td>'
+          + '<td>'+esc(itemTitles[itemId]||'—')+'</td>'
+          + '<td style="text-align:center;font-weight:700;color:'+(v.corrected>0?'var(--danger)':'var(--gray)')+'">'+v.corrected+'</td>'
+          + '<td style="text-align:center;font-weight:700;color:var(--success)">'+v.confirmed+'</td>'
+          + '</tr>').join('')
+        + '</tbody></table></div>';
+    }
+    accCard.innerHTML = '<div class="card"><div class="card-title">📊 Per-Item Bot Accuracy</div>'+accHtml+'</div>';
+  }
 
   const tbody = document.getElementById('autoQaDraftsReportBody');
   if(!drafts.length){ tbody.innerHTML='<tr class="empty-row"><td colspan="8">No Auto QA drafts found.</td></tr>'; return; }
@@ -25407,8 +25458,13 @@ function openAutoQaDraftReview(draftId){
   document.getElementById('autoQaDraftReviewBody').innerHTML = `
     <input type="hidden" id="reviewAutoQaDraftId" value="${esc(draft.id)}">
     <div style="margin-bottom:10px;font-size:12px;color:var(--gray);">
-      Submitted by <strong>${esc(draft.createdBy)}</strong> on ${new Date(draft.createdAt).toLocaleString()} — ${draft.scoringMethod==='rule-based'?'rule-based scoring':esc(draft.scoringMethod)}
+      Submitted by <strong>${esc(draft.createdBy)}</strong> on ${new Date(draft.createdAt).toLocaleString()}
+      ${draft.scoringMethod==='llm'
+        ? '<span style="display:inline-block;background:#dcfce7;color:#16a34a;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-left:6px;">🤖 AI-scored (Claude)</span>'
+        : '<span style="display:inline-block;background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-left:6px;">⚠️ Rule-based fallback (English keywords only)</span>'}
+      ${draft.languageNote ? '<div style="margin-top:4px;font-size:11px;color:#94a3b8;">Language: '+esc(draft.languageNote)+'</div>' : ''}
     </div>
+    ${draft.scoringWarning ? '<div style="background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#dc2626;font-weight:700;">⚠️ '+esc(draft.scoringWarning)+'</div>' : ''}
     <div style="font-weight:700;font-size:12px;margin-bottom:6px;">💬 Source Transcript</div>
     ${_autoQaTranscriptHtml(draft.transcript)}
     <div style="margin-top:12px;">${_renderAutoQaDraftReviewForm(draft)}</div>

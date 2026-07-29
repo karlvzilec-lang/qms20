@@ -1,6 +1,6 @@
 import type { Config } from "@netlify/functions";
 import { readBucket, mergeBucketRows } from "../../lib/serverBucket.js";
-import { scoreYellowLink, type FormSection, type RosterAgent } from "../../lib/autoQa.js";
+import { getRecentCorrections, scoreYellowLink, type ApprovedDraftForCorrections, type FormSection, type LlmScoringConfig, type RosterAgent } from "../../lib/autoQa.js";
 
 // Scheduled Auto QA batch — runs once daily, no manual trigger needed.
 //
@@ -52,10 +52,11 @@ interface QamsForm {
 }
 
 export default async () => {
-  const [queue, forms, agents] = await Promise.all([
+  const [queue, forms, agents, drafts] = await Promise.all([
     readBucket<QueueRow[]>("autoQaLinkQueue"),
     readBucket<QamsForm[]>("forms"),
     readBucket<RosterAgent[]>("agents"),
+    readBucket<ApprovedDraftForCorrections[]>("autoQaDrafts"),
   ]);
 
   const published = (forms || []).find((f) => f.status === "published");
@@ -67,6 +68,12 @@ export default async () => {
   if (!published) {
     return Response.json({ ok: false, error: "No published QA form found -- skipped this run." }, { status: 503 });
   }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY || "";
+  const llmConfig: LlmScoringConfig | undefined = apiKey
+    ? { apiKey, model: process.env.ANTHROPIC_MODEL || undefined }
+    : undefined;
+  const corrections = getRecentCorrections(drafts || [], published.sections);
 
   const draftsToUpsert: Record<string, unknown>[] = [];
   const queueUpdates: QueueRow[] = [];
@@ -81,7 +88,7 @@ export default async () => {
         evalDate: row.evalDate,
         refNo: row.refNo,
         mobileNumber: row.mobileNumber,
-      });
+      }, llmConfig, corrections);
       const draftId = crypto.randomUUID();
       draftsToUpsert.push({
         id: draftId,
@@ -90,7 +97,9 @@ export default async () => {
         createdBy: "system (daily batch)",
         createdAt: new Date().toISOString(),
         transcript: result.transcript,
-        scoringMethod: "rule-based",
+        scoringMethod: result.scoringMethod,
+        languageNote: result.languageNote,
+        scoringWarning: result.scoringWarning,
         proposedAnswers: result.prefill.answers,
         proposedComments: result.prefill.comments,
         needsReview: result.prefill.needsReview,

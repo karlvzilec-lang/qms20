@@ -1,7 +1,7 @@
 import type { Config } from "@netlify/functions";
 import { tokenFromRequest } from "../../db/token.js";
 import { readBucket } from "../../lib/serverBucket.js";
-import { scoreYellowLink, type FormSection, type RosterAgent } from "../../lib/autoQa.js";
+import { getRecentCorrections, scoreYellowLink, type ApprovedDraftForCorrections, type FormSection, type LlmScoringConfig, type RosterAgent } from "../../lib/autoQa.js";
 
 // GET /api/yellow-transcript?url=<Yellow Messenger public link>
 //
@@ -48,16 +48,22 @@ export default async (req: Request) => {
   };
 
   try {
-    const [forms, agents] = await Promise.all([
+    const [forms, agents, drafts] = await Promise.all([
       readBucket<QamsForm[]>("forms"),
       readBucket<RosterAgent[]>("agents"),
+      readBucket<ApprovedDraftForCorrections[]>("autoQaDrafts"),
     ]);
     const published = (forms || []).find((f) => f.status === "published");
     if (!published) {
       return Response.json({ success: false, error: "No published QA form found" }, { status: 503 });
     }
 
-    const result = await scoreYellowLink(url, published.sections, agents || [], hints);
+    const apiKey = process.env.ANTHROPIC_API_KEY || "";
+    const llmConfig: LlmScoringConfig | undefined = apiKey
+      ? { apiKey, model: process.env.ANTHROPIC_MODEL || undefined }
+      : undefined;
+    const corrections = getRecentCorrections(drafts || [], published.sections);
+    const result = await scoreYellowLink(url, published.sections, agents || [], hints, llmConfig, corrections);
     return Response.json({
       success: true,
       formId: published.id,
