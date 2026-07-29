@@ -117,6 +117,8 @@ export default async () => {
         proposedEvalDate: result.resolvedEvalDate,
         proposedRefNo: result.resolvedRefNo,
         proposedMobileNumber: result.resolvedMobileNumber,
+        proposedReasonForCalling: result.reasonForCalling,
+        proposedOverallRemarks: result.overallRemarks,
         resolvedAt: null,
         resolvedBy: null,
         finalAnswers: null,
