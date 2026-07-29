@@ -1,0 +1,376 @@
+// Shared Auto QA engine — transcript fetch/normalize, rule-based scoring, and
+// agent matching. Used by BOTH the interactive proxy (netlify/functions/yellow-transcript.ts)
+// and the daily scheduled batch (netlify/functions/auto-qa-daily.ts) so there is one
+// implementation of the scoring rules, not two kept in sync by hand.
+//
+// This restores the rule-based engine from a QMS20 "Auto QA (Yellow Messenger)" feature
+// that was built and removed the same day (commits 48b2bb6 -> 859b022) purely because its
+// backend proxy had been added to production untracked/unreviewed -- the rules themselves
+// were never in question. `git show 859b022 -- index.html` has the original client-side
+// code this was ported from (AUTO_QA_RULES, normalizeYellowTranscript, runAutoQARules,
+// _matchAgentByName, _estimateAutoQAScore).
+//
+// IMPORTANT — the one piece that could NOT be recovered from history: the original
+// server-side proxy file (netlify/functions/yellow-transcript.ts) was never committed to
+// git at all (that's exactly why it got removed as "untracked"), so its actual outbound
+// call to Yellow.ai -- the real request/response shape -- is not preserved anywhere. What
+// IS preserved is the removed frontend's *consumption contract*: it called
+// `/api/yellow-transcript?url=<link>` and expected back `{success:true, data:[...]}` (or
+// `{success:false, error}`), where each item in `data` looks like
+// `{messageType, message, agentId, agentName, created, name, source}`. fetchYellowTranscript()
+// below implements the simplest thing consistent with that contract and with the removal
+// commit's own note that the whole reason a proxy was needed was CORS/CSP, not a private
+// API — it fetches the pasted "public" link directly and expects a JSON body already
+// shaped like Yellow.ai's `securedLogs` response. This has NOT been verified against a
+// real Yellow Messenger link. Test with one real link before relying on this in production;
+// if Yellow.ai's actual response shape differs, only this one function needs to change.
+
+export interface YellowRawMessage {
+  messageType?: string;
+  message?: string;
+  agentId?: string;
+  agentName?: string;
+  created?: string;
+  name?: string;
+  source?: string;
+}
+
+export interface NormalizedMessage {
+  sender: "customer" | "agent" | "bot";
+  text: string;
+  ts: string | null;
+  agentName: string | null;
+}
+
+export interface NormalizedTranscript {
+  customerName: string;
+  agentNameGuess: string;
+  channelSource: string;
+  channel: string;
+  messages: NormalizedMessage[];
+}
+
+const YELLOW_HOST_ALLOWLIST = [/(^|\.)yellow\.ai$/i];
+
+// SSRF guard: this proxy accepts a user-supplied URL and fetches it server-side, so it
+// must not become an open relay to arbitrary internal/external hosts. Only fetch links
+// whose hostname is actually Yellow.ai.
+export function isAllowedTranscriptUrl(raw: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:") return false;
+  return YELLOW_HOST_ALLOWLIST.some((rx) => rx.test(u.hostname));
+}
+
+export async function fetchYellowTranscript(link: string): Promise<{ data: YellowRawMessage[] }> {
+  if (!isAllowedTranscriptUrl(link)) {
+    throw new Error("Link must be an https://*.yellow.ai URL");
+  }
+  const res = await fetch(link, { headers: { Accept: "application/json" } });
+  if (!res.ok) {
+    throw new Error(`Transcript fetch failed (HTTP ${res.status})`);
+  }
+  let json: unknown;
+  try {
+    json = await res.json();
+  } catch {
+    throw new Error("Transcript response was not valid JSON");
+  }
+  const data = Array.isArray((json as { data?: unknown })?.data)
+    ? ((json as { data: YellowRawMessage[] }).data)
+    : Array.isArray(json)
+      ? (json as YellowRawMessage[])
+      : null;
+  if (!data) throw new Error("Unrecognized transcript response shape");
+  return { data };
+}
+
+// Normalizes the raw Yellow.ai securedLogs response into a flat, chronological
+// transcript. AGENT-type messages carry their real text inside a JSON-encoded
+// `message` string (with metadata like agentProfilePicture); USER messages are
+// plain strings. Ported unchanged from the removed client-side version.
+export function normalizeYellowTranscript(raw: { data: YellowRawMessage[] }): NormalizedTranscript {
+  const arr = Array.isArray(raw?.data) ? raw.data : [];
+  const messages: NormalizedMessage[] = arr
+    .map((m) => {
+      let text = m.message;
+      if (typeof text === "string" && text.trim().startsWith("{")) {
+        try {
+          const p = JSON.parse(text);
+          if (p && typeof p.message === "string") text = p.message;
+        } catch {
+          /* keep raw text */
+        }
+      }
+      return {
+        sender: (m.messageType === "USER" ? "customer" : m.agentId ? "agent" : "bot") as NormalizedMessage["sender"],
+        text: text || "",
+        ts: m.created || null,
+        agentName: m.agentName || null,
+      };
+    })
+    .sort((a, b) => new Date(a.ts || 0).getTime() - new Date(b.ts || 0).getTime());
+  const customerName = arr.find((m) => m.name)?.name || "";
+  const agentNameGuess = arr.find((m) => m.agentName)?.agentName || "";
+  const channelSource = arr.find((m) => m.source)?.source || "";
+  return { customerName, agentNameGuess, channelSource, channel: "Chat", messages };
+}
+
+// ── Rubric item shape (mirrors the client-side QA form) ────────────────────
+export interface FormItem {
+  id: string;
+  title: string;
+  points: number;
+  autoFail?: boolean;
+  naAllowed?: boolean;
+}
+export interface FormSection {
+  id: string;
+  title: string;
+  items: FormItem[];
+  scoringMode?: "weighted" | "all-or-nothing";
+  totalPoints: number;
+}
+
+interface RuleResult {
+  value: "Y" | "N" | "";
+  note: string;
+}
+
+// Data-driven rule library, keyed by rubric item id (matches the QMS20 DEFAULT_FORM /
+// any published form using the same item ids). `mode:'auto'` writes a Y/N answer
+// directly; `mode:'assist'` writes a suggestion but is always flagged in needsReview
+// since the keyword match is a proxy, not a real judgment. Items with no entry here
+// are always left for the QA officer -- no rule exists that can reliably judge them
+// from text alone. Ported unchanged from the removed client-side version.
+export const AUTO_QA_RULES: Record<string, { mode: "auto" | "assist"; test: (t: NormalizedTranscript) => RuleResult | null }> = {
+  "1.1": {
+    mode: "auto",
+    test: (t) => {
+      const first = t.messages.find((m) => m.sender !== "customer");
+      if (!first) return null;
+      const ok = /welcome|thank you for (contacting|calling)|how (can|may) i (help|assist)/i.test(first.text);
+      return { value: ok ? "Y" : "N", note: 'First agent-side message: "' + (first.text || "").slice(0, 140) + '"' };
+    },
+  },
+  "1.2": {
+    mode: "assist",
+    test: (t) => {
+      const idKeywords = [/date of birth|d\.?o\.?b\.?/i, /address/i, /email/i, /account\s*(no|number|#)/i, /transaction/i, /\bname\b/i];
+      const custText = t.messages.filter((m) => m.sender === "customer").map((m) => m.text).join(" \n ");
+      const hits = idKeywords.filter((rx) => rx.test(custText)).length;
+      const asked = t.messages.some((m) => m.sender !== "customer" && /confirm|verify/i.test(m.text) && /(name|address|account|email|birth)/i.test(m.text));
+      const value = asked ? (hits >= 3 ? "Y" : "N") : "";
+      return { value, note: "Identity request detected: " + asked + ". Identifier-like keywords found in customer replies: " + hits + " (rubric requires ≥ 3). Keyword count is a proxy, not a real verification check -- confirm manually." };
+    },
+  },
+  "1.3": {
+    mode: "auto",
+    test: (t) => {
+      if (!t.customerName) return null;
+      const first = (t.customerName.split(/\s+/)[0] || "").toLowerCase();
+      if (first.length < 2) return null;
+      const used = t.messages.some((m) => m.sender !== "customer" && m.text.toLowerCase().includes(first));
+      return { value: used ? "Y" : "N", note: 'Searched agent-side messages for "' + t.customerName + '".' };
+    },
+  },
+  "3.5": {
+    mode: "assist",
+    test: (t) => {
+      const hit = t.messages.find((m) => m.sender !== "customer" && /(forward|escalat|technical team|relevant team|transfer)/i.test(m.text));
+      return { value: hit ? "Y" : "", note: hit ? 'Escalation language found: "' + hit.text.slice(0, 140) + '" -- confirm this was the correct team/timing.' : "No escalation-style language detected." };
+    },
+  },
+  "4.1": {
+    mode: "auto",
+    test: (t) => {
+      const hit = t.messages.find((m) => m.sender !== "customer" && /\b(apolog|sorry)\b/i.test(m.text));
+      return { value: hit ? "Y" : "N", note: hit ? '"' + hit.text.slice(0, 140) + '"' : "No apology-style keyword found." };
+    },
+  },
+  "4.2": {
+    mode: "auto",
+    test: (t) => {
+      const hit = t.messages.find((m) => m.sender !== "customer" && /\bunderstand (how|that)\b|i (can |)understand your/i.test(m.text));
+      return { value: hit ? "Y" : "N", note: hit ? '"' + hit.text.slice(0, 140) + '"' : "No explicit empathy phrase found (distinct from an apology)." };
+    },
+  },
+  "4.3": {
+    mode: "auto",
+    test: (t) => {
+      const hit = t.messages.find((m) => m.sender !== "customer" && /(rest assured|will (do (my|our) best|make sure|resolve)|expedit)/i.test(m.text));
+      return { value: hit ? "Y" : "N", note: hit ? '"' + hit.text.slice(0, 140) + '"' : "No reassurance-style phrase found." };
+    },
+  },
+  "4.5": {
+    mode: "assist",
+    test: (t) => {
+      const rude = t.messages.find((m) => m.sender !== "customer" && /\b(shut up|stupid|idiot|whatever|not my problem)\b/i.test(m.text));
+      if (rude) return { value: "N", note: 'Possible unprofessional language: "' + rude.text.slice(0, 140) + '" -- this is an AUTO-FAIL item, confirm carefully.' };
+      const garbled = t.messages.find((m) => m.sender !== "customer" && /\b\w{3} \w{3} \d{1,2} \d{2}:\d{2}:\d{2} \d{4}\b/.test(m.text));
+      if (garbled) return { value: "", note: 'Malformed/unformatted text detected: "' + garbled.text.slice(0, 140) + '" -- review for professionalism before scoring.' };
+      return { value: "", note: "No rudeness or malformed text detected by keyword scan -- still requires a human read for tone/clarity." };
+    },
+  },
+  "5.1": {
+    mode: "auto",
+    test: (t) => {
+      const hit = t.messages.find((m) => m.sender !== "customer" && /(self.?service|\bapp\b|website|ivr|chatbot)/i.test(m.text));
+      return { value: hit ? "Y" : "N", note: hit ? '"' + hit.text.slice(0, 140) + '"' : "No self-service channel mention found." };
+    },
+  },
+  "5.2": {
+    mode: "assist",
+    test: (t) => {
+      const hit = t.messages.find((m) => m.sender !== "customer" && /(fee|charge|rate|procedure|next step|working hours|business day)/i.test(m.text));
+      return { value: "", note: hit ? 'Possible fees/procedure/timeline mention: "' + hit.text.slice(0, 140) + '" -- confirm it is accurate and complete.' : "No fees/procedure/timeline language detected." };
+    },
+  },
+  "5.3": {
+    mode: "assist",
+    test: (t) => {
+      const hit = t.messages.find((m) => m.sender !== "customer" && /(to summarize|in summary|to recap|just to confirm)/i.test(m.text));
+      return { value: hit ? "Y" : "", note: hit ? 'Recap language found: "' + hit.text.slice(0, 140) + '"' : "No recap/summary phrase found before closing." };
+    },
+  },
+  "6.1": {
+    mode: "auto",
+    test: (t) => {
+      const last = [...t.messages].reverse().find((m) => m.sender !== "customer");
+      if (!last) return null;
+      const ok = /(thank you for (contacting|calling)|have a (great|nice|good) day|goodbye)/i.test(last.text);
+      return { value: ok ? "Y" : "N", note: 'Last agent-side message: "' + last.text.slice(0, 140) + '"' };
+    },
+  },
+};
+
+// Items that are voice-only and meaningless for an async chat transcript are
+// auto-marked N/A rather than run through a rule (only applied when the rubric
+// item itself already allows N/A, so this never silently overrides a mandatory item).
+export const AUTO_QA_CHANNEL_NA: Record<string, string> = {
+  "4.4": "Not applicable to an async chat interaction -- auto-marked N/A for this channel.",
+  "6.3": "Defaulted to N/A for an inbound chat complaint; override if a cross-sell moment applies.",
+};
+
+export interface RulePrefill {
+  answers: Record<string, "Y" | "N" | "NA">;
+  comments: Record<string, string>;
+  needsReview: string[];
+}
+
+export function runAutoQARules(transcript: NormalizedTranscript, formSections: FormSection[]): RulePrefill {
+  const answers: Record<string, "Y" | "N" | "NA"> = {};
+  const comments: Record<string, string> = {};
+  const needsReview: string[] = [];
+  (formSections || []).forEach((sec) => {
+    (sec.items || []).forEach((item) => {
+      const id = item.id;
+      if (item.naAllowed && AUTO_QA_CHANNEL_NA[id]) {
+        answers[id] = "NA";
+        comments[id] = AUTO_QA_CHANNEL_NA[id];
+        return;
+      }
+      const rule = AUTO_QA_RULES[id];
+      if (!rule) {
+        needsReview.push(id);
+        comments[id] = "No automated rule for this item -- requires manual QA judgment.";
+        return;
+      }
+      const r = rule.test(transcript);
+      if (!r || r.value === "") {
+        needsReview.push(id);
+        if (r && r.note) comments[id] = r.note;
+        return;
+      }
+      answers[id] = r.value;
+      comments[id] = (rule.mode === "assist" ? "[Auto-suggested -- verify] " : "[Auto] ") + (r.note || "");
+      if (rule.mode === "assist") needsReview.push(id);
+    });
+  });
+  return { answers, comments, needsReview };
+}
+
+// Minimal roster shape needed for name matching -- callers pass whatever subset
+// of the real `agents` bucket rows they have.
+export interface RosterAgent {
+  id: string;
+  name: string;
+  status?: string;
+}
+
+export function matchAgentByName(name: string, agents: RosterAgent[]): RosterAgent | null {
+  if (!name) return null;
+  const norm = (s: string) => (s || "").toLowerCase().replace(/^(ms|mr|mrs|dr)\.?\s+/, "").replace(/[^a-z\s]/g, "").trim();
+  const target = norm(name);
+  if (!target) return null;
+  const active = (agents || []).filter((a) => !a.status || a.status === "Active");
+  return (
+    active.find((a) => norm(a.name) === target) ||
+    active.find((a) => norm(a.name).includes(target) || target.includes(norm(a.name))) ||
+    null
+  );
+}
+
+export interface DraftScore {
+  finalScore: number;
+  autoFailTriggered: boolean;
+  totalEarned: number;
+  totalPossible: number;
+}
+
+// Mirrors the client-side computeScoreFromAnswers()'s section-mode/auto-fail math
+// (index.html, ~line 8611) so the score preview stored on a draft matches exactly
+// what the real evaluation form would compute for the same answers. Auto-Fail
+// unconditionally zeroes the score -- this app's compliance rule, not a setting
+// (see index.html's updateScore()/computeScoreFromAnswers(), fixed to be
+// unconditional this session).
+export function computeDraftScore(formSections: FormSection[], answers: Record<string, string>): DraftScore {
+  let totalEarned = 0;
+  let totalPossible = 0;
+  let autoFailTriggered = false;
+  (formSections || []).forEach((sec) => {
+    const mode = sec.scoringMode || "weighted";
+    const answered = (sec.items || []).filter((it) => answers[it.id] && answers[it.id] !== "NA");
+    const noItems = answered.filter((it) => answers[it.id] === "N");
+    noItems.forEach((it) => {
+      if (it.autoFail) autoFailTriggered = true;
+    });
+    if (mode === "all-or-nothing") {
+      if (answered.length) {
+        totalPossible += sec.totalPoints;
+        totalEarned += noItems.length ? 0 : sec.totalPoints;
+      }
+    } else {
+      answered.forEach((it) => {
+        totalPossible += it.points;
+        if (answers[it.id] === "Y") totalEarned += it.points;
+      });
+    }
+  });
+  let finalScore = totalPossible > 0 ? (totalEarned / totalPossible) * 100 : 0;
+  if (autoFailTriggered) finalScore = 0;
+  return { finalScore: +finalScore.toFixed(1), autoFailTriggered, totalEarned, totalPossible };
+}
+
+export interface ScoredLinkResult {
+  transcript: NormalizedTranscript;
+  prefill: RulePrefill;
+  agentMatch: RosterAgent | null;
+  agentNameGuess: string;
+  draftScore: DraftScore;
+}
+
+// End-to-end orchestrator: fetch -> normalize -> run rules -> match agent -> score.
+// Used identically by the interactive proxy and the daily batch job.
+export async function scoreYellowLink(link: string, formSections: FormSection[], agents: RosterAgent[]): Promise<ScoredLinkResult> {
+  const raw = await fetchYellowTranscript(link);
+  const transcript = normalizeYellowTranscript(raw);
+  const prefill = runAutoQARules(transcript, formSections);
+  const agentMatch = matchAgentByName(transcript.agentNameGuess, agents);
+  const draftScore = computeDraftScore(formSections, prefill.answers);
+  return { transcript, prefill, agentMatch, agentNameGuess: transcript.agentNameGuess, draftScore };
+}
