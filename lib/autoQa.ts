@@ -294,11 +294,12 @@ export function runAutoQARules(transcript: NormalizedTranscript, formSections: F
   return { answers, comments, needsReview };
 }
 
-// Minimal roster shape needed for name matching -- callers pass whatever subset
+// Minimal roster shape needed for matching -- callers pass whatever subset
 // of the real `agents` bucket rows they have.
 export interface RosterAgent {
   id: string;
   name: string;
+  staffId?: string;
   status?: string;
 }
 
@@ -313,6 +314,31 @@ export function matchAgentByName(name: string, agents: RosterAgent[]): RosterAge
     active.find((a) => norm(a.name).includes(target) || target.includes(norm(a.name))) ||
     null
   );
+}
+
+// Staff ID is an exact, unambiguous identifier -- always preferred over the
+// name-based fuzzy match above when a batch upload or individual check
+// supplies one, since agent names collide (see this session's earlier
+// roster-dedup work) but staff IDs don't.
+export function matchAgentByStaffId(staffId: string, agents: RosterAgent[]): RosterAgent | null {
+  const target = (staffId || "").trim().toUpperCase();
+  if (!target) return null;
+  const active = (agents || []).filter((a) => !a.status || a.status === "Active");
+  return active.find((a) => (a.staffId || "").trim().toUpperCase() === target) || null;
+}
+
+// Optional pre-known fields a batch upload (or an individual "Check Now") can
+// supply alongside a link, so the resulting draft doesn't have to guess
+// campaign/date/agent from the transcript alone -- these are exactly the
+// fields resolveAutoQaDraft() requires before a draft can be approved, so
+// supplying them up front is what actually removes reviewer busywork.
+export interface LinkHints {
+  staffId?: string;
+  agentName?: string;
+  campaign?: string;
+  evalDate?: string;
+  refNo?: string;
+  mobileNumber?: string;
 }
 
 export interface DraftScore {
@@ -360,17 +386,56 @@ export interface ScoredLinkResult {
   transcript: NormalizedTranscript;
   prefill: RulePrefill;
   agentMatch: RosterAgent | null;
+  agentMatchSource: "staffId" | "hintName" | "transcriptGuess" | "none";
   agentNameGuess: string;
   draftScore: DraftScore;
+  resolvedCampaign: string;
+  resolvedEvalDate: string;
+  resolvedRefNo: string;
+  resolvedMobileNumber: string;
 }
 
 // End-to-end orchestrator: fetch -> normalize -> run rules -> match agent -> score.
-// Used identically by the interactive proxy and the daily batch job.
-export async function scoreYellowLink(link: string, formSections: FormSection[], agents: RosterAgent[]): Promise<ScoredLinkResult> {
+// Used identically by the interactive proxy and the daily batch job. `hints`
+// are optional pre-known fields from a batch upload row (or an individual
+// "Check Now" call) -- when supplied they take priority over guessing from
+// the transcript, since they're what a human already knows to be true.
+export async function scoreYellowLink(
+  link: string,
+  formSections: FormSection[],
+  agents: RosterAgent[],
+  hints: LinkHints = {},
+): Promise<ScoredLinkResult> {
   const raw = await fetchYellowTranscript(link);
   const transcript = normalizeYellowTranscript(raw);
   const prefill = runAutoQARules(transcript, formSections);
-  const agentMatch = matchAgentByName(transcript.agentNameGuess, agents);
+
+  let agentMatch: RosterAgent | null = null;
+  let agentMatchSource: ScoredLinkResult["agentMatchSource"] = "none";
+  if (hints.staffId) {
+    agentMatch = matchAgentByStaffId(hints.staffId, agents);
+    if (agentMatch) agentMatchSource = "staffId";
+  }
+  if (!agentMatch && hints.agentName) {
+    agentMatch = matchAgentByName(hints.agentName, agents);
+    if (agentMatch) agentMatchSource = "hintName";
+  }
+  if (!agentMatch) {
+    agentMatch = matchAgentByName(transcript.agentNameGuess, agents);
+    if (agentMatch) agentMatchSource = "transcriptGuess";
+  }
+
   const draftScore = computeDraftScore(formSections, prefill.answers);
-  return { transcript, prefill, agentMatch, agentNameGuess: transcript.agentNameGuess, draftScore };
+  return {
+    transcript,
+    prefill,
+    agentMatch,
+    agentMatchSource,
+    agentNameGuess: hints.agentName || transcript.agentNameGuess,
+    draftScore,
+    resolvedCampaign: hints.campaign || "",
+    resolvedEvalDate: hints.evalDate || (transcript.messages[0]?.ts || new Date().toISOString()).slice(0, 10),
+    resolvedRefNo: hints.refNo || "",
+    resolvedMobileNumber: hints.mobileNumber || "",
+  };
 }

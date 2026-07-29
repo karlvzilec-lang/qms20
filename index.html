@@ -1430,14 +1430,27 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
 
   <div class="qa-header-card">
     <div style="font-size:14px;font-weight:800;margin-bottom:10px;">📅 Daily Batch — Upload Link Excel</div>
-    <div style="font-size:12px;color:var(--gray);margin-bottom:8px;">Upload a .xlsx/.xls/.csv with one Yellow Messenger link per row (any column header works — the first column is used). New links are queued and picked up automatically by the daily Auto QA job; links already in the queue are skipped, so re-uploading an updated daily file is always safe.</div>
-    <input type="file" id="autoQaLinkFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="autoQaHandleLinkFile(this)">
-    <button class="btn btn-primary" onclick="document.getElementById('autoQaLinkFile').click()" style="display:flex;align-items:center;gap:6px;">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Upload Link Excel
-    </button>
-    <span id="autoQaLinkUploadStatus" style="font-size:12px;color:var(--gray);margin-left:10px;"></span>
-    <div id="autoQaLinkQueueSummary" style="margin-top:12px;font-size:12px;color:var(--gray);"></div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:8px;">Upload a .xlsx/.xls/.csv of transcript links — download the template below for the recommended columns. Only <strong>Link</strong> is required; <strong>Staff ID, Campaign, and Eval Date</strong> are the fields that otherwise have to be filled in by hand at review time, so supplying them here saves that work. New links are queued and picked up automatically by the daily Auto QA job (or checked individually below); links already in the queue are skipped, so re-uploading an updated daily file is always safe.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <input type="file" id="autoQaLinkFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="autoQaHandleLinkFile(this)">
+      <button class="btn btn-primary" onclick="document.getElementById('autoQaLinkFile').click()" style="display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload Link Excel
+      </button>
+      <button class="btn btn-outline" onclick="autoQaDownloadLinkTemplate()" style="display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Template
+      </button>
+      <span id="autoQaLinkUploadStatus" style="font-size:12px;color:var(--gray);"></span>
+    </div>
+    <div style="overflow-x:auto;margin-top:12px;">
+      <table class="attr-table" style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th>Link</th><th>Staff ID</th><th>Agent</th><th>Campaign</th><th>Eval Date</th><th>Status</th><th>Action</th>
+        </tr></thead>
+        <tbody id="autoQaLinkQueueBody"><tr><td colspan="7" style="text-align:center;color:var(--gray);padding:20px;">No links uploaded yet.</td></tr></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="qa-header-card">
@@ -6618,7 +6631,7 @@ function showScreen(name,btn){
   if(btn) btn.classList.add('active');
   if(name==='dashboard') renderDashboard();
   if(name==='tlteam'){ populateMonthFilter('tlTeamMonth','tlteam'); renderTLTeamView(); }
-  if(name==='autoqa'){ renderAutoQAQueue(); renderAutoQaLinkQueueSummary(); }
+  if(name==='autoqa'){ renderAutoQAQueue(); renderAutoQaLinkQueueTable(); }
   if(name==='evaluation'){
     buildEvalForm(); populateAgentDropdown(); populateCampaignDropdown();
     // Auto-fill the readonly QA Officer field from the current session
@@ -9050,8 +9063,14 @@ function _doSubmitEval(){
 
 let _autoQAQueue = []; // {id, link, status, transcript, prefill, agentId, agentMatchConfident, agentNameGuess, draftScore, formId, error}
 
-async function _fetchAndScoreYellowLink(link){
-  const res = await fetch('/api/yellow-transcript?url=' + encodeURIComponent(link), { headers: _authHeaders() });
+async function _fetchAndScoreYellowLink(link, hints){
+  let qs = 'url=' + encodeURIComponent(link);
+  if(hints){
+    ['staffId','agentName','campaign','evalDate','refNo','mobileNumber'].forEach(k=>{
+      if(hints[k]) qs += '&'+k+'='+encodeURIComponent(hints[k]);
+    });
+  }
+  const res = await fetch('/api/yellow-transcript?' + qs, { headers: _authHeaders() });
   let json = null;
   try{ json = await res.json(); }catch(_e){}
   if(!res.ok || !json || json.success === false){
@@ -9078,9 +9097,14 @@ async function autoQAFetchAll(){
       q.prefill = r.prefill;
       q.agentId = r.agentMatch ? r.agentMatch.id : '';
       q.agentMatchConfident = !!r.agentMatch;
+      q.agentMatchSource = r.agentMatchSource;
       q.agentNameGuess = r.agentNameGuess;
       q.draftScore = r.draftScore;
       q.formId = r.formId;
+      q.resolvedCampaign = r.resolvedCampaign;
+      q.resolvedEvalDate = r.resolvedEvalDate;
+      q.resolvedRefNo = r.resolvedRefNo;
+      q.resolvedMobileNumber = r.resolvedMobileNumber;
       q.status = 'ready';
     }catch(e){
       q.status = 'error';
@@ -9161,10 +9185,13 @@ function saveAutoQAItemAsDraft(id){
     formId: q.formId,
     proposedAgentId: q.agentId||'',
     agentMatchConfident: q.agentMatchConfident,
+    agentMatchSource: q.agentMatchSource||'transcriptGuess',
     agentNameGuess: q.agentNameGuess,
-    proposedCampaign: '',
+    proposedCampaign: q.resolvedCampaign||'',
     proposedCallType: 'Chat',
-    proposedEvalDate: (q.transcript.messages[0]&&q.transcript.messages[0].ts ? q.transcript.messages[0].ts : new Date().toISOString()).slice(0,10),
+    proposedEvalDate: q.resolvedEvalDate || (q.transcript.messages[0]&&q.transcript.messages[0].ts ? q.transcript.messages[0].ts : new Date().toISOString()).slice(0,10),
+    proposedRefNo: q.resolvedRefNo||'',
+    proposedMobileNumber: q.resolvedMobileNumber||'',
     resolvedAt: null, resolvedBy: null, finalAnswers: null, finalRecordId: null, rejectionNote: null,
   };
   const drafts = getAutoQaDrafts();
@@ -9199,12 +9226,45 @@ function exportAutoQAQueueToExcel(){
 }
 
 // ── Daily batch: Excel-of-links upload ──────────────────────────────────
+// Downloads an .xlsx template with the essential columns a batch upload can
+// supply. Only Link is required; Staff ID, Campaign, and Eval Date are what
+// resolveAutoQaDraft() otherwise requires a human to fill in by hand at
+// review time (agent is fuzzy-matched from the transcript when no Staff ID
+// is given), so supplying them here is what actually saves reviewer effort.
+function autoQaDownloadLinkTemplate(){
+  const rows = [
+    ['Link','Staff ID','Agent Name','Campaign','Eval Date','Ref No.','Mobile Number'],
+    ['https://app.yellow.ai/public/messages/<signature>/start/<ms>/end/<ms>','CC-001','','FTTH Chat','2026-07-29','REF-10201','012345678'],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:60},{wch:12},{wch:20},{wch:18},{wch:12},{wch:14},{wch:16}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Auto QA Links');
+  XLSX.writeFile(wb, 'QMS20_AutoQA_Link_Template.xlsx');
+}
+
 // Reuses the same FileReader + XLSX.read pattern Data Import Hub already uses
-// for .xlsx/.xls (dihHandleFile) rather than inventing a new one. Expects a
-// header row plus a link column (first column is used, any header name works).
-// New links are queued for the daily scheduled job (auto-qa-daily.ts); links
-// already present (any status) are skipped so re-uploading an updated daily
-// file never double-processes yesterday's links.
+// for .xlsx/.xls (dihHandleFile) rather than inventing a new one. Parses by
+// HEADER NAME (case-insensitive) so column order doesn't matter and optional
+// columns can be omitted entirely; falls back to "first column = link, no
+// other fields" for older files with no recognizable header row. New links
+// are queued for the daily scheduled job (auto-qa-daily.ts) or an individual
+// "Check Now"; links already present (any status) are skipped so re-uploading
+// an updated daily file never double-processes yesterday's links.
+const _AUTOQA_COL_ALIASES = {
+  link: ['link','url','transcript link','yellow link'],
+  staffId: ['staff id','staffid','staff_id','id'],
+  agentName: ['agent name','agent','agentname'],
+  campaign: ['campaign','queue'],
+  evalDate: ['eval date','evaldate','date'],
+  refNo: ['ref no.','ref no','refno','reference','reference no'],
+  mobileNumber: ['mobile number','mobile','phone','mobile no'],
+};
+function _autoQaFindCol(headerRow, aliases){
+  const norm = headerRow.map(h=>String(h||'').trim().toLowerCase());
+  for(const a of aliases){ const i = norm.indexOf(a); if(i>=0) return i; }
+  return -1;
+}
 function autoQaHandleLinkFile(input){
   const file = input.files && input.files[0];
   if(!file) return;
@@ -9226,48 +9286,138 @@ function autoQaHandleLinkFile(input){
       toast('Could not read file: ' + (err.message||err),'error');
       return;
     }
-    // First column, skipping a header-looking first row (no http in it) and blanks.
-    const links = rows
-      .map(r=>(r&&r[0]!=null ? String(r[0]).trim() : ''))
-      .filter(v=>/^https?:\/\//i.test(v));
-    if(!links.length){ if(statusEl) statusEl.textContent=''; toast('No links found in the first column.','error'); return; }
+    rows = rows.filter(r=>r && r.length && r.some(c=>c!=null && String(c).trim()!==''));
+    if(!rows.length){ if(statusEl) statusEl.textContent=''; toast('File is empty.','error'); return; }
+
+    // Detect a real header row (column names, not the first data row) by
+    // checking whether it maps to at least the Link column via our aliases.
+    const linkColByHeader = _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.link);
+    const hasHeader = linkColByHeader>=0;
+    const cols = hasHeader ? {
+      link: linkColByHeader,
+      staffId: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.staffId),
+      agentName: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.agentName),
+      campaign: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.campaign),
+      evalDate: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.evalDate),
+      refNo: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.refNo),
+      mobileNumber: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.mobileNumber),
+    } : { link:0, staffId:-1, agentName:-1, campaign:-1, evalDate:-1, refNo:-1, mobileNumber:-1 };
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+
+    const cell = (r,i)=> (i>=0 && r[i]!=null) ? String(r[i]).trim() : '';
+    const parsed = dataRows
+      .map(r=>({
+        link: cell(r, cols.link),
+        staffId: cell(r, cols.staffId),
+        agentName: cell(r, cols.agentName),
+        campaign: cell(r, cols.campaign),
+        evalDate: cell(r, cols.evalDate),
+        refNo: cell(r, cols.refNo),
+        mobileNumber: cell(r, cols.mobileNumber),
+      }))
+      .filter(row=>/^https?:\/\//i.test(row.link));
+    if(!parsed.length){ if(statusEl) statusEl.textContent=''; toast('No valid links found (expected an http(s) link in the Link column).','error'); return; }
+
     const queue = getAutoQaLinkQueue();
     const existing = new Set(queue.map(r=>r.link));
     const user = getCurrentUser();
     const batchId = uuid();
     let added = 0, dup = 0;
-    links.forEach(link=>{
-      if(existing.has(link)){ dup++; return; }
-      existing.add(link);
+    parsed.forEach(row=>{
+      if(existing.has(row.link)){ dup++; return; }
+      existing.add(row.link);
       queue.push({
-        id: uuid(), link, source:'excel-upload',
+        id: uuid(), link: row.link, source:'excel-upload',
         uploadedBy: user ? (user.displayName||user.username) : 'unknown',
         uploadedAt: new Date().toISOString(), uploadBatchId: batchId,
         status:'queued', processedAt:null, draftId:null, error:null,
+        staffId: row.staffId||'', agentName: row.agentName||'', campaign: row.campaign||'',
+        evalDate: row.evalDate||'', refNo: row.refNo||'', mobileNumber: row.mobileNumber||'',
       });
       added++;
     });
     saveAutoQaLinkQueue(queue);
-    if(statusEl) statusEl.textContent = added + ' new link' + (added!==1?'s':'') + ' queued' + (dup?(', ' + dup + ' duplicate skipped'):'') + '.';
+    if(statusEl) statusEl.textContent = added + ' new link' + (added!==1?'s':'') + ' queued' + (dup?(', ' + dup + ' duplicate skipped'):'') + (hasHeader?'':' (no header row detected — only links were read, no other fields)') + '.';
     toast(added + ' new link(s) queued for the daily Auto QA batch.','success');
-    renderAutoQaLinkQueueSummary();
+    renderAutoQaLinkQueueTable();
     input.value = '';
   };
   if(file.name.toLowerCase().endsWith('.csv')) reader.readAsText(file);
   else reader.readAsBinaryString(file);
 }
 
-function renderAutoQaLinkQueueSummary(){
-  const el = document.getElementById('autoQaLinkQueueSummary');
-  if(!el) return;
+function renderAutoQaLinkQueueTable(){
+  const body = document.getElementById('autoQaLinkQueueBody');
+  if(!body) return;
   const queue = getAutoQaLinkQueue();
-  if(!queue.length){ el.textContent = 'No links uploaded yet.'; return; }
-  const counts = { queued:0, processed:0, error:0, duplicate:0 };
-  queue.forEach(r=>{ if(counts[r.status]!=null) counts[r.status]++; });
-  el.innerHTML = `<strong>${queue.length}</strong> total links — `
-    + `<span style="color:#d97706;">${counts.queued} queued</span> · `
-    + `<span style="color:#16a34a;">${counts.processed} processed</span> · `
-    + `<span style="color:#dc2626;">${counts.error} error${counts.error!==1?'s':''}</span>`;
+  if(!queue.length){ body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--gray);padding:20px;">No links uploaded yet.</td></tr>'; return; }
+  const statusBadges = {
+    queued:    '<span class="cov-badge" style="background:#fef3c7;color:#92400e;">Queued</span>',
+    checking:  '<span class="cov-badge" style="background:#fef3c7;color:#92400e;">Checking…</span>',
+    processed: '<span class="cov-badge" style="background:#dcfce7;color:#16a34a;">Processed</span>',
+    error:     '<span class="cov-badge" style="background:#fee2e2;color:#dc2626;">Error</span>',
+    duplicate: '<span class="cov-badge" style="background:#f1f5f9;color:#64748b;">Duplicate</span>',
+  };
+  body.innerHTML = queue.slice().reverse().map(r=>{
+    const actionCell = r.status==='queued'
+      ? '<button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="autoQaCheckLinkNow(\''+r.id+'\')">Check Now</button>'
+      : (r.status==='error' ? '<span title="'+esc(r.error||'')+'" style="color:#dc2626;font-size:11px;">⚠ '+esc((r.error||'').slice(0,50))+'</span>' : (r.status==='processed' ? '<span style="color:#16a34a;font-size:11px;">✓ In review queue</span>' : ''));
+    return '<tr>'
+      + '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;" title="'+esc(r.link)+'">'+esc(r.link)+'</td>'
+      + '<td>'+esc(r.staffId||'—')+'</td>'
+      + '<td>'+esc(r.agentName||'—')+'</td>'
+      + '<td>'+esc(r.campaign||'—')+'</td>'
+      + '<td>'+esc(r.evalDate||'—')+'</td>'
+      + '<td>'+(statusBadges[r.status]||r.status)+'</td>'
+      + '<td>'+actionCell+'</td>'
+      + '</tr>';
+  }).join('');
+}
+
+// Lets a QA officer process one queued link right now instead of waiting for
+// the nightly batch (auto-qa-daily.ts) — same scoring path as the interactive
+// "paste links" flow, just sourced from a queue row (with its hints) instead
+// of the free-text textarea, and it creates the draft immediately rather than
+// requiring a separate "Save as Draft" click.
+async function autoQaCheckLinkNow(rowId){
+  const queue = getAutoQaLinkQueue();
+  const row = queue.find(r=>r.id===rowId);
+  if(!row || row.status!=='queued') return;
+  row.status = 'checking';
+  saveAutoQaLinkQueue(queue);
+  renderAutoQaLinkQueueTable();
+  try{
+    const r = await _fetchAndScoreYellowLink(row.link, {
+      staffId: row.staffId, agentName: row.agentName, campaign: row.campaign,
+      evalDate: row.evalDate, refNo: row.refNo, mobileNumber: row.mobileNumber,
+    });
+    const user = getCurrentUser();
+    const draft = {
+      id: uuid(), link: row.link, status: 'pending',
+      createdBy: user ? (user.displayName||user.username) : 'unknown',
+      createdAt: new Date().toISOString(),
+      transcript: r.transcript, scoringMethod: 'rule-based',
+      proposedAnswers: r.prefill.answers, proposedComments: r.prefill.comments, needsReview: r.prefill.needsReview,
+      draftScore: r.draftScore, formId: r.formId,
+      proposedAgentId: r.agentMatch ? r.agentMatch.id : '',
+      agentMatchConfident: !!r.agentMatch, agentMatchSource: r.agentMatchSource, agentNameGuess: r.agentNameGuess,
+      proposedCampaign: r.resolvedCampaign, proposedCallType: 'Chat', proposedEvalDate: r.resolvedEvalDate,
+      proposedRefNo: r.resolvedRefNo, proposedMobileNumber: r.resolvedMobileNumber,
+      resolvedAt: null, resolvedBy: null, finalAnswers: null, finalRecordId: null, rejectionNote: null,
+    };
+    const drafts = getAutoQaDrafts();
+    drafts.unshift(draft);
+    saveAutoQaDrafts(drafts);
+    logChange('evaluation','Auto QA Draft Saved',`Individual "Check Now" — saved Auto QA draft for "${r.agentNameGuess||'unmatched agent'}" (draft score ${r.draftScore.finalScore}%) — awaiting QA approval`,'QMS');
+    row.status = 'processed'; row.processedAt = new Date().toISOString(); row.draftId = draft.id; row.error = null;
+    checkPendingAutoQaDrafts();
+    toast('Checked — saved as draft, awaiting QA approval.','success');
+  }catch(e){
+    row.status = 'error'; row.error = e && e.message ? e.message : String(e);
+    toast('Check failed: ' + row.error,'error');
+  }
+  saveAutoQaLinkQueue(queue);
+  renderAutoQaLinkQueueTable();
 }
 
 // ═══════════════════════════════════════════════════
@@ -25183,12 +25333,18 @@ function _renderAutoQaDraftReviewForm(draft){
   const agents = getAgents().filter(a=>a.status==='Active');
   const campaigns = getCampaigns();
   const needsReview = new Set(draft.needsReview||[]);
+  const matchNote = draft.agentMatchSource==='staffId'
+    ? '<small style="color:#16a34a;">Matched by Staff ID from the batch upload.</small>'
+    : draft.agentMatchSource==='hintName'
+      ? '<small style="color:#16a34a;">Matched by agent name from the batch upload.</small>'
+      : draft.agentMatchConfident
+        ? '<small style="color:#d97706;">Guessed from the transcript name ("'+esc(draft.agentNameGuess||'')+'") — please confirm.</small>'
+        : '<small style="color:#dc2626;">Not confidently matched from the transcript ("'+esc(draft.agentNameGuess||'unknown')+'") — please confirm.</small>';
   let html = '<div class="form-group" style="margin-bottom:8px;"><label>Agent</label>'
     + '<select id="aqdAgent" style="width:100%;">'
     + '<option value="">— Select Agent —</option>'
     + agents.map(a=>'<option value="'+esc(a.id)+'"'+(a.id===draft.proposedAgentId?' selected':'')+'>'+esc(a.name)+'</option>').join('')
-    + '</select>'
-    + (!draft.agentMatchConfident ? '<small style="color:#dc2626;">Not confidently matched from the transcript ("'+esc(draft.agentNameGuess||'unknown')+'") — please confirm.</small>' : '')
+    + '</select>' + matchNote
     + '</div>'
     + '<div class="form-group" style="margin-bottom:8px;"><label>Campaign</label>'
     + '<select id="aqdCampaign" style="width:100%;"><option value="">— Select Campaign —</option>'
@@ -25196,7 +25352,8 @@ function _renderAutoQaDraftReviewForm(draft){
     + '</select></div>'
     + '<div style="display:flex;gap:10px;">'
     + '<div class="form-group" style="flex:1;"><label>Eval Date</label><input type="date" id="aqdEvalDate" value="'+esc(draft.proposedEvalDate||today())+'" style="width:100%;"></div>'
-    + '<div class="form-group" style="flex:1;"><label>Ref No.</label><input type="text" id="aqdRefNo" placeholder="REF-XXXXX" style="width:100%;"></div>'
+    + '<div class="form-group" style="flex:1;"><label>Ref No.</label><input type="text" id="aqdRefNo" value="'+esc(draft.proposedRefNo||'')+'" placeholder="REF-XXXXX" style="width:100%;"></div>'
+    + '<div class="form-group" style="flex:1;"><label>Mobile Number</label><input type="text" id="aqdMobile" value="'+esc(draft.proposedMobileNumber||'')+'" placeholder="0XX-XXX-XXXX" style="width:100%;"></div>'
     + '</div>';
   html += '<div style="max-height:280px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;margin-top:8px;">';
   (form||[]).forEach(function(sec){
@@ -25326,6 +25483,7 @@ function resolveAutoQaDraft(status){
     const agent = getAgents().find(a=>a.id===agentId);
     const remarks = document.getElementById('aqdRemarks').value;
     const refNo = document.getElementById('aqdRefNo').value.trim();
+    const mobileNumber = document.getElementById('aqdMobile').value.trim();
 
     const record = {
       id: uuid(),
@@ -25333,7 +25491,7 @@ function resolveAutoQaDraft(status){
       formName: formObj ? formObj.name : 'Standard QA Form',
       agentId, agentName: agent?agent.name:agentId, agentTeam: agent?agent.team:'',
       qaOfficer: (getCurrentUser()||{}).displayName||(getCurrentUser()||{}).username||'unknown',
-      evalDate, callDateTime:'', duration:'', refNo, mobileNumber:'',
+      evalDate, callDateTime:'', duration:'', refNo, mobileNumber,
       reasonForCalling:'', callType: draft.proposedCallType||'Chat', campaign, remarks,
       answers, comments: draft.proposedComments||{},
       finalScore: scored.finalScore, result: scored.autoFailTriggered?'AUTO FAIL':(scored.finalScore>=passScore?'PASS':'FAIL'),

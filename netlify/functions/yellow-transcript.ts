@@ -30,10 +30,22 @@ export default async (req: Request) => {
     }
   }
 
-  const url = new URL(req.url).searchParams.get("url") || "";
+  const params = new URL(req.url).searchParams;
+  const url = params.get("url") || "";
   if (!url) {
     return Response.json({ success: false, error: "Missing 'url' query parameter" }, { status: 400 });
   }
+  // Optional pre-known fields (from a batch-upload row, or an individual "Check
+  // Now" call) -- take priority over guessing agent/campaign/date from the
+  // transcript alone. See scoreYellowLink() in lib/autoQa.ts.
+  const hints = {
+    staffId: params.get("staffId") || undefined,
+    agentName: params.get("agentName") || undefined,
+    campaign: params.get("campaign") || undefined,
+    evalDate: params.get("evalDate") || undefined,
+    refNo: params.get("refNo") || undefined,
+    mobileNumber: params.get("mobileNumber") || undefined,
+  };
 
   try {
     const [forms, agents] = await Promise.all([
@@ -45,7 +57,7 @@ export default async (req: Request) => {
       return Response.json({ success: false, error: "No published QA form found" }, { status: 503 });
     }
 
-    const result = await scoreYellowLink(url, published.sections, agents || []);
+    const result = await scoreYellowLink(url, published.sections, agents || [], hints);
     return Response.json({
       success: true,
       formId: published.id,

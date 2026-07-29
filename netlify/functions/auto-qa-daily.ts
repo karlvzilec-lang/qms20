@@ -32,6 +32,16 @@ interface QueueRow {
   processedAt?: string | null;
   draftId?: string | null;
   error?: string | null;
+  // Optional essential fields from the batch-upload template -- see
+  // scoreYellowLink()'s `hints` param in lib/autoQa.ts. All optional; a row
+  // uploaded with only a link still processes, just with more left for the
+  // reviewer to fill in on the Auto QA Drafts screen.
+  staffId?: string;
+  agentName?: string;
+  campaign?: string;
+  evalDate?: string;
+  refNo?: string;
+  mobileNumber?: string;
   [key: string]: unknown;
 }
 
@@ -64,7 +74,14 @@ export default async () => {
 
   for (const row of pending) {
     try {
-      const result = await scoreYellowLink(row.link, published.sections, agents || []);
+      const result = await scoreYellowLink(row.link, published.sections, agents || [], {
+        staffId: row.staffId,
+        agentName: row.agentName,
+        campaign: row.campaign,
+        evalDate: row.evalDate,
+        refNo: row.refNo,
+        mobileNumber: row.mobileNumber,
+      });
       const draftId = crypto.randomUUID();
       draftsToUpsert.push({
         id: draftId,
@@ -81,10 +98,13 @@ export default async () => {
         formId: published.id,
         proposedAgentId: result.agentMatch?.id || "",
         agentMatchConfident: !!result.agentMatch,
+        agentMatchSource: result.agentMatchSource,
         agentNameGuess: result.agentNameGuess,
-        proposedCampaign: "",
+        proposedCampaign: result.resolvedCampaign,
         proposedCallType: "Chat",
-        proposedEvalDate: (result.transcript.messages[0]?.ts || new Date().toISOString()).slice(0, 10),
+        proposedEvalDate: result.resolvedEvalDate,
+        proposedRefNo: result.resolvedRefNo,
+        proposedMobileNumber: result.resolvedMobileNumber,
         resolvedAt: null,
         resolvedBy: null,
         finalAnswers: null,
