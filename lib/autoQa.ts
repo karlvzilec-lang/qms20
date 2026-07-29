@@ -532,26 +532,52 @@ export async function scoreTranscriptWithLLM(
   const endpoint = config.endpoint || "https://api.anthropic.com/v1/messages";
   const model = config.model || DEFAULT_LLM_MODEL;
 
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": config.apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 3000,
-      system,
-      messages: [{ role: "user", content: user }],
-    }),
-  });
+  // Netlify Functions here run with no extended-timeout config, so a synchronous
+  // function has a short (platform-default, ~10s) execution budget -- if the LLM
+  // call runs long, Netlify kills the whole function with an opaque 502 before our
+  // own try/catch in scoreYellowLink() ever gets a chance to fall back to the
+  // rule-based engine. Aborting a bit before that budget and letting the existing
+  // fallback path handle it gives a usable (if less accurate) draft instead of a
+  // dead end. This model defaults to extended thinking even when not requested
+  // (confirmed against a real response), which both eats into that same time
+  // budget for no benefit here (we only need the final JSON, not the reasoning
+  // trace) and pushes the actual answer to a later content block -- so thinking
+  // is explicitly disabled below, and the answer block is found by type rather
+  // than assumed to be content[0].
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": config.apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 2000,
+        thinking: { type: "disabled" },
+        system,
+        messages: [{ role: "user", content: user }],
+      }),
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error("LLM request timed out");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`LLM request failed (HTTP ${res.status}): ${body.slice(0, 300)}`);
   }
-  const json = (await res.json()) as { content?: Array<{ text?: string }> };
-  const raw = json.content?.[0]?.text || "";
+  const json = (await res.json()) as { content?: Array<{ type?: string; text?: string }> };
+  const raw = json.content?.find((c) => c.type === "text")?.text || "";
   let parsed: {
     items?: Record<string, { answer?: string; reasoning?: string }>;
     languageNote?: string;
