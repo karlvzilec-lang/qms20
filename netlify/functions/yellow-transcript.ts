@@ -58,9 +58,14 @@ export default async (req: Request) => {
       return Response.json({ success: false, error: "No published QA form found" }, { status: 503 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY || "";
+    // AUTOQA_AI_API_KEY is the name actually configured in Netlify for this project --
+    // ANTHROPIC_API_KEY is kept as a fallback only because Netlify's own Anthropic
+    // extension (if enabled on the team) auto-injects a var under that exact name, which
+    // is NOT the user's key and previously caused every call to fail with 401 invalid
+    // x-api-key while looking like a configured, working key.
+    const apiKey = process.env.AUTOQA_AI_API_KEY || process.env.ANTHROPIC_API_KEY || "";
     const llmConfig: LlmScoringConfig | undefined = apiKey
-      ? { apiKey, model: process.env.ANTHROPIC_MODEL || undefined }
+      ? { apiKey, model: process.env.AUTOQA_AI_MODEL || process.env.ANTHROPIC_MODEL || undefined }
       : undefined;
     const corrections = getRecentCorrections(drafts || [], published.sections);
     const result = await scoreYellowLink(url, published.sections, agents || [], hints, llmConfig, corrections);

@@ -69,9 +69,12 @@ export default async () => {
     return Response.json({ ok: false, error: "No published QA form found -- skipped this run." }, { status: 503 });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY || "";
+  // See yellow-transcript.ts for why AUTOQA_AI_API_KEY must be tried first: Netlify's
+  // own Anthropic extension (if enabled on the team) auto-injects an unrelated,
+  // non-working value under the plain ANTHROPIC_API_KEY name.
+  const apiKey = process.env.AUTOQA_AI_API_KEY || process.env.ANTHROPIC_API_KEY || "";
   const llmConfig: LlmScoringConfig | undefined = apiKey
-    ? { apiKey, model: process.env.ANTHROPIC_MODEL || undefined }
+    ? { apiKey, model: process.env.AUTOQA_AI_MODEL || process.env.ANTHROPIC_MODEL || undefined }
     : undefined;
   const corrections = getRecentCorrections(drafts || [], published.sections);
 
