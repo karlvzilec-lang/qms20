@@ -6645,6 +6645,12 @@ function showScreen(name,btn){
   if(name==='tlteam'){ populateMonthFilter('tlTeamMonth','tlteam'); renderTLTeamView(); }
   if(name==='autoqa'){ renderAutoQAQueue(); renderAutoQaLinkQueueTable(); }
   if(name==='evaluation'){
+    // Always start from the default/first-published form on screen entry --
+    // startEvalFromAutoQaDraft() is the one caller that needs a SPECIFIC form
+    // (the one the draft was scored against), and re-applies it itself in its
+    // own post-render callback rather than leaving it set here, so a later
+    // unrelated "New Evaluation" never silently inherits a draft's rubric.
+    _selectedFormId = null;
     buildEvalForm(); populateAgentDropdown(); populateCampaignDropdown();
     // Auto-fill the readonly QA Officer field from the current session
     const _evalU = getCurrentUser();
@@ -8454,8 +8460,17 @@ let evalComments = {}; // { itemId: '...' }
 // startEvalFromAutoQaDraft() itself sets this, always AFTER this reset runs.
 let _activeAutoQaDraftId = null;
 
+// Bumped every time the eval form is (re)built. startEvalFromAutoQaDraft()'s
+// prefill runs 120ms after navigating (waiting for the DOM to render), and
+// captures the counter's value at that moment -- if the counter has moved on
+// by the time the delayed callback fires (e.g. the officer already navigated
+// to a second, unrelated evaluation in that window), the callback is stale
+// and must not touch the -- now unrelated -- form that's on screen.
+let _evalFormGeneration = 0;
+
 function buildEvalForm(){
   _activeAutoQaDraftId = null;
+  _evalFormGeneration++;
   const _aqBanner = document.getElementById('autoQaEvalBanner');
   if(_aqBanner) _aqBanner.style.display = 'none';
   evalStartTime = Date.now();
@@ -8925,13 +8940,32 @@ function startEvalFromAutoQaDraft(draftId){
   if(!draft){ toast('Draft not found.','error'); return; }
   if(draft.status!=='pending'){ toast('This draft has already been resolved.','error'); return; }
 
-  if(draft.formId && getFormById(draft.formId)) _selectedFormId = draft.formId;
   const evalNavBtn = Array.from(document.querySelectorAll('.nav-btn')).find(b=>b.textContent.includes('Evaluation')||b.onclick?.toString().includes('evaluation'));
   showScreen('evaluation', evalNavBtn || document.querySelectorAll('.nav-btn')[1]);
+  // Captured AFTER showScreen()'s own buildEvalForm() call above (which bumps
+  // the counter) -- this is the generation this specific prefill belongs to.
+  const myGeneration = _evalFormGeneration;
 
   setTimeout(()=>{
-    // buildEvalForm() (triggered by showScreen above) already reset
-    // _activeAutoQaDraftId and evalAnswers/evalComments to a blank state.
+    // If the officer already navigated to a different evaluation (normal or
+    // another draft) in the 120ms it took the DOM to render, the counter has
+    // moved on -- this callback belongs to a screen that's no longer showing,
+    // so it must not touch whatever form is on screen now.
+    if(_evalFormGeneration !== myGeneration) return;
+
+    // The draft may have been scored against a different form than the
+    // default -- buildEvalForm() (triggered by showScreen above) already
+    // rendered the default form, so switch and rebuild here, inside this
+    // guarded callback, rather than setting _selectedFormId before
+    // navigating (which would leak it into any later, unrelated evaluation
+    // -- see the reset in showScreen()'s 'evaluation' branch).
+    const formObj = draft.formId ? getFormById(draft.formId) : null;
+    if(formObj && _selectedFormId !== formObj.id){
+      _selectedFormId = formObj.id;
+      buildEvalForm();
+      _evalFormGeneration = myGeneration; // this rebuild is still part of the same prefill, not a competing one
+    }
+
     const t = draft.transcript || {messages:[]};
 
     // Agent — only auto-fill the hidden id with a CONFIRMED roster match;
@@ -8990,8 +9024,7 @@ function startEvalFromAutoQaDraft(draftId){
     const remarksEl = document.getElementById('evalRemarks');
     if(remarksEl) remarksEl.value = draft.proposedOverallRemarks || '';
 
-    // Per-item answers + comments
-    const formObj = draft.formId ? getFormById(draft.formId) : null;
+    // Per-item answers + comments (formObj already resolved above)
     const sections = formObj ? formObj.sections : getForm();
     const needsReview = new Set(draft.needsReview||[]);
     (sections||[]).forEach(sec=>(sec.items||[]).forEach(item=>{
@@ -9140,7 +9173,18 @@ function submitEval(){
   _doSubmitEval();
 }
 
+// Guards against a double-submit creating two records from one form: the
+// actual persistence in _doSubmitEval() below is delayed 700ms (for the
+// loading spinner), during which a second click on any of the three
+// Submit-bound buttons would otherwise pass every check again (the first
+// call's writes haven't happened yet) and create a second record -- for an
+// Auto QA draft specifically, a second live evaluation record silently
+// orphaned from the draft it came from.
+let _evalSubmitInFlight = false;
+
 function _doSubmitEval(){
+  if(_evalSubmitInFlight){ toast('Already saving this evaluation — please wait.','info'); return; }
+  _evalSubmitInFlight = true;
   const agentId  = document.getElementById('evalAgent').value;
   const qao      = document.getElementById('evalQAO').value.trim();
   const date     = document.getElementById('evalDate').value;
@@ -9235,6 +9279,7 @@ function _doSubmitEval(){
     }
 
     clearEvalForm();
+    _evalSubmitInFlight = false;
 
     hideLoading();
     showEvalResult(record);
@@ -9271,6 +9316,7 @@ async function _fetchAndScoreYellowLink(link, hints){
 }
 
 async function autoQAFetchAll(){
+  if(!isQA()){ toast('QA officers only','error'); return; }
   const ta = document.getElementById('autoQALinks');
   const links = (ta.value||'').split('\n').map(s=>s.trim()).filter(Boolean);
   if(!links.length){ toast('Paste at least one Yellow Messenger link.','error'); return; }
@@ -9348,8 +9394,9 @@ function renderAutoQAQueue(){
   }).join('');
 }
 
-// Read-only chat transcript rendering, shared by the queue's own screen and the
-// Auto QA Drafts review modal (renderAutoQaDraftsReport / openAutoQaDraftReview).
+// Read-only chat transcript rendering, shared by the queue's own screen, the
+// reject modal (openAutoQaDraftReject), and the real Evaluation Form's Auto QA
+// banner (startEvalFromAutoQaDraft).
 function _autoQaTranscriptHtml(transcript){
   const rows = (transcript.messages||[]).map(m=>{
     const who = m.sender==='customer' ? (transcript.customerName||'Customer') : (m.agentName || (m.sender==='bot' ? 'Bot' : 'Agent'));
@@ -9363,6 +9410,7 @@ function _autoQaTranscriptHtml(transcript){
 // replaces the old synchronous "open the real eval form now" flow. Nothing here
 // touches the live evaluation form or the records bucket.
 function saveAutoQAItemAsDraft(id){
+  if(!isQA()){ toast('QA officers only','error'); return; }
   const q = _autoQAQueue.find(x=>x.id===id);
   if(!q || q.status!=='ready') return;
   const user = getCurrentUser();
@@ -9405,6 +9453,7 @@ function saveAutoQAItemAsDraft(id){
 }
 
 function exportAutoQAQueueToExcel(){
+  if(!isQA()){ toast('QA officers only','error'); return; }
   if(!_autoQAQueue.length){ toast('Nothing to export yet.','error'); return; }
   const rows = [['Link','Customer','Agent (matched)','Source','Draft Score %','Auto-Fail (draft)','Items Needing Review','Status']];
   _autoQAQueue.forEach(q=>{
@@ -9466,6 +9515,7 @@ function _autoQaFindCol(headerRow, aliases){
   return -1;
 }
 function autoQaHandleLinkFile(input){
+  if(!isQA()){ toast('QA officers only','error'); return; }
   const file = input.files && input.files[0];
   if(!file) return;
   const statusEl = document.getElementById('autoQaLinkUploadStatus');
@@ -9580,6 +9630,7 @@ function renderAutoQaLinkQueueTable(){
 // of the free-text textarea, and it creates the draft immediately rather than
 // requiring a separate "Save as Draft" click.
 async function autoQaCheckLinkNow(rowId){
+  if(!isQA()){ toast('QA officers only','error'); return; }
   const queue = getAutoQaLinkQueue();
   const row = queue.find(r=>r.id===rowId);
   if(!row || row.status!=='queued') return;
@@ -25542,16 +25593,19 @@ function renderAutoQaDraftsReport(){
   const tbody = document.getElementById('autoQaDraftsReportBody');
   if(!drafts.length){ tbody.innerHTML='<tr class="empty-row"><td colspan="8">No Auto QA drafts found.</td></tr>'; return; }
   const agents = getAgents();
+  const canDelete = canDeleteAutoQaDraft();
   tbody.innerHTML = drafts.map(d=>{
     const cl = d.status==='pending'?'var(--warning)':d.status==='approved'?'var(--success)':'var(--danger)';
     const agentTxt = d.agentMatchConfident ? esc((agents.find(a=>a.id===d.proposedAgentId)||{}).name||'') : '<span style="color:#dc2626;">Unmatched'+(d.agentNameGuess?': '+esc(d.agentNameGuess):'')+'</span>';
     const scoreTxt = d.draftScore ? (d.draftScore.finalScore+'%'+(d.draftScore.autoFailTriggered?' ⚡':'')) : '—';
-    const actionBtn = d.status==='pending'
-      ? '<div style="display:flex;gap:6px;">'
-        + '<button class="btn btn-xs btn-primary" onclick="startEvalFromAutoQaDraft(\''+d.id+'\')">📝 Review &amp; Evaluate</button>'
-        + '<button class="btn btn-xs btn-danger" onclick="openAutoQaDraftReject(\''+d.id+'\')">✕ Reject</button>'
-        + '</div>'
-      : '';
+    const deleteBtn = canDelete ? '<button class="btn btn-xs btn-gray" onclick="deleteAutoQaDraft(\''+d.id+'\')" title="Permanently delete this draft row">🗑 Delete</button>' : '';
+    const actionBtn = '<div style="display:flex;gap:6px;">'
+      + (d.status==='pending'
+        ? '<button class="btn btn-xs btn-primary" onclick="startEvalFromAutoQaDraft(\''+d.id+'\')">📝 Review &amp; Evaluate</button>'
+          + '<button class="btn btn-xs btn-danger" onclick="openAutoQaDraftReject(\''+d.id+'\')">✕ Reject</button>'
+        : '')
+      + deleteBtn
+      + '</div>';
     return '<tr>'
       +'<td>'+esc((d.transcript&&d.transcript.customerName)||'—')+'</td>'
       +'<td>'+agentTxt+'</td>'
@@ -25601,6 +25655,16 @@ function confirmRejectAutoQaDraft(){
   if(!note){ toast('Please add a reason before rejecting.','error'); return; }
   const drafts = getAutoQaDrafts();
   const idx = drafts.findIndex(d=>d.id===draftId); if(idx<0) return;
+  // Re-check pending status here, at the actual write, not just when the
+  // modal opened -- the draft could have been approved (or already rejected)
+  // by someone else in the time this reviewer spent typing a reason, and
+  // this write must not clobber that outcome.
+  if(drafts[idx].status!=='pending'){
+    toast('This draft was already resolved by someone else while this was open.','error');
+    closeModal('autoQaDraftReviewModal');
+    renderAutoQaDraftsReport();
+    return;
+  }
   drafts[idx].status='rejected';
   drafts[idx].resolvedAt=new Date().toISOString();
   drafts[idx].resolvedBy=(getCurrentUser()||{}).displayName||(getCurrentUser()||{}).username||'unknown';
@@ -25611,6 +25675,40 @@ function confirmRejectAutoQaDraft(){
   closeModal('autoQaDraftReviewModal');
   renderAutoQaDraftsReport();
   checkPendingAutoQaDrafts();
+}
+
+// Deleting a draft row is more destructive than rejecting one -- reject keeps
+// a permanent audit trail (who, when, why); delete removes the row entirely,
+// including from an already-approved/rejected draft's history. Restricted to
+// a different, narrower role set than isQA() (which QA officers themselves
+// satisfy) so a QA officer can't quietly delete evidence of their own
+// bot-scored draft -- only the roles that oversee QA work can.
+function canDeleteAutoQaDraft(){
+  return ['superadmin','admin','manager'].includes(currentRole());
+}
+
+function deleteAutoQaDraft(draftId){
+  if(!canDeleteAutoQaDraft()){ toast('Only Superadmin, Admin, or Manager can delete Auto QA drafts.','error'); return; }
+  const drafts = getAutoQaDrafts();
+  const draft = drafts.find(d=>d.id===draftId);
+  if(!draft){ toast('Draft not found.','error'); return; }
+  const customer = (draft.transcript&&draft.transcript.customerName)||'this transcript';
+  showConfirm({
+    title:'🗑 Delete Auto QA Draft',
+    message:`Permanently delete the draft for <strong>${esc(customer)}</strong>?`,
+    sub: draft.status==='approved'
+      ? 'This draft is already Approved -- deleting it only removes this audit row; the real evaluation record it created stays in Records and still counts toward KPIs.'
+      : 'This cannot be undone.',
+    icon:'🗑', btnLabel:'Delete', btnClass:'btn-danger',
+    onConfirm: ()=>{
+      const remaining = getAutoQaDrafts().filter(d=>d.id!==draftId);
+      saveAutoQaDrafts(remaining);
+      logChange('evaluation','Auto QA Draft Deleted',`Deleted Auto QA draft for "${customer}" (was ${draft.status})`,'QMS');
+      toast('Draft deleted.','success');
+      renderAutoQaDraftsReport();
+      checkPendingAutoQaDrafts();
+    },
+  });
 }
 
 // ═══════════════════════════════════════════════════

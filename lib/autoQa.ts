@@ -414,8 +414,9 @@ export function matchAgentByStaffId(staffId: string, agents: RosterAgent[]): Ros
 // Optional pre-known fields a batch upload (or an individual "Check Now") can
 // supply alongside a link, so the resulting draft doesn't have to guess
 // campaign/date/agent from the transcript alone -- these are exactly the
-// fields resolveAutoQaDraft() requires before a draft can be approved, so
-// supplying them up front is what actually removes reviewer busywork.
+// fields the real Evaluation Form otherwise requires a human to fill in by
+// hand before a draft can be approved, so supplying them up front is what
+// actually removes reviewer busywork.
 export interface LinkHints {
   staffId?: string;
   agentName?: string;
