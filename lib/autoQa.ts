@@ -545,7 +545,7 @@ export async function scoreTranscriptWithLLM(
   // is explicitly disabled below, and the answer block is found by type rather
   // than assumed to be content[0].
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const timeout = setTimeout(() => controller.abort(), 20000);
   let res: Response;
   try {
     res = await fetch(endpoint, {
