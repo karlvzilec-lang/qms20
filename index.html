@@ -1023,6 +1023,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
   <button class="nav-btn active" onclick="showScreen('dashboard',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Dashboard</button>
   <button class="nav-btn" id="tlTeamNavBtn" style="display:none;" onclick="showScreen('tlteam',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> My Team</button>
   <button class="nav-btn" onclick="showScreen('evaluation',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> New Evaluation</button>
+  <button class="nav-btn" id="autoQaNavBtn" onclick="showScreen('autoqa',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> Auto QA <span style="background:rgba(255,255,255,.25);color:#fff;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:800;margin-left:2px;">BETA</span> <span id="autoQaDraftsNavBadge" style="display:none;background:#f97316;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:800;margin-left:4px;vertical-align:middle;"></span></button>
   <button class="nav-btn" onclick="showScreen('records',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Records</button>
   <button class="nav-btn" id="rosterNavBtn" onclick="showScreen('roster',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Roster</button>
   <button class="nav-btn" onclick="showScreen('reports',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Reports</button>
@@ -1291,6 +1292,18 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     </div>
   </div>
 
+  <!-- Shown only when this form was opened from an Auto QA draft (startEvalFromAutoQaDraft) -->
+  <div id="autoQaEvalBanner" class="no-print" style="display:none;background:#fff7ed;border:1.5px solid #FF7900;border-radius:10px;padding:12px 16px;margin-bottom:14px;">
+    <div id="autoQaEvalBannerHead" style="font-size:12.5px;font-weight:700;color:#9a3412;margin-bottom:6px;"></div>
+    <div id="autoQaEvalBannerWarning"></div>
+    <div id="autoQaEvalBannerTranscriptToggle" style="font-size:12px;">
+      <a href="javascript:void(0)" onclick="_toggleAutoQaEvalTranscript()" style="color:var(--primary);font-weight:600;">
+        <span id="autoQaEvalTranscriptArrow">▶</span> Show source transcript
+      </a>
+    </div>
+    <div id="autoQaEvalBannerTranscript" style="display:none;margin-top:8px;"></div>
+  </div>
+
   <div style="display:grid;grid-template-columns:1fr 260px;gap:18px;align-items:start;">
     <div>
       <!-- Header Fields -->
@@ -1411,6 +1424,70 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
         </div>
         <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="submitEval()">✅ Submit</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ AUTO QA (YELLOW MESSENGER) ═══════════ -->
+<div class="screen" id="screen-autoqa">
+  <div class="page-header no-print">
+    <div><h2>Auto QA — Yellow Messenger</h2><p>Upload a daily batch of transcript links (Excel) or paste them directly. Each one is fetched and pre-scored with rule-based matching against the active form — a QA officer still reviews and approves every draft before it becomes a real evaluation.</p></div>
+    <div class="btn-group no-print">
+      <button class="btn btn-outline" onclick="exportAutoQAQueueToExcel()" style="display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Queue to Excel
+      </button>
+    </div>
+  </div>
+
+  <div class="qa-header-card">
+    <div style="font-size:14px;font-weight:800;margin-bottom:10px;">📅 Daily Batch — Upload Link Excel</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:8px;">Upload a .xlsx/.xls/.csv of transcript links — download the template below for the recommended columns. Only <strong>Link</strong> is required; <strong>Staff ID, Campaign, and Eval Date</strong> are the fields that otherwise have to be filled in by hand at review time, so supplying them here saves that work. New links are queued and picked up automatically by the daily Auto QA job (or checked individually below); links already in the queue are skipped, so re-uploading an updated daily file is always safe.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <input type="file" id="autoQaLinkFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="autoQaHandleLinkFile(this)">
+      <button class="btn btn-primary" onclick="document.getElementById('autoQaLinkFile').click()" style="display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload Link Excel
+      </button>
+      <button class="btn btn-outline" onclick="autoQaDownloadLinkTemplate()" style="display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Template
+      </button>
+      <span id="autoQaLinkUploadStatus" style="font-size:12px;color:var(--gray);"></span>
+    </div>
+    <div style="overflow-x:auto;margin-top:12px;">
+      <table class="attr-table" style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th>Link</th><th>Staff ID</th><th>Agent</th><th>Campaign</th><th>Eval Date</th><th>Status</th><th>Action</th>
+        </tr></thead>
+        <tbody id="autoQaLinkQueueBody"><tr><td colspan="7" style="text-align:center;color:var(--gray);padding:20px;">No links uploaded yet.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="qa-header-card">
+    <div style="font-size:14px;font-weight:800;margin-bottom:10px;">🔗 Paste Links Now (immediate, manual)</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:8px;">One Yellow Messenger public link per line, e.g. <code>https://app.yellow.ai/public/messages/&lt;signature&gt;/start/&lt;ms&gt;/end/&lt;ms&gt;</code></div>
+    <textarea id="autoQALinks" placeholder="https://app.yellow.ai/public/messages/..." style="width:100%;box-sizing:border-box;min-height:90px;font-size:12px;font-family:monospace;"></textarea>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+      <button class="btn btn-primary" onclick="autoQAFetchAll()" style="display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+        Fetch &amp; Pre-Score All
+      </button>
+      <span id="autoQAStatusLine" style="font-size:12px;color:var(--gray);"></span>
+    </div>
+  </div>
+
+  <div class="qa-header-card">
+    <div style="font-size:14px;font-weight:800;margin-bottom:10px;">📋 Review Queue</div>
+    <div style="overflow-x:auto;">
+      <table class="attr-table" style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th>Link</th><th>Customer</th><th>Agent (matched)</th><th>Source</th>
+          <th>Draft Score</th><th>Needs Review</th><th>Status</th><th>Action</th>
+        </tr></thead>
+        <tbody id="autoQAQueueBody"><tr><td colspan="8" style="text-align:center;color:var(--gray);padding:20px;">No links processed yet.</td></tr></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -1601,6 +1678,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <button class="rpt-side-item" data-rpt-view="coaching-compliance" onclick="switchRptView('coaching-compliance',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Coaching Compliance</button>
       <button class="rpt-side-item" data-rpt-view="disputes" onclick="switchRptView('disputes',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Disputes</button>
       <button class="rpt-side-item admin-or-manager-tab" data-rpt-view="edit-requests" onclick="switchRptView('edit-requests',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Edit Requests<span id="editReqNavBadge" style="display:none;background:#e74c3c;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:6px;"></span></button>
+      <button class="rpt-side-item qa-tab" data-rpt-view="autoqa-drafts" onclick="switchRptView('autoqa-drafts',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Auto QA Drafts<span id="autoQaDraftsReportBadge" style="display:none;background:#e74c3c;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:6px;"></span></button>
     </div>
 
     <div style="flex:1;min-width:0;">
@@ -2039,6 +2117,29 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
       <div class="table-wrap"><table>
         <thead><tr><th>Agent</th><th>Eval Date</th><th>Edited By</th><th>Edited At</th><th>Reason</th><th>Current Score</th><th>Result</th></tr></thead>
         <tbody id="directEditReportBody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- ── AUTO QA DRAFTS ── -->
+  <div class="rpt-view" id="rptv-autoqa-drafts">
+    <div class="corr-info" style="background:#f0f7ff;border-color:#b3d0f7;">
+      <strong>🤖 Auto QA Drafts</strong> — AI-scored chat evaluations (manual queue or the daily scheduled batch) awaiting QA review. Nothing here counts toward any KPI, score, or agent history until approved.
+    </div>
+    <div class="kpi-grid" id="autoQaDraftsKpi"></div>
+    <div id="autoQaBotAccuracyCard"></div>
+    <div class="card">
+      <div class="card-title">📋 Draft Queue
+        <div style="display:flex;gap:8px;">
+          <select id="autoQaDraftStatusFilter" onchange="renderAutoQaDraftsReport()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;">
+            <option value="">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
+          </select>
+          <a href="#" id="autoQaDraftFilterClear" onclick="clearAutoQaDraftFilters();return false;" style="display:none;color:var(--primary);font-weight:600;text-decoration:none;font-size:11px;align-items:center;">✕ Clear filter</a>
+        </div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Customer</th><th>Agent (matched)</th><th>Draft Score</th><th>Needs Review</th><th>Submitted By</th><th>Submitted At</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="autoQaDraftsReportBody"></tbody>
       </table></div>
     </div>
   </div>
@@ -5123,6 +5224,21 @@ CORS_ORIGIN=https://yourdomain.com</code>
   </div>
 </div>
 
+<!-- Auto QA Draft Review Modal -->
+<div class="modal-overlay" id="autoQaDraftReviewModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header" style="background:var(--danger);">
+      <h3>❌ Reject Auto QA Draft</h3>
+      <button class="modal-close" onclick="closeModal('autoQaDraftReviewModal')">✕</button>
+    </div>
+    <div class="modal-body" id="autoQaDraftReviewBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-gray" onclick="closeModal('autoQaDraftReviewModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmRejectAutoQaDraft()">✕ Reject Draft</button>
+    </div>
+  </div>
+</div>
+
 <!-- Email Notification Modal -->
 <div class="modal-overlay" id="emailNotifModal">
   <div class="modal" style="max-width:500px;">
@@ -5419,7 +5535,8 @@ const _SYNC_BUCKETS = [
   'coachings','disputes','editRequests','accessRequests',
   'evaluations','changeLog','pwresets','passwordResets',
   'npsInputData','npsRecords','npsRoleMatrix','npsSurveys',
-  'npsDsatReasons','npsSatReasons','npsResponses'
+  'npsDsatReasons','npsSatReasons','npsResponses',
+  'autoQaLinkQueue','autoQaDrafts'
 ];
 
 const DB = {
@@ -5569,7 +5686,7 @@ const _DbSync = (function(){
   // that exist on other devices — the server's GET picks "newest bucket wins"
   // between its two databases, which is a whole-document decision and does not
   // protect against a client overwriting both mirrors with an incomplete array.
-  var _MERGE_BUCKETS = new Set(['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','npsInputData','accessRequests','pwresets']);
+  var _MERGE_BUCKETS = new Set(['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','npsInputData','accessRequests','pwresets','autoQaLinkQueue','autoQaDrafts']);
 
   // Same real person can end up under two different internal ids -- e.g. a
   // device with a stale cached copy re-adds someone because its own copy
@@ -6502,6 +6619,7 @@ function showScreen(name,btn){
     const r=u.role;
     const denied={
       evaluation: ['viewer','tl','manager'],
+      autoqa:     ['viewer','tl','manager'],
       settings:   ['viewer','qa','tl'],
       tlteam:     ['viewer','qa'],
     };
@@ -6525,7 +6643,14 @@ function showScreen(name,btn){
   if(btn) btn.classList.add('active');
   if(name==='dashboard') renderDashboard();
   if(name==='tlteam'){ populateMonthFilter('tlTeamMonth','tlteam'); renderTLTeamView(); }
+  if(name==='autoqa'){ renderAutoQAQueue(); renderAutoQaLinkQueueTable(); }
   if(name==='evaluation'){
+    // Always start from the default/first-published form on screen entry --
+    // startEvalFromAutoQaDraft() is the one caller that needs a SPECIFIC form
+    // (the one the draft was scored against), and re-applies it itself in its
+    // own post-render callback rather than leaving it set here, so a later
+    // unrelated "New Evaluation" never silently inherits a draft's rubric.
+    _selectedFormId = null;
     buildEvalForm(); populateAgentDropdown(); populateCampaignDropdown();
     // Auto-fill the readonly QA Officer field from the current session
     const _evalU = getCurrentUser();
@@ -8327,7 +8452,27 @@ function _setupTLDashTabs(){
 let evalAnswers = {}; // { itemId: 'Y'|'N'|'NA' }
 let evalComments = {}; // { itemId: '...' }
 
+// Tracks whether the currently-open evaluation form was opened from an Auto QA
+// draft (see startEvalFromAutoQaDraft() below) -- reset to null every time the
+// form is (re)built, so a QA officer who opens a draft, then navigates away or
+// clears the form to do an unrelated manual evaluation, never has that manual
+// evaluation silently tagged as/mistaken for the Auto QA draft. Only
+// startEvalFromAutoQaDraft() itself sets this, always AFTER this reset runs.
+let _activeAutoQaDraftId = null;
+
+// Bumped every time the eval form is (re)built. startEvalFromAutoQaDraft()'s
+// prefill runs 120ms after navigating (waiting for the DOM to render), and
+// captures the counter's value at that moment -- if the counter has moved on
+// by the time the delayed callback fires (e.g. the officer already navigated
+// to a second, unrelated evaluation in that window), the callback is stale
+// and must not touch the -- now unrelated -- form that's on screen.
+let _evalFormGeneration = 0;
+
 function buildEvalForm(){
+  _activeAutoQaDraftId = null;
+  _evalFormGeneration++;
+  const _aqBanner = document.getElementById('autoQaEvalBanner');
+  if(_aqBanner) _aqBanner.style.display = 'none';
   evalStartTime = Date.now();
   const elST = document.getElementById('evalStartDisplay');
   if(elST) elST.textContent = new Date().toLocaleTimeString();
@@ -8445,7 +8590,10 @@ function setRating(itemId, val, btn){
   });
   btn.classList.add('selected');
   if(val==='N'){
-    const isAutoFailItem = document.querySelector('#item-'+itemId+' .qa-item-num')?.classList.contains('autofail');
+    // Item ids like "1.2" contain a literal dot, which breaks a CSS selector
+    // string built as "#item-1.2" (parses as id "item-1" + invalid class ".2")
+    // -- walk up from the button we already have instead of re-selecting by id.
+    const isAutoFailItem = btn.closest('.qa-item')?.querySelector('.qa-item-num')?.classList.contains('autofail');
     if(isAutoFailItem) btn.classList.add('autofail-sel');
   }
   updateScore();
@@ -8756,6 +8904,161 @@ function startEvaluateAgent(agentId){
   }, 80);
 }
 
+function _toggleAutoQaEvalTranscript(){
+  const body = document.getElementById('autoQaEvalBannerTranscript');
+  const arrow = document.getElementById('autoQaEvalTranscriptArrow');
+  if(!body) return;
+  const showing = body.style.display !== 'none';
+  body.style.display = showing ? 'none' : '';
+  if(arrow) arrow.textContent = showing ? '▶' : '▼';
+}
+
+// Sets one rubric item's Y/N/NA rating by finding and "clicking" the real button
+// (via setRating(), same as a human click) rather than reimplementing its
+// active-state styling here. Item ids like "1.2" contain a literal dot, which
+// breaks a CSS selector string (e.g. "#item-1.2" parses as id "item-1" + class
+// ".2") -- getElementById() takes a plain string so it's immune, then the
+// class lookup is scoped to that element instead of re-including the id.
+function _setEvalItemAnswerFromDraft(itemId, val){
+  if(!val) return;
+  const cls = val==='Y' ? 'yes' : val==='N' ? 'no' : val==='NA' ? 'na' : null;
+  if(!cls) return;
+  const itemEl = document.getElementById('item-'+itemId);
+  const btn = itemEl ? itemEl.querySelector('.rating-btn.'+cls) : null;
+  if(btn) setRating(itemId, val, btn);
+}
+
+// Opens the real QA Evaluation Form pre-filled from a pending Auto QA draft,
+// instead of the old separate review modal -- a QA officer now reviews, edits,
+// and submits through the EXACT same form/pipeline (score math, 48h cooldown,
+// record shape) as any manual evaluation, rather than a second hand-maintained
+// approval path. _doSubmitEval() checks _activeAutoQaDraftId (set at the end of
+// this function) to tag the resulting record and resolve the draft.
+function startEvalFromAutoQaDraft(draftId){
+  if(!isQA()){ toast('QA officers only','error'); return; }
+  const draft = getAutoQaDrafts().find(d=>d.id===draftId);
+  if(!draft){ toast('Draft not found.','error'); return; }
+  if(draft.status!=='pending'){ toast('This draft has already been resolved.','error'); return; }
+
+  const evalNavBtn = Array.from(document.querySelectorAll('.nav-btn')).find(b=>b.textContent.includes('Evaluation')||b.onclick?.toString().includes('evaluation'));
+  showScreen('evaluation', evalNavBtn || document.querySelectorAll('.nav-btn')[1]);
+  // Captured AFTER showScreen()'s own buildEvalForm() call above (which bumps
+  // the counter) -- this is the generation this specific prefill belongs to.
+  const myGeneration = _evalFormGeneration;
+
+  setTimeout(()=>{
+    // If the officer already navigated to a different evaluation (normal or
+    // another draft) in the 120ms it took the DOM to render, the counter has
+    // moved on -- this callback belongs to a screen that's no longer showing,
+    // so it must not touch whatever form is on screen now.
+    if(_evalFormGeneration !== myGeneration) return;
+
+    // The draft may have been scored against a different form than the
+    // default -- buildEvalForm() (triggered by showScreen above) already
+    // rendered the default form, so switch and rebuild here, inside this
+    // guarded callback, rather than setting _selectedFormId before
+    // navigating (which would leak it into any later, unrelated evaluation
+    // -- see the reset in showScreen()'s 'evaluation' branch).
+    const formObj = draft.formId ? getFormById(draft.formId) : null;
+    if(formObj && _selectedFormId !== formObj.id){
+      _selectedFormId = formObj.id;
+      buildEvalForm();
+      _evalFormGeneration = myGeneration; // this rebuild is still part of the same prefill, not a competing one
+    }
+
+    const t = draft.transcript || {messages:[]};
+
+    // Agent — only auto-fill the hidden id with a CONFIRMED roster match;
+    // otherwise prefill the visible search text as a hint but leave the hidden
+    // field blank, preserving submitEval()'s existing guarantee that an agent id
+    // always comes from a real pick, never from unverified guessed text.
+    const hiddenAgentEl = document.getElementById('evalAgent');
+    const searchAgentEl = document.getElementById('evalAgentSearch');
+    const confirmedAgent = draft.proposedAgentId ? getAgents().find(a=>a.id===draft.proposedAgentId) : null;
+    if(confirmedAgent){
+      hiddenAgentEl.value = confirmedAgent.id;
+      if(searchAgentEl) searchAgentEl.value = confirmedAgent.name;
+      onAgentSelect();
+    } else if(searchAgentEl && draft.agentNameGuess){
+      searchAgentEl.value = draft.agentNameGuess;
+      toast('Agent "'+draft.agentNameGuess+'" from the transcript could not be confidently matched — please confirm.','info');
+    }
+
+    const user = getCurrentUser();
+    const qaoEl = document.getElementById('evalQAO');
+    if(qaoEl && user) qaoEl.value = user.displayName || user.username;
+
+    const dateEl = document.getElementById('evalDate');
+    if(dateEl) dateEl.value = draft.proposedEvalDate || today();
+
+    // Call Date & Time + Duration, derived from the transcript's own timestamps
+    const callDtEl = document.getElementById('evalCallDT');
+    const durEl = document.getElementById('evalDuration');
+    if(t.messages && t.messages.length){
+      const pad = n=>String(n).padStart(2,'0');
+      const first = new Date(t.messages[0].ts);
+      const last = new Date(t.messages[t.messages.length-1].ts);
+      if(callDtEl && !isNaN(first.getTime())){
+        callDtEl.value = first.getFullYear()+'-'+pad(first.getMonth()+1)+'-'+pad(first.getDate())+'T'+pad(first.getHours())+':'+pad(first.getMinutes());
+      }
+      if(durEl && !isNaN(first.getTime()) && !isNaN(last.getTime()) && last>first){
+        const secs = Math.round((last-first)/1000);
+        durEl.value = pad(Math.floor(secs/3600))+':'+pad(Math.floor(secs/60)%60)+':'+pad(secs%60);
+      }
+    }
+
+    const refEl = document.getElementById('evalRef'); if(refEl) refEl.value = draft.proposedRefNo || '';
+    const mobEl = document.getElementById('evalMobile'); if(mobEl) mobEl.value = draft.proposedMobileNumber || '';
+
+    const callTypeEl = document.getElementById('evalCallType');
+    if(callTypeEl){ callTypeEl.value = draft.proposedCallType || 'Chat'; evalToggleReasonField(); }
+
+    const campaignEl = document.getElementById('evalCampaign');
+    if(campaignEl && draft.proposedCampaign && Array.from(campaignEl.options).some(o=>o.value===draft.proposedCampaign)){
+      campaignEl.value = draft.proposedCampaign;
+    }
+
+    const reasonEl = document.getElementById('evalReasonForCalling');
+    if(reasonEl) reasonEl.value = draft.proposedReasonForCalling || '';
+
+    const remarksEl = document.getElementById('evalRemarks');
+    if(remarksEl) remarksEl.value = draft.proposedOverallRemarks || '';
+
+    // Per-item answers + comments (formObj already resolved above)
+    const sections = formObj ? formObj.sections : getForm();
+    const needsReview = new Set(draft.needsReview||[]);
+    (sections||[]).forEach(sec=>(sec.items||[]).forEach(item=>{
+      _setEvalItemAnswerFromDraft(item.id, (draft.proposedAnswers||{})[item.id] || '');
+      const itemEl = document.getElementById('item-'+item.id);
+      const note = (draft.proposedComments||{})[item.id] || '';
+      if(note){
+        evalComments[item.id] = note;
+        const ta = itemEl ? itemEl.querySelector('.item-comment textarea') : null;
+        if(ta) ta.value = note;
+      }
+      if(itemEl && needsReview.has(item.id)){
+        itemEl.style.outline='1.5px solid #f59e0b'; itemEl.style.outlineOffset='-1.5px'; itemEl.style.background='#fffbeb';
+      }
+    }));
+    updateScore();
+
+    _activeAutoQaDraftId = draftId;
+    const headEl = document.getElementById('autoQaEvalBannerHead');
+    if(headEl){
+      headEl.innerHTML = '🤖 Reviewing Auto QA Draft — submitting this form will mark the draft <strong>Approved</strong> and record this evaluation.'
+        + (draft.scoringMethod==='llm'
+          ? ' <span style="display:inline-block;background:#dcfce7;color:#16a34a;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-left:6px;">AI-scored (Claude)</span>'
+          : ' <span style="display:inline-block;background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-left:6px;">Rule-based fallback (English keywords only)</span>');
+    }
+    const warnEl = document.getElementById('autoQaEvalBannerWarning');
+    if(warnEl) warnEl.innerHTML = draft.scoringWarning ? '<div style="font-size:12px;color:#dc2626;font-weight:700;margin:6px 0;">⚠️ '+esc(draft.scoringWarning)+'</div>' : '';
+    const transEl = document.getElementById('autoQaEvalBannerTranscript');
+    if(transEl) transEl.innerHTML = _autoQaTranscriptHtml(t);
+    const bannerEl = document.getElementById('autoQaEvalBanner');
+    if(bannerEl) bannerEl.style.display = '';
+  }, 120);
+}
+
 function onAgentSelect(){
   const id=document.getElementById('evalAgent').value;
   const agent=getAgents().find(a=>a.id===id);
@@ -8870,7 +9173,18 @@ function submitEval(){
   _doSubmitEval();
 }
 
+// Guards against a double-submit creating two records from one form: the
+// actual persistence in _doSubmitEval() below is delayed 700ms (for the
+// loading spinner), during which a second click on any of the three
+// Submit-bound buttons would otherwise pass every check again (the first
+// call's writes haven't happened yet) and create a second record -- for an
+// Auto QA draft specifically, a second live evaluation record silently
+// orphaned from the draft it came from.
+let _evalSubmitInFlight = false;
+
 function _doSubmitEval(){
+  if(_evalSubmitInFlight){ toast('Already saving this evaluation — please wait.','info'); return; }
+  _evalSubmitInFlight = true;
   const agentId  = document.getElementById('evalAgent').value;
   const qao      = document.getElementById('evalQAO').value.trim();
   const date     = document.getElementById('evalDate').value;
@@ -8878,6 +9192,12 @@ function _doSubmitEval(){
   const {finalScore, autoFailTriggered, sectionData} = updateScore();
   const settings = getSettings();
   const agent = getAgents().find(a=>a.id===agentId);
+
+  // Captured BEFORE clearEvalForm() (called later in this function) resets
+  // _activeAutoQaDraftId to null -- if this submission started from
+  // startEvalFromAutoQaDraft(), tag the record and resolve the draft below.
+  const _autoQaDraftId = _activeAutoQaDraftId;
+  const _autoQaDraft = _autoQaDraftId ? getAutoQaDrafts().find(d=>d.id===_autoQaDraftId && d.status==='pending') : null;
 
   // Use per-form settings for pass threshold
   const activeFormObj = _selectedFormId ? getFormById(_selectedFormId) : null;
@@ -8923,6 +9243,12 @@ function _doSubmitEval(){
     evalDurationMin: window._evalStartTimeForRecord?+(( Date.now()-window._evalStartTimeForRecord)/60000).toFixed(1):null,
     createdAt: new Date().toISOString(),
   };
+  if(_autoQaDraft){
+    record.source = 'auto-qa';
+    record.autoQaDraftId = _autoQaDraft.id;
+    record.autoQaScoringMethod = _autoQaDraft.scoringMethod;
+    record.autoQaTranscriptLink = _autoQaDraft.link;
+  }
 
   // Show loading while saving
   showLoading('Saving evaluation…');
@@ -8936,11 +9262,415 @@ function _doSubmitEval(){
     evalStartTime=null; window._evalStartTimeForRecord=null;
     logChange('evaluation','Created',`Evaluated "${record.agentName}" — ${record.result} (${record.finalScore}%) by ${record.qaOfficer}`,'QMS');
     if(typeof _afterEvalSubmit==='function') _afterEvalSubmit(record);
+
+    if(_autoQaDraft){
+      const drafts = getAutoQaDrafts();
+      const idx = drafts.findIndex(d=>d.id===_autoQaDraft.id);
+      if(idx>=0){
+        drafts[idx].status = 'approved';
+        drafts[idx].resolvedAt = new Date().toISOString();
+        drafts[idx].resolvedBy = record.qaOfficer;
+        drafts[idx].finalAnswers = {...evalAnswers};
+        drafts[idx].finalRecordId = record.id;
+        saveAutoQaDrafts(drafts);
+        logChange('evaluation','Auto QA Approved',`Approved Auto QA draft for "${record.agentName}" — ${record.result} (${record.finalScore}%)`,'QMS');
+        checkPendingAutoQaDrafts();
+      }
+    }
+
     clearEvalForm();
+    _evalSubmitInFlight = false;
 
     hideLoading();
     showEvalResult(record);
   }, 700);
+}
+
+// ═══════════════════════════════════════════════════
+// AUTO QA — Yellow Messenger, server-scored (v2)
+// ═══════════════════════════════════════════════════
+// Fetching + rule-based scoring happens entirely server-side now
+// (netlify/functions/yellow-transcript.ts + lib/autoQa.ts), shared with the
+// daily scheduled batch (netlify/functions/auto-qa-daily.ts) so there is one
+// implementation of the scoring rules, not a client copy kept in sync by hand.
+// Nothing here is ever auto-submitted as a real evaluation -- every result is
+// saved as a draft in the autoQaDrafts bucket and must be reviewed + approved
+// on the "Auto QA Drafts" Reports tab before it becomes a real record.
+
+let _autoQAQueue = []; // {id, link, status, transcript, prefill, agentId, agentMatchConfident, agentNameGuess, draftScore, formId, error}
+
+async function _fetchAndScoreYellowLink(link, hints){
+  let qs = 'url=' + encodeURIComponent(link);
+  if(hints){
+    ['staffId','agentName','campaign','evalDate','refNo','mobileNumber'].forEach(k=>{
+      if(hints[k]) qs += '&'+k+'='+encodeURIComponent(hints[k]);
+    });
+  }
+  const res = await fetch('/api/yellow-transcript?' + qs, { headers: _authHeaders() });
+  let json = null;
+  try{ json = await res.json(); }catch(_e){}
+  if(!res.ok || !json || json.success === false){
+    throw new Error((json && json.error) || ('Fetch failed (HTTP ' + res.status + ')'));
+  }
+  return json;
+}
+
+async function autoQAFetchAll(){
+  if(!isQA()){ toast('QA officers only','error'); return; }
+  const ta = document.getElementById('autoQALinks');
+  const links = (ta.value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!links.length){ toast('Paste at least one Yellow Messenger link.','error'); return; }
+  _autoQAQueue = links.map(link=>({ id: uuid(), link, status:'pending' }));
+  renderAutoQAQueue();
+  const statusEl = document.getElementById('autoQAStatusLine');
+  for(let i=0;i<_autoQAQueue.length;i++){
+    const q = _autoQAQueue[i];
+    q.status = 'fetching';
+    if(statusEl) statusEl.textContent = 'Fetching ' + (i+1) + ' of ' + _autoQAQueue.length + '…';
+    renderAutoQAQueue();
+    try{
+      const r = await _fetchAndScoreYellowLink(q.link);
+      q.transcript = r.transcript;
+      q.prefill = r.prefill;
+      q.agentId = r.agentMatch ? r.agentMatch.id : '';
+      q.agentMatchConfident = !!r.agentMatch;
+      q.agentMatchSource = r.agentMatchSource;
+      q.agentNameGuess = r.agentNameGuess;
+      q.draftScore = r.draftScore;
+      q.scoringMethod = r.scoringMethod;
+      q.languageNote = r.languageNote;
+      q.scoringWarning = r.scoringWarning;
+      q.formId = r.formId;
+      q.resolvedCampaign = r.resolvedCampaign;
+      q.resolvedEvalDate = r.resolvedEvalDate;
+      q.resolvedRefNo = r.resolvedRefNo;
+      q.resolvedMobileNumber = r.resolvedMobileNumber;
+      q.reasonForCalling = r.reasonForCalling;
+      q.overallRemarks = r.overallRemarks;
+      q.status = 'ready';
+    }catch(e){
+      q.status = 'error';
+      q.error = e && e.message ? e.message : String(e);
+    }
+    renderAutoQAQueue();
+  }
+  if(statusEl) statusEl.textContent = 'Done — ' + _autoQAQueue.filter(q=>q.status==='ready').length + ' ready, ' + _autoQAQueue.filter(q=>q.status==='error').length + ' failed.';
+}
+
+function renderAutoQAQueue(){
+  const body = document.getElementById('autoQAQueueBody');
+  if(!body) return;
+  if(!_autoQAQueue.length){
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--gray);padding:20px;">No links processed yet.</td></tr>';
+    return;
+  }
+  const statusBadges = {
+    pending:  '<span class="cov-badge" style="background:#f1f5f9;color:#64748b;">Queued</span>',
+    fetching: '<span class="cov-badge" style="background:#fef3c7;color:#92400e;">Fetching…</span>',
+    ready:    '<span class="cov-badge" style="background:#dcfce7;color:#16a34a;">Ready for review</span>',
+    saved:    '<span class="cov-badge" style="background:#dbeafe;color:#1d4ed8;">Saved as draft</span>',
+    error:    '<span class="cov-badge" style="background:#fee2e2;color:#dc2626;">Error</span>',
+  };
+  body.innerHTML = _autoQAQueue.map(q=>{
+    const canSave = q.status==='ready';
+    const agentCell = (q.status==='ready'||q.status==='saved')
+      ? (q.agentMatchConfident ? esc((getAgents().find(a=>a.id===q.agentId)||{}).name||'') : '<span style="color:#dc2626;">Unmatched'+(q.agentNameGuess?': '+esc(q.agentNameGuess):'')+'</span>')
+      : '—';
+    const draftCell = q.draftScore ? (q.draftScore.finalScore + '%' + (q.draftScore.autoFailTriggered?' ⚡':'')) : '—';
+    const reviewCell = q.prefill ? q.prefill.needsReview.length : '—';
+    const actionCell = canSave
+      ? '<button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="saveAutoQAItemAsDraft(\''+q.id+'\')">Save as Draft</button>'
+      : (q.status==='error' ? '<span title="'+esc(q.error||'')+'" style="color:#dc2626;font-size:11px;">⚠ '+esc((q.error||'').slice(0,60))+'</span>' : (q.status==='saved' ? '<span style="color:#16a34a;font-size:11px;">✓ In review queue</span>' : ''));
+    return '<tr>'
+      + '<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;" title="'+esc(q.link)+'">'+esc(q.link)+'</td>'
+      + '<td>'+(q.transcript?esc(q.transcript.customerName||'—'):'—')+'</td>'
+      + '<td>'+agentCell+'</td>'
+      + '<td>'+(q.transcript?esc(q.transcript.channelSource||'chat'):'—')+'</td>'
+      + '<td style="text-align:center;">'+draftCell+'</td>'
+      + '<td style="text-align:center;">'+reviewCell+'</td>'
+      + '<td>'+(statusBadges[q.status]||q.status)+'</td>'
+      + '<td>'+actionCell+'</td>'
+      + '</tr>';
+  }).join('');
+}
+
+// Read-only chat transcript rendering, shared by the queue's own screen, the
+// reject modal (openAutoQaDraftReject), and the real Evaluation Form's Auto QA
+// banner (startEvalFromAutoQaDraft).
+function _autoQaTranscriptHtml(transcript){
+  const rows = (transcript.messages||[]).map(m=>{
+    const who = m.sender==='customer' ? (transcript.customerName||'Customer') : (m.agentName || (m.sender==='bot' ? 'Bot' : 'Agent'));
+    const color = m.sender==='customer' ? '#0E2A52' : '#c25800';
+    return '<div style="margin-bottom:6px;"><strong style="color:'+color+';">'+esc(who)+':</strong> '+esc(m.text)+'</div>';
+  }).join('');
+  return '<div style="max-height:260px;overflow-y:auto;font-size:12.5px;line-height:1.5;background:#f9fafb;border-radius:8px;padding:10px;">'+(rows||'<span style="color:var(--gray);">No messages.</span>')+'</div>';
+}
+
+// Saves a scored queue item into the autoQaDrafts bucket, awaiting QA approval --
+// replaces the old synchronous "open the real eval form now" flow. Nothing here
+// touches the live evaluation form or the records bucket.
+function saveAutoQAItemAsDraft(id){
+  if(!isQA()){ toast('QA officers only','error'); return; }
+  const q = _autoQAQueue.find(x=>x.id===id);
+  if(!q || q.status!=='ready') return;
+  const user = getCurrentUser();
+  const draft = {
+    id: uuid(),
+    link: q.link,
+    status: 'pending',
+    createdBy: user ? (user.displayName||user.username) : 'unknown',
+    createdAt: new Date().toISOString(),
+    transcript: q.transcript,
+    scoringMethod: q.scoringMethod || 'rule-based',
+    languageNote: q.languageNote || '',
+    scoringWarning: q.scoringWarning || null,
+    proposedAnswers: q.prefill.answers,
+    proposedComments: q.prefill.comments,
+    needsReview: q.prefill.needsReview,
+    draftScore: q.draftScore,
+    formId: q.formId,
+    proposedAgentId: q.agentId||'',
+    agentMatchConfident: q.agentMatchConfident,
+    agentMatchSource: q.agentMatchSource||'transcriptGuess',
+    agentNameGuess: q.agentNameGuess,
+    proposedCampaign: q.resolvedCampaign||'',
+    proposedCallType: 'Chat',
+    proposedEvalDate: q.resolvedEvalDate || (q.transcript.messages[0]&&q.transcript.messages[0].ts ? q.transcript.messages[0].ts : new Date().toISOString()).slice(0,10),
+    proposedRefNo: q.resolvedRefNo||'',
+    proposedMobileNumber: q.resolvedMobileNumber||'',
+    proposedReasonForCalling: q.reasonForCalling||'',
+    proposedOverallRemarks: q.overallRemarks||'',
+    resolvedAt: null, resolvedBy: null, finalAnswers: null, finalRecordId: null, rejectionNote: null,
+  };
+  const drafts = getAutoQaDrafts();
+  drafts.unshift(draft);
+  saveAutoQaDrafts(drafts);
+  logChange('evaluation','Auto QA Draft Saved',`Saved Auto QA draft for "${q.agentNameGuess||'unmatched agent'}" (draft score ${q.draftScore.finalScore}%) — awaiting QA approval`,'QMS');
+  q.status = 'saved';
+  renderAutoQAQueue();
+  checkPendingAutoQaDrafts();
+  toast('Saved as draft — awaiting QA approval.','success');
+}
+
+function exportAutoQAQueueToExcel(){
+  if(!isQA()){ toast('QA officers only','error'); return; }
+  if(!_autoQAQueue.length){ toast('Nothing to export yet.','error'); return; }
+  const rows = [['Link','Customer','Agent (matched)','Source','Draft Score %','Auto-Fail (draft)','Items Needing Review','Status']];
+  _autoQAQueue.forEach(q=>{
+    rows.push([
+      q.link,
+      q.transcript ? q.transcript.customerName : '',
+      q.agentId ? (getAgents().find(a=>a.id===q.agentId)||{}).name : (q.agentNameGuess || 'Unmatched'),
+      q.transcript ? q.transcript.channelSource : '',
+      q.draftScore ? q.draftScore.finalScore : '',
+      q.draftScore && q.draftScore.autoFailTriggered ? 'YES' : '',
+      q.prefill ? q.prefill.needsReview.length : '',
+      q.status,
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Auto QA Queue');
+  XLSX.writeFile(wb, 'QMS20_AutoQA_Queue_' + today() + '.xlsx');
+}
+
+// ── Daily batch: Excel-of-links upload ──────────────────────────────────
+// Downloads an .xlsx template with the essential columns a batch upload can
+// supply. Only Link is required; Staff ID, Campaign, and Eval Date are what
+// the real QA Evaluation Form otherwise requires a human to fill in by hand
+// at review time (agent is fuzzy-matched from the transcript when no Staff ID
+// is given), so supplying them here is what actually saves reviewer effort.
+function autoQaDownloadLinkTemplate(){
+  const rows = [
+    ['Link','Staff ID','Agent Name','Campaign','Eval Date','Ref No.','Mobile Number'],
+    ['https://app.yellow.ai/public/messages/<signature>/start/<ms>/end/<ms>','CC-001','','FTTH Chat','2026-07-29','REF-10201','012345678'],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:60},{wch:12},{wch:20},{wch:18},{wch:12},{wch:14},{wch:16}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Auto QA Links');
+  XLSX.writeFile(wb, 'QMS20_AutoQA_Link_Template.xlsx');
+}
+
+// Reuses the same FileReader + XLSX.read pattern Data Import Hub already uses
+// for .xlsx/.xls (dihHandleFile) rather than inventing a new one. Parses by
+// HEADER NAME (case-insensitive) so column order doesn't matter and optional
+// columns can be omitted entirely; falls back to "first column = link, no
+// other fields" for older files with no recognizable header row. New links
+// are queued for the daily scheduled job (auto-qa-daily.ts) or an individual
+// "Check Now"; links already present (any status) are skipped so re-uploading
+// an updated daily file never double-processes yesterday's links.
+const _AUTOQA_COL_ALIASES = {
+  link: ['link','url','transcript link','yellow link'],
+  staffId: ['staff id','staffid','staff_id','id'],
+  agentName: ['agent name','agent','agentname'],
+  campaign: ['campaign','queue'],
+  evalDate: ['eval date','evaldate','date'],
+  refNo: ['ref no.','ref no','refno','reference','reference no'],
+  mobileNumber: ['mobile number','mobile','phone','mobile no'],
+};
+function _autoQaFindCol(headerRow, aliases){
+  const norm = headerRow.map(h=>String(h||'').trim().toLowerCase());
+  for(const a of aliases){ const i = norm.indexOf(a); if(i>=0) return i; }
+  return -1;
+}
+function autoQaHandleLinkFile(input){
+  if(!isQA()){ toast('QA officers only','error'); return; }
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('autoQaLinkUploadStatus');
+  if(statusEl) statusEl.textContent = 'Reading ' + file.name + '…';
+  const reader = new FileReader();
+  reader.onload = function(e){
+    let rows;
+    try{
+      if(file.name.toLowerCase().endsWith('.csv')){
+        rows = e.target.result.split(/\r?\n/).map(l=>l.split(',').map(c=>c.trim()));
+      } else {
+        const wb = XLSX.read(e.target.result, {type:'binary'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, {header:1});
+      }
+    }catch(err){
+      if(statusEl) statusEl.textContent = '';
+      toast('Could not read file: ' + (err.message||err),'error');
+      return;
+    }
+    rows = rows.filter(r=>r && r.length && r.some(c=>c!=null && String(c).trim()!==''));
+    if(!rows.length){ if(statusEl) statusEl.textContent=''; toast('File is empty.','error'); return; }
+
+    // Detect a real header row (column names, not the first data row) by
+    // checking whether it maps to at least the Link column via our aliases.
+    const linkColByHeader = _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.link);
+    const hasHeader = linkColByHeader>=0;
+    const cols = hasHeader ? {
+      link: linkColByHeader,
+      staffId: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.staffId),
+      agentName: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.agentName),
+      campaign: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.campaign),
+      evalDate: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.evalDate),
+      refNo: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.refNo),
+      mobileNumber: _autoQaFindCol(rows[0], _AUTOQA_COL_ALIASES.mobileNumber),
+    } : { link:0, staffId:-1, agentName:-1, campaign:-1, evalDate:-1, refNo:-1, mobileNumber:-1 };
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+
+    const cell = (r,i)=> (i>=0 && r[i]!=null) ? String(r[i]).trim() : '';
+    const parsed = dataRows
+      .map(r=>({
+        link: cell(r, cols.link),
+        staffId: cell(r, cols.staffId),
+        agentName: cell(r, cols.agentName),
+        campaign: cell(r, cols.campaign),
+        evalDate: cell(r, cols.evalDate),
+        refNo: cell(r, cols.refNo),
+        mobileNumber: cell(r, cols.mobileNumber),
+      }))
+      .filter(row=>/^https?:\/\//i.test(row.link));
+    if(!parsed.length){ if(statusEl) statusEl.textContent=''; toast('No valid links found (expected an http(s) link in the Link column).','error'); return; }
+
+    const queue = getAutoQaLinkQueue();
+    const existing = new Set(queue.map(r=>r.link));
+    const user = getCurrentUser();
+    const batchId = uuid();
+    let added = 0, dup = 0;
+    parsed.forEach(row=>{
+      if(existing.has(row.link)){ dup++; return; }
+      existing.add(row.link);
+      queue.push({
+        id: uuid(), link: row.link, source:'excel-upload',
+        uploadedBy: user ? (user.displayName||user.username) : 'unknown',
+        uploadedAt: new Date().toISOString(), uploadBatchId: batchId,
+        status:'queued', processedAt:null, draftId:null, error:null,
+        staffId: row.staffId||'', agentName: row.agentName||'', campaign: row.campaign||'',
+        evalDate: row.evalDate||'', refNo: row.refNo||'', mobileNumber: row.mobileNumber||'',
+      });
+      added++;
+    });
+    saveAutoQaLinkQueue(queue);
+    if(statusEl) statusEl.textContent = added + ' new link' + (added!==1?'s':'') + ' queued' + (dup?(', ' + dup + ' duplicate skipped'):'') + (hasHeader?'':' (no header row detected — only links were read, no other fields)') + '.';
+    toast(added + ' new link(s) queued for the daily Auto QA batch.','success');
+    renderAutoQaLinkQueueTable();
+    input.value = '';
+  };
+  if(file.name.toLowerCase().endsWith('.csv')) reader.readAsText(file);
+  else reader.readAsBinaryString(file);
+}
+
+function renderAutoQaLinkQueueTable(){
+  const body = document.getElementById('autoQaLinkQueueBody');
+  if(!body) return;
+  const queue = getAutoQaLinkQueue();
+  if(!queue.length){ body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--gray);padding:20px;">No links uploaded yet.</td></tr>'; return; }
+  const statusBadges = {
+    queued:    '<span class="cov-badge" style="background:#fef3c7;color:#92400e;">Queued</span>',
+    checking:  '<span class="cov-badge" style="background:#fef3c7;color:#92400e;">Checking…</span>',
+    processed: '<span class="cov-badge" style="background:#dcfce7;color:#16a34a;">Processed</span>',
+    error:     '<span class="cov-badge" style="background:#fee2e2;color:#dc2626;">Error</span>',
+    duplicate: '<span class="cov-badge" style="background:#f1f5f9;color:#64748b;">Duplicate</span>',
+  };
+  body.innerHTML = queue.slice().reverse().map(r=>{
+    const actionCell = r.status==='queued'
+      ? '<button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="autoQaCheckLinkNow(\''+r.id+'\')">Check Now</button>'
+      : (r.status==='error' ? '<span title="'+esc(r.error||'')+'" style="color:#dc2626;font-size:11px;">⚠ '+esc((r.error||'').slice(0,50))+'</span>' : (r.status==='processed' ? '<span style="color:#16a34a;font-size:11px;">✓ In review queue</span>' : ''));
+    return '<tr>'
+      + '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;" title="'+esc(r.link)+'">'+esc(r.link)+'</td>'
+      + '<td>'+esc(r.staffId||'—')+'</td>'
+      + '<td>'+esc(r.agentName||'—')+'</td>'
+      + '<td>'+esc(r.campaign||'—')+'</td>'
+      + '<td>'+esc(r.evalDate||'—')+'</td>'
+      + '<td>'+(statusBadges[r.status]||r.status)+'</td>'
+      + '<td>'+actionCell+'</td>'
+      + '</tr>';
+  }).join('');
+}
+
+// Lets a QA officer process one queued link right now instead of waiting for
+// the nightly batch (auto-qa-daily.ts) — same scoring path as the interactive
+// "paste links" flow, just sourced from a queue row (with its hints) instead
+// of the free-text textarea, and it creates the draft immediately rather than
+// requiring a separate "Save as Draft" click.
+async function autoQaCheckLinkNow(rowId){
+  if(!isQA()){ toast('QA officers only','error'); return; }
+  const queue = getAutoQaLinkQueue();
+  const row = queue.find(r=>r.id===rowId);
+  if(!row || row.status!=='queued') return;
+  row.status = 'checking';
+  saveAutoQaLinkQueue(queue);
+  renderAutoQaLinkQueueTable();
+  try{
+    const r = await _fetchAndScoreYellowLink(row.link, {
+      staffId: row.staffId, agentName: row.agentName, campaign: row.campaign,
+      evalDate: row.evalDate, refNo: row.refNo, mobileNumber: row.mobileNumber,
+    });
+    const user = getCurrentUser();
+    const draft = {
+      id: uuid(), link: row.link, status: 'pending',
+      createdBy: user ? (user.displayName||user.username) : 'unknown',
+      createdAt: new Date().toISOString(),
+      transcript: r.transcript, scoringMethod: r.scoringMethod || 'rule-based',
+      languageNote: r.languageNote || '', scoringWarning: r.scoringWarning || null,
+      proposedAnswers: r.prefill.answers, proposedComments: r.prefill.comments, needsReview: r.prefill.needsReview,
+      draftScore: r.draftScore, formId: r.formId,
+      proposedAgentId: r.agentMatch ? r.agentMatch.id : '',
+      agentMatchConfident: !!r.agentMatch, agentMatchSource: r.agentMatchSource, agentNameGuess: r.agentNameGuess,
+      proposedCampaign: r.resolvedCampaign, proposedCallType: 'Chat', proposedEvalDate: r.resolvedEvalDate,
+      proposedRefNo: r.resolvedRefNo, proposedMobileNumber: r.resolvedMobileNumber,
+      proposedReasonForCalling: r.reasonForCalling||'', proposedOverallRemarks: r.overallRemarks||'',
+      resolvedAt: null, resolvedBy: null, finalAnswers: null, finalRecordId: null, rejectionNote: null,
+    };
+    const drafts = getAutoQaDrafts();
+    drafts.unshift(draft);
+    saveAutoQaDrafts(drafts);
+    logChange('evaluation','Auto QA Draft Saved',`Individual "Check Now" — saved Auto QA draft for "${r.agentNameGuess||'unmatched agent'}" (draft score ${r.draftScore.finalScore}%) — awaiting QA approval`,'QMS');
+    row.status = 'processed'; row.processedAt = new Date().toISOString(); row.draftId = draft.id; row.error = null;
+    checkPendingAutoQaDrafts();
+    toast('Checked — saved as draft, awaiting QA approval.','success');
+  }catch(e){
+    row.status = 'error'; row.error = e && e.message ? e.message : String(e);
+    toast('Check failed: ' + row.error,'error');
+  }
+  saveAutoQaLinkQueue(queue);
+  renderAutoQaLinkQueueTable();
 }
 
 // ═══════════════════════════════════════════════════
@@ -20372,6 +21102,26 @@ function buildNotifications(){
     }
   }
 
+  // ── Pending Auto QA Drafts (qa/admin/superadmin — same audience that can run Auto QA) ───
+  if(isQA()){
+    const pendingDrafts = (DB.get('autoQaDrafts')||[]).filter(r=>r.status==='pending');
+    if(pendingDrafts.length){
+      notifs.push({
+        id:'autoqa_draft',
+        type:'todo',
+        priority:'high',
+        icon:'🤖',
+        title:`${pendingDrafts.length} Auto QA Draft${pendingDrafts.length>1?'s':''} Awaiting Review`,
+        desc:'AI-scored chat evaluations ready for QA approval.',
+        action:()=>{
+          toggleNotifPanel();
+          showScreen('reports', document.querySelector('.nav-btn[onclick*="reports"]'));
+          setTimeout(()=>{ const t=document.querySelector('.rpt-side-item[onclick*="autoqa-drafts"]'); if(t) t.click(); },200);
+        }
+      });
+    }
+  }
+
   // ── Recent Direct Edits (Admin / SuperAdmin / Manager) ───
   // Direct edits (7-day self-edit window) never enter the editRequests
   // queue above -- they apply immediately with no approval step, which
@@ -22008,6 +22758,9 @@ function applyRoleUI(){
   navBtns.forEach(b=>{
     if(b.textContent.includes('New Evaluation')) b.style.display=isQA()?'':'none';
   });
+  // Auto QA — same audience as New Evaluation (qa/admin/superadmin)
+  const autoQaBtn=document.getElementById('autoQaNavBtn');
+  if(autoQaBtn) autoQaBtn.style.display=isQA()?'':'none';
   // Roster — Admin + QA (QA sees coverage tab; admin sees full roster)
   const rosterBtn=document.getElementById('rosterNavBtn');
   if(rosterBtn) rosterBtn.style.display=(isAdmin()||isQA()||myR==='ceo'||myR==='chief'||myR==='manager')?'':'none';
@@ -22019,6 +22772,7 @@ function applyRoleUI(){
   if(umTab) umTab.style.display=isAdmin()?'':'none';
   if(chTab) chTab.style.display=isAdmin()?'':'none';
   checkPendingResets();
+  checkPendingAutoQaDrafts();
 }
 
 function requireAdminRole(btn){
@@ -23671,6 +24425,11 @@ async function init(){
 function getEditRequests(){ return DB.get('editRequests')||[]; }
 function saveEditRequests(d){ DB.set('editRequests',d); }
 
+function getAutoQaLinkQueue(){ return DB.get('autoQaLinkQueue')||[]; }
+function saveAutoQaLinkQueue(d){ DB.set('autoQaLinkQueue',d); }
+function getAutoQaDrafts(){ return DB.get('autoQaDrafts')||[]; }
+function saveAutoQaDrafts(d){ DB.set('autoQaDrafts',d); }
+
 const DEFAULT_CAMPAIGNS = [
   'FTTH Chat','FTTH Hotline','AO 5G Chat','AO 5G Hotline',
   'Mobile Prepaid Chat','Mobile Prepaid Hotline',
@@ -23962,6 +24721,12 @@ applyRoleUI = function(){
   // Edit Requests is admin OR manager -- managers approve their own team's
   // requests too, unlike Eval Timing above which stays admin-only.
   document.querySelectorAll('.admin-or-manager-tab').forEach(el=>el.style.display=(isAdmin()||isManager())?'':'none');
+  // Auto QA Drafts — same audience as who can run Auto QA itself (qa/admin/superadmin),
+  // not admin/manager-only like Edit Requests: an Auto QA draft has never gone live, so
+  // "a QA officer reviews before it counts" is the same control the original synchronous
+  // flow already had -- restricting approval to admin/manager would be a stricter bar
+  // than the feature ever had, and a needless bottleneck given qa is a larger population.
+  document.querySelectorAll('.qa-tab').forEach(el=>el.style.display=isQA()?'':'none');
   // Disputes nav badge for QA/Admin
   if(isQA()) refreshDisputeBadge();
 }
@@ -24758,6 +25523,195 @@ function clearEditReqFilters(){
 }
 
 // ═══════════════════════════════════════════════════
+// REPORTS — AUTO QA DRAFTS
+// ═══════════════════════════════════════════════════
+function renderAutoQaDraftsReport(){
+  if(!isQA()){ document.getElementById('autoQaDraftsReportBody').innerHTML='<tr class="empty-row"><td colspan="8">QA officers only.</td></tr>'; return; }
+  const statusFilter = document.getElementById('autoQaDraftStatusFilter').value;
+  const clearEl = document.getElementById('autoQaDraftFilterClear');
+  if(clearEl) clearEl.style.display = statusFilter?'inline-flex':'none';
+  const all = getAutoQaDrafts();
+  let drafts = all;
+  if(statusFilter) drafts = drafts.filter(r=>r.status===statusFilter);
+
+  const total    = all.length;
+  const pending  = all.filter(r=>r.status==='pending').length;
+  const approved = all.filter(r=>r.status==='approved').length;
+  const rejected = all.filter(r=>r.status==='rejected').length;
+
+  // Bot Accuracy — how often the bot's proposed answers matched what the QA
+  // officer actually approved. Only approved drafts with finalAnswers count;
+  // per item, agreement = proposedAnswers[itemId]===finalAnswers[itemId].
+  const reviewed = all.filter(r=>r.status==='approved' && r.finalAnswers);
+  let agreements = 0, disagreements = 0;
+  const perItem = {}; // itemId -> {confirmed, corrected}
+  reviewed.forEach(d=>{
+    Object.keys(d.proposedAnswers||{}).forEach(itemId=>{
+      if(!(itemId in d.finalAnswers)) return;
+      if(!perItem[itemId]) perItem[itemId] = {confirmed:0, corrected:0};
+      if(d.proposedAnswers[itemId]===d.finalAnswers[itemId]){ agreements++; perItem[itemId].confirmed++; }
+      else { disagreements++; perItem[itemId].corrected++; }
+    });
+  });
+  const accTotal = agreements + disagreements;
+  const accuracyTxt = accTotal>0 ? (agreements/accTotal*100).toFixed(1)+'%' : '—';
+
+  document.getElementById('autoQaDraftsKpi').innerHTML = `
+    <div class="kpi blue"><div class="kpi-val" style="color:var(--primary)">${total}</div><div class="kpi-lbl">Total Drafts</div></div>
+    <div class="kpi orange"><div class="kpi-val" style="color:var(--warning)">${pending}</div><div class="kpi-lbl">Pending</div></div>
+    <div class="kpi green"><div class="kpi-val" style="color:var(--success)">${approved}</div><div class="kpi-lbl">Approved</div></div>
+    <div class="kpi red"><div class="kpi-val" style="color:var(--danger)">${rejected}</div><div class="kpi-lbl">Rejected</div></div>
+    <div class="kpi teal"><div class="kpi-val" style="color:#0d9488">${accuracyTxt}</div><div class="kpi-lbl">Bot Accuracy</div></div>
+  `;
+
+  // Per-item bot accuracy — which rubric items the bot gets corrected on most,
+  // so QA leadership can see at a glance where the bot struggles.
+  const accCard = document.getElementById('autoQaBotAccuracyCard');
+  if(accCard){
+    const itemTitles = {};
+    getForm().forEach(sec=>{ (sec.items||[]).forEach(item=>{ itemTitles[item.id]=item.title; }); });
+    const itemRows = Object.entries(perItem)
+      .filter(([,v])=>v.confirmed+v.corrected>0)
+      .sort((a,b)=>b[1].corrected-a[1].corrected);
+    let accHtml;
+    if(!itemRows.length){
+      accHtml = '<div style="color:var(--gray);font-size:12px;padding:8px 0;">Not enough approved drafts yet to compute per-item accuracy.</div>';
+    } else {
+      accHtml = '<div class="table-wrap"><table>'
+        + '<thead><tr><th>Item ID</th><th>Item Title</th><th style="text-align:center">Times Corrected</th><th style="text-align:center">Times Confirmed</th></tr></thead><tbody>'
+        + itemRows.map(([itemId,v])=>'<tr>'
+          + '<td style="font-weight:700;">'+esc(itemId)+'</td>'
+          + '<td>'+esc(itemTitles[itemId]||'—')+'</td>'
+          + '<td style="text-align:center;font-weight:700;color:'+(v.corrected>0?'var(--danger)':'var(--gray)')+'">'+v.corrected+'</td>'
+          + '<td style="text-align:center;font-weight:700;color:var(--success)">'+v.confirmed+'</td>'
+          + '</tr>').join('')
+        + '</tbody></table></div>';
+    }
+    accCard.innerHTML = '<div class="card"><div class="card-title">📊 Per-Item Bot Accuracy</div>'+accHtml+'</div>';
+  }
+
+  const tbody = document.getElementById('autoQaDraftsReportBody');
+  if(!drafts.length){ tbody.innerHTML='<tr class="empty-row"><td colspan="8">No Auto QA drafts found.</td></tr>'; return; }
+  const agents = getAgents();
+  const canDelete = canDeleteAutoQaDraft();
+  tbody.innerHTML = drafts.map(d=>{
+    const cl = d.status==='pending'?'var(--warning)':d.status==='approved'?'var(--success)':'var(--danger)';
+    const agentTxt = d.agentMatchConfident ? esc((agents.find(a=>a.id===d.proposedAgentId)||{}).name||'') : '<span style="color:#dc2626;">Unmatched'+(d.agentNameGuess?': '+esc(d.agentNameGuess):'')+'</span>';
+    const scoreTxt = d.draftScore ? (d.draftScore.finalScore+'%'+(d.draftScore.autoFailTriggered?' ⚡':'')) : '—';
+    const deleteBtn = canDelete ? '<button class="btn btn-xs btn-gray" onclick="deleteAutoQaDraft(\''+d.id+'\')" title="Permanently delete this draft row">🗑 Delete</button>' : '';
+    const actionBtn = '<div style="display:flex;gap:6px;">'
+      + (d.status==='pending'
+        ? '<button class="btn btn-xs btn-primary" onclick="startEvalFromAutoQaDraft(\''+d.id+'\')">📝 Review &amp; Evaluate</button>'
+          + '<button class="btn btn-xs btn-danger" onclick="openAutoQaDraftReject(\''+d.id+'\')">✕ Reject</button>'
+        : '')
+      + deleteBtn
+      + '</div>';
+    return '<tr>'
+      +'<td>'+esc((d.transcript&&d.transcript.customerName)||'—')+'</td>'
+      +'<td>'+agentTxt+'</td>'
+      +'<td style="font-weight:700;">'+scoreTxt+'</td>'
+      +'<td style="text-align:center">'+(d.needsReview?d.needsReview.length:0)+'</td>'
+      +'<td><small>'+esc(d.createdBy)+'</small></td>'
+      +'<td><small>'+new Date(d.createdAt).toLocaleString()+'</small></td>'
+      +'<td><span style="font-weight:700;color:'+cl+'">'+d.status.toUpperCase()+'</span></td>'
+      +'<td>'+actionBtn+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function clearAutoQaDraftFilters(){
+  const s=document.getElementById('autoQaDraftStatusFilter'); if(s) s.value='';
+  renderAutoQaDraftsReport();
+}
+
+// Reviewing an Auto QA draft now opens the REAL QA Evaluation Form, pre-filled
+// (see startEvalFromAutoQaDraft() near buildEvalForm()) rather than a separate
+// custom modal -- so approval reuses the exact same submit pipeline (score math,
+// 48h cooldown, record shape) every other evaluation goes through, instead of a
+// second hand-maintained implementation of it. This modal is now reject-only.
+function openAutoQaDraftReject(draftId){
+  if(!isQA()){ toast('QA officers only','error'); return; }
+  const draft = getAutoQaDrafts().find(d=>d.id===draftId); if(!draft) return;
+  if(draft.status!=='pending'){ toast('This draft has already been resolved.','error'); return; }
+  document.getElementById('autoQaDraftReviewBody').innerHTML = `
+    <input type="hidden" id="rejectAutoQaDraftId" value="${esc(draft.id)}">
+    <div style="margin-bottom:10px;font-size:13px;line-height:1.7;">
+      Customer: <strong>${esc((draft.transcript&&draft.transcript.customerName)||'—')}</strong><br>
+      Agent guess: <strong>${esc(draft.agentNameGuess||'—')}</strong><br>
+      Draft score: <strong>${draft.draftScore?draft.draftScore.finalScore+'%':'—'}</strong>
+    </div>
+    <div class="form-group">
+      <label>Reason for rejecting <span class="req">*</span></label>
+      <textarea id="aqdRejectNote" placeholder="Why is this draft being rejected?" style="min-height:70px;"></textarea>
+    </div>`;
+  openModal('autoQaDraftReviewModal');
+}
+
+function confirmRejectAutoQaDraft(){
+  if(!isQA()){ toast('QA officers only','error'); return; }
+  const draftId = document.getElementById('rejectAutoQaDraftId')?.value;
+  const note = document.getElementById('aqdRejectNote')?.value.trim();
+  if(!draftId) return;
+  if(!note){ toast('Please add a reason before rejecting.','error'); return; }
+  const drafts = getAutoQaDrafts();
+  const idx = drafts.findIndex(d=>d.id===draftId); if(idx<0) return;
+  // Re-check pending status here, at the actual write, not just when the
+  // modal opened -- the draft could have been approved (or already rejected)
+  // by someone else in the time this reviewer spent typing a reason, and
+  // this write must not clobber that outcome.
+  if(drafts[idx].status!=='pending'){
+    toast('This draft was already resolved by someone else while this was open.','error');
+    closeModal('autoQaDraftReviewModal');
+    renderAutoQaDraftsReport();
+    return;
+  }
+  drafts[idx].status='rejected';
+  drafts[idx].resolvedAt=new Date().toISOString();
+  drafts[idx].resolvedBy=(getCurrentUser()||{}).displayName||(getCurrentUser()||{}).username||'unknown';
+  drafts[idx].rejectionNote=note;
+  saveAutoQaDrafts(drafts);
+  logChange('evaluation','Auto QA Draft Rejected',`Auto QA draft rejected — ${note}`,'QMS');
+  toast('Draft rejected.','success');
+  closeModal('autoQaDraftReviewModal');
+  renderAutoQaDraftsReport();
+  checkPendingAutoQaDrafts();
+}
+
+// Deleting a draft row is more destructive than rejecting one -- reject keeps
+// a permanent audit trail (who, when, why); delete removes the row entirely,
+// including from an already-approved/rejected draft's history. Restricted to
+// a different, narrower role set than isQA() (which QA officers themselves
+// satisfy) so a QA officer can't quietly delete evidence of their own
+// bot-scored draft -- only the roles that oversee QA work can.
+function canDeleteAutoQaDraft(){
+  return ['superadmin','admin','manager'].includes(currentRole());
+}
+
+function deleteAutoQaDraft(draftId){
+  if(!canDeleteAutoQaDraft()){ toast('Only Superadmin, Admin, or Manager can delete Auto QA drafts.','error'); return; }
+  const drafts = getAutoQaDrafts();
+  const draft = drafts.find(d=>d.id===draftId);
+  if(!draft){ toast('Draft not found.','error'); return; }
+  const customer = (draft.transcript&&draft.transcript.customerName)||'this transcript';
+  showConfirm({
+    title:'🗑 Delete Auto QA Draft',
+    message:`Permanently delete the draft for <strong>${esc(customer)}</strong>?`,
+    sub: draft.status==='approved'
+      ? 'This draft is already Approved -- deleting it only removes this audit row; the real evaluation record it created stays in Records and still counts toward KPIs.'
+      : 'This cannot be undone.',
+    icon:'🗑', btnLabel:'Delete', btnClass:'btn-danger',
+    onConfirm: ()=>{
+      const remaining = getAutoQaDrafts().filter(d=>d.id!==draftId);
+      saveAutoQaDrafts(remaining);
+      logChange('evaluation','Auto QA Draft Deleted',`Deleted Auto QA draft for "${customer}" (was ${draft.status})`,'QMS');
+      toast('Draft deleted.','success');
+      renderAutoQaDraftsReport();
+      checkPendingAutoQaDrafts();
+    },
+  });
+}
+
+// ═══════════════════════════════════════════════════
 // WIRE switchRptView FOR NEW VIEWS
 // ═══════════════════════════════════════════════════
 const _origSwitchRptView = switchRptView;
@@ -24767,6 +25721,7 @@ switchRptView = function(view, btn){
   else if(view==='coaching-compliance') renderCoachingCompliance();
   else if(view==='disputes') renderDisputeReport();
   else if(view==='edit-requests') renderEditRequestsReport();
+  else if(view==='autoqa-drafts') renderAutoQaDraftsReport();
   else if(view==='pareto') renderPareto();
   else if(view==='eval-timing') renderEvalTiming();
 };
@@ -25252,6 +26207,21 @@ function checkPendingEditRequests(){
   if(el){
     if(pending>0){ el.textContent=pending; el.style.display='inline'; }
     else { el.style.display='none'; }
+  }
+  setTimeout(refreshNotifBadge,50);
+}
+
+function checkPendingAutoQaDrafts(){
+  const pending=getAutoQaDrafts().filter(r=>r.status==='pending').length;
+  const el=document.getElementById('autoQaDraftsNavBadge');
+  if(el){
+    if(pending>0){ el.textContent=pending; el.style.display='inline'; }
+    else { el.style.display='none'; }
+  }
+  const el2=document.getElementById('autoQaDraftsReportBadge');
+  if(el2){
+    if(pending>0){ el2.textContent=pending; el2.style.display='inline'; }
+    else { el2.style.display='none'; }
   }
   setTimeout(refreshNotifBadge,50);
 }
