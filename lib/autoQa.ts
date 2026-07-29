@@ -552,8 +552,13 @@ export async function scoreTranscriptWithLLM(
   // here from both directions: the prompt itself now asks for shorter reasoning
   // (see _buildLlmPrompt), and max_tokens/timeout are set with real headroom
   // rather than guessed conservative values.
+  // A live test at max_tokens:1400 produced real, correctly-styled reasoning
+  // (confirming the prompt itself works) but was cut off mid-JSON before the
+  // response could close -- 1400 wasn't enough headroom for a full ~20-item
+  // rubric response even with the "be concise" instruction. Raised with real
+  // margin below the confirmed-safe ~26s+ platform ceiling.
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), 28000);
   let res: Response;
   try {
     res = await fetch(endpoint, {
@@ -566,7 +571,7 @@ export async function scoreTranscriptWithLLM(
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1400,
+        max_tokens: 3000,
         thinking: { type: "disabled" },
         system,
         messages: [{ role: "user", content: user }],
