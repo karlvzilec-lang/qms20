@@ -10,29 +10,32 @@
 // code this was ported from (AUTO_QA_RULES, normalizeYellowTranscript, runAutoQARules,
 // _matchAgentByName, _estimateAutoQAScore).
 //
-// IMPORTANT — the one piece that could NOT be recovered from history: the original
-// server-side proxy file (netlify/functions/yellow-transcript.ts) was never committed to
-// git at all (that's exactly why it got removed as "untracked"), so its actual outbound
-// call to Yellow.ai -- the real request/response shape -- is not preserved anywhere. What
-// IS preserved is the removed frontend's *consumption contract*: it called
-// `/api/yellow-transcript?url=<link>` and expected back `{success:true, data:[...]}` (or
-// `{success:false, error}`), where each item in `data` looks like
-// `{messageType, message, agentId, agentName, created, name, source}`. fetchYellowTranscript()
-// below implements the simplest thing consistent with that contract and with the removal
-// commit's own note that the whole reason a proxy was needed was CORS/CSP, not a private
-// API — it fetches the pasted "public" link directly and expects a JSON body already
-// shaped like Yellow.ai's `securedLogs` response. This has NOT been verified against a
-// real Yellow Messenger link. Test with one real link before relying on this in production;
-// if Yellow.ai's actual response shape differs, only this one function needs to change.
+// REAL API SHAPE (verified against a live production link, since the original server-side
+// proxy was never committed and its outbound call was never preserved anywhere): the
+// pasted "public" link (https://app.yellow.ai/public/messages/<signature>) is a React SPA
+// shell, NOT a JSON endpoint -- fetching it directly returns HTML and was the root cause of
+// "Transcript response was not valid JSON" in production. The SPA itself calls
+// `GET /api/agents/data/publicLogs/?signature=<signature>&limit=&offset=` (found by
+// searching the SPA's own bundle for how it builds this URL -- it isn't referenced by any
+// public Yellow.ai documentation) which returns `{success, message, data:[...]}` in
+// DESCENDING timestamp order, paginated. Each item's `messageType` is "USER" (customer),
+// "AGENT" (live human agent), or "BOT"; its `message` field is usually a JSON-encoded
+// string (shape varies: {message}, {text,title} for quick-reply clicks, {quickReplies:
+// {title,options}}, {cards}, {rating:{agentFeedback:{title}}}, or occasionally an ARRAY of
+// such objects for a bundled multi-part step) but for a customer's own free-typed text it
+// is a plain, non-JSON string. There is no dedicated "agent name" field anywhere in the
+// data; the only place a live agent's real name appears is inside a BOT system message
+// announcing the handoff ("ភ្នាក់ងារជជែកផ្ទាល់ <name> ត្រូវបានភ្ជាប់។"), which
+// agentNameGuess below extracts by pattern.
 
 export interface YellowRawMessage {
   messageType?: string;
   message?: string;
-  agentId?: string;
-  agentName?: string;
+  timestamp?: string;
   created?: string;
   name?: string;
   source?: string;
+  nodeType?: string;
 }
 
 export interface NormalizedMessage {
@@ -70,52 +73,132 @@ export async function fetchYellowTranscript(link: string): Promise<{ data: Yello
   if (!isAllowedTranscriptUrl(link)) {
     throw new Error("Link must be an https://*.yellow.ai URL");
   }
-  const res = await fetch(link, { headers: { Accept: "application/json" } });
-  if (!res.ok) {
-    throw new Error(`Transcript fetch failed (HTTP ${res.status})`);
-  }
-  let json: unknown;
+  let url: URL;
   try {
-    json = await res.json();
+    url = new URL(link);
   } catch {
-    throw new Error("Transcript response was not valid JSON");
+    throw new Error("Malformed transcript URL");
   }
-  const data = Array.isArray((json as { data?: unknown })?.data)
-    ? ((json as { data: YellowRawMessage[] }).data)
-    : Array.isArray(json)
-      ? (json as YellowRawMessage[])
-      : null;
-  if (!data) throw new Error("Unrecognized transcript response shape");
-  return { data };
+  const sigMatch = url.pathname.match(/\/public\/messages\/([a-f0-9]+)/i);
+  if (!sigMatch) {
+    throw new Error("URL is not a Yellow.ai public message link (expected .../public/messages/<signature>)");
+  }
+  const signature = sigMatch[1];
+
+  // The publicLogs endpoint is paginated and returns newest-first; pull pages until one
+  // comes back short of the page size. The cap is a defensive backstop, not an expected
+  // ceiling -- no real support chat should approach 4000 messages.
+  const PAGE_SIZE = 200;
+  const MAX_PAGES = 20;
+  const all: YellowRawMessage[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const offset = page * PAGE_SIZE;
+    const apiUrl = `${url.protocol}//${url.host}/api/agents/data/publicLogs/?signature=${encodeURIComponent(signature)}&limit=${PAGE_SIZE}&offset=${offset}`;
+    const res = await fetch(apiUrl, { headers: { Accept: "application/json" } });
+    if (!res.ok) {
+      throw new Error(`Transcript fetch failed (HTTP ${res.status})`);
+    }
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      throw new Error("Transcript response was not valid JSON");
+    }
+    const body = json as { success?: boolean; data?: unknown };
+    if (body.success === false) {
+      throw new Error("Yellow.ai reported failure for this link (invalid or expired signature)");
+    }
+    const pageData = Array.isArray(body.data) ? (body.data as YellowRawMessage[]) : null;
+    if (!pageData) throw new Error("Unrecognized transcript response shape");
+    all.push(...pageData);
+    if (pageData.length < PAGE_SIZE) break;
+  }
+  if (!all.length) throw new Error("No messages found for this link");
+  return { data: all };
 }
 
-// Normalizes the raw Yellow.ai securedLogs response into a flat, chronological
-// transcript. AGENT-type messages carry their real text inside a JSON-encoded
-// `message` string (with metadata like agentProfilePicture); USER messages are
-// plain strings. Ported unchanged from the removed client-side version.
+// A raw item's `message` field is JSON-encoded for structured content (plain bot text,
+// quick-reply clicks, card carousels, the closing rating prompt) but is a plain, non-JSON
+// string for a customer's own free-typed text -- there is no flag distinguishing the two
+// cases up front, so this always tries JSON.parse() first and falls back to the raw string.
+function _extractYellowMessageText(raw: unknown): string {
+  if (typeof raw !== "string" || !raw.trim()) return "";
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return raw.trim();
+  }
+  return _extractFromParsed(parsed);
+}
+
+function _extractFromParsed(parsed: unknown): string {
+  if (typeof parsed === "string") return parsed;
+  if (Array.isArray(parsed)) {
+    return parsed
+      .map((el) => _extractFromParsed(el))
+      .filter(Boolean)
+      .join("\n");
+  }
+  if (parsed && typeof parsed === "object") {
+    const p = parsed as Record<string, unknown>;
+    if (typeof p.message === "string") return p.message;
+    if (typeof p.text === "string") return p.text;
+    const quickReplies = p.quickReplies as { title?: unknown } | undefined;
+    if (quickReplies && typeof quickReplies.title === "string") return quickReplies.title;
+    const rating = p.rating as { agentFeedback?: { title?: unknown } } | undefined;
+    if (rating?.agentFeedback && typeof rating.agentFeedback.title === "string") return rating.agentFeedback.title;
+    if (Array.isArray(p.cards)) {
+      return (p.cards as Array<Record<string, unknown>>)
+        .map((c) => [c.title, c.subtitle].filter((v) => typeof v === "string").join(" — "))
+        .filter(Boolean)
+        .join("\n");
+    }
+  }
+  return "";
+}
+
+// The live agent's real name has no dedicated field anywhere in the raw data -- the only
+// place it appears is a BOT system message announcing the handoff. Falls back to an
+// English phrasing on the (unconfirmed) chance a bot is configured for English instead.
+function _guessAgentNameFromMessages(messages: NormalizedMessage[]): string {
+  for (const m of messages) {
+    const kh = m.text.match(/ភ្នាក់ងារជជែកផ្ទាល់\s+([\s\S]+?)\s+ត្រូវបានភ្ជាប់/);
+    if (kh && kh[1]) return kh[1].trim();
+    const en = m.text.match(/live (?:chat )?agent\s+([\s\S]+?)\s+(?:has been |is )?connected/i);
+    if (en && en[1]) return en[1].trim();
+  }
+  return "";
+}
+
+// The customer's real name has no dedicated field either -- it's only visible where the
+// bot's welcome-back template greets them by name. Best-effort only; nothing downstream
+// depends on this being correct (unlike agentNameGuess, which drives roster matching).
+function _guessCustomerNameFromMessages(messages: NormalizedMessage[]): string {
+  for (const m of messages) {
+    const kh = m.text.match(/សួស្តី\s+([^!,\n]{2,60})[!,]/);
+    if (kh && kh[1]) return kh[1].trim();
+  }
+  return "";
+}
+
+// Normalizes the raw Yellow.ai publicLogs response into a flat, chronological transcript.
 export function normalizeYellowTranscript(raw: { data: YellowRawMessage[] }): NormalizedTranscript {
   const arr = Array.isArray(raw?.data) ? raw.data : [];
   const messages: NormalizedMessage[] = arr
     .map((m) => {
-      let text = m.message;
-      if (typeof text === "string" && text.trim().startsWith("{")) {
-        try {
-          const p = JSON.parse(text);
-          if (p && typeof p.message === "string") text = p.message;
-        } catch {
-          /* keep raw text */
-        }
-      }
+      const sender: NormalizedMessage["sender"] =
+        m.messageType === "USER" ? "customer" : m.messageType === "AGENT" ? "agent" : "bot";
       return {
-        sender: (m.messageType === "USER" ? "customer" : m.agentId ? "agent" : "bot") as NormalizedMessage["sender"],
-        text: text || "",
-        ts: m.created || null,
-        agentName: m.agentName || null,
+        sender,
+        text: _extractYellowMessageText(m.message),
+        ts: m.timestamp || m.created || null,
+        agentName: null,
       };
     })
     .sort((a, b) => new Date(a.ts || 0).getTime() - new Date(b.ts || 0).getTime());
-  const customerName = arr.find((m) => m.name)?.name || "";
-  const agentNameGuess = arr.find((m) => m.agentName)?.agentName || "";
+  const customerName = _guessCustomerNameFromMessages(messages);
+  const agentNameGuess = _guessAgentNameFromMessages(messages);
   const channelSource = arr.find((m) => m.source)?.source || "";
   return { customerName, agentNameGuess, channelSource, channel: "Chat", messages };
 }
