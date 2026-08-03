@@ -5546,8 +5546,29 @@ const DB = {
   },
   set: function(k,v){
     try{ localStorage.setItem('qms2_'+k, JSON.stringify(v)); }
-    catch(e){ console.error('DB.set',k,e); toast('Storage quota exceeded. Some data could not be saved.','error'); }
-    if(!_DB_LOCAL_ONLY.has(k)) _DbSync.schedule(k);
+    catch(e){
+      // Quota exceeded. The auto-snapshot is a full redundant copy of every
+      // bucket (roughly DOUBLING this origin's storage use) kept only as a
+      // recovery convenience -- freeing it and retrying usually clears
+      // enough room for the real write to succeed.
+      try{
+        localStorage.removeItem('qms2__autoSnapshot');
+        localStorage.setItem('qms2_'+k, JSON.stringify(v));
+      }catch(e2){
+        console.error('DB.set',k,e2);
+        // The real save (server push, below) still happens regardless --
+        // this only means THIS device's local cache copy of "k" is stale
+        // until next reload, not that the write itself was lost, so this is
+        // deliberately not phrased as a data-loss warning.
+        toast('This device is low on local storage — your data was saved, but this device\'s offline cache may show outdated info until you reload.','info');
+      }
+    }
+    // Always pass v directly (not just on a cache-write failure) so the
+    // server push never depends on a re-read from localStorage -- see
+    // _DbSync.schedule()'s comment for why re-reading here would silently
+    // re-push stale data (and drop the new write) whenever the setItem above
+    // just failed.
+    if(!_DB_LOCAL_ONLY.has(k)) _DbSync.schedule(k, v);
   }
 };
 
@@ -5575,6 +5596,16 @@ const _DbSync = (function(){
   var _bootDone   = false;  // true once first remote GET resolves; blocks premature pushes
   var _online     = navigator.onLine !== false;
   var _retryTimer = null;
+  // In-memory freshest-known value per bucket, keyed by the same name as
+  // _queue. Only lives for this tab session (can't survive a reload the way
+  // the persisted _queue of bucket NAMES does) -- used so a push always
+  // sends what was actually just written, even if the matching
+  // localStorage.setItem() failed (e.g. quota exceeded) and DB.get(k) would
+  // otherwise silently return stale data, dropping the real write. Falls
+  // back to DB.get(k) when a bucket was queued without a value (e.g. flushed
+  // from the persisted offline queue after a fresh page load, where no
+  // in-memory value exists yet).
+  var _pendingValues = {};
 
   // ── Load persisted offline queue on startup ───────────────────────────────
   try{
@@ -5602,7 +5633,8 @@ const _DbSync = (function(){
     _flush();
   }
 
-  function schedule(k){
+  function schedule(k, v){
+    if(v!==undefined) _pendingValues[k]=v;
     if(_queue.indexOf(k)===-1) _queue.push(k);
     _saveQueue();
     clearTimeout(_timer);
@@ -5627,7 +5659,15 @@ const _DbSync = (function(){
       // so a browser tab that's been open since before a duplicate got fixed
       // server-side would otherwise re-overwrite the clean copy with its own
       // stale, still-duplicated local cache the next time it pushes anything.
-      var payload = DB.get(k);
+      //
+      // Prefer the in-memory value captured at DB.set() time over a re-read
+      // from localStorage: when the local cache write failed (quota
+      // exceeded), DB.get(k) returns the OLD value -- pushing that would
+      // silently drop the new write (confirmed live: an evaluation showed
+      // "recorded successfully" but never reached the server, because the
+      // push re-read a stale records array that didn't contain it).
+      var held = (k in _pendingValues) ? _pendingValues[k] : undefined;
+      var payload = (held!==undefined) ? held : DB.get(k);
       if(_MERGE_BUCKETS.has(k) && Array.isArray(payload)){
         var _seen=new Set();
         payload = payload.filter(function(x){
@@ -5645,6 +5685,11 @@ const _DbSync = (function(){
         body:JSON.stringify({bucket:k,data:payload})
       }).then(function(r){
         if(!r.ok) throw r.status;
+        // Only clear the held value once the server confirmed this push AND
+        // no newer DB.set() has replaced it mid-flight (identity check on
+        // the ORIGINAL held reference, since the dedup filter above builds a
+        // new array) -- a failed push keeps it for the 10s retry.
+        if(_pendingValues[k]===held) delete _pendingValues[k];
       }).catch(function(e){
         failed.push(k);
         console.warn('[DbSync] Push failed for bucket: '+k, e);
