@@ -6668,7 +6668,11 @@ function showScreen(name,btn){
       settings:   ['viewer','qa','tl'],
       tlteam:     ['viewer','qa'],
     };
-    if((denied[name]||[]).includes(r)){
+    // The evaluation screen's role list can be extended (never restricted)
+    // by the Role Permissions matrix -- a role in the denied list that has
+    // been granted eval_submit in Access Management still gets in.
+    const _permOverride = name==='evaluation' && canSubmitEval();
+    if((denied[name]||[]).includes(r) && !_permOverride){
       toast('You do not have permission to access that screen.','error');
       // Ensure denied screen is never left active — redirect to dashboard
       if(name!=='dashboard'){
@@ -22798,10 +22802,11 @@ function applyRoleUI(){
   } else {
     if(sysSwitcher) sysSwitcher.style.display='none';
   }
-  // Show/hide New Evaluation nav
+  // Show/hide New Evaluation nav — qa/admin/superadmin always, plus any role
+  // granted eval_submit in the Role Permissions matrix (e.g. a manager).
   const navBtns=document.querySelectorAll('.nav-btn');
   navBtns.forEach(b=>{
-    if(b.textContent.includes('New Evaluation')) b.style.display=isQA()?'':'none';
+    if(b.textContent.includes('New Evaluation')) b.style.display=canSubmitEval()?'':'none';
   });
   // Auto QA — same audience as New Evaluation (qa/admin/superadmin)
   const autoQaBtn=document.getElementById('autoQaNavBtn');
@@ -23817,6 +23822,15 @@ function hasPermission(key){
   return !!((perms[key]||{})[role]);
 }
 
+// Single source of truth for "can this user create evaluations". qa/admin/
+// superadmin always can (hardcoded, same as before); the Role Permissions
+// matrix's eval_submit key can EXTEND that to other roles (e.g. a manager)
+// but can never revoke it from the built-in evaluator roles. This is the
+// enforcement the Access Management page's "Submit New Evaluation" toggle
+// was always supposed to have -- previously the key existed in the matrix
+// UI but nothing checked it, so granting it had no effect.
+function canSubmitEval(){ return isQA() || hasPermission('eval_submit'); }
+
 // ── Override renderSettings to include user management ──
 const _origRenderSettings=renderSettings;
 renderSettings = function(){
@@ -23888,10 +23902,10 @@ renderRecords = function(){
   if(!isAdmin()) document.querySelectorAll('#recordsBody [onclick*="deleteRecord"],[onclick*="confirmDelete"]').forEach(b=>b.style.display='none');
 };
 
-// ── Protect submit evaluation for QA+ only ──────
+// ── Protect submit evaluation: built-in evaluator roles + matrix grants ──
 const _origSubmitEval=submitEval;
 submitEval = function(){
-  if(!isQA()){ toast('You do not have permission to submit evaluations.','error'); return; }
+  if(!canSubmitEval()){ toast('You do not have permission to submit evaluations.','error'); return; }
   window._evalStartTimeForRecord = evalStartTime;
   _origSubmitEval();
 };
@@ -24731,8 +24745,11 @@ applyRoleUI = function(){
     const roleEl = document.getElementById('userBarRole');
     roleEl.textContent = '👥 Team Lead';
     roleEl.className = 'role-badge role-tl';
-    // TL cannot submit evaluations
-    document.querySelectorAll('.nav-btn').forEach(b=>{
+    // TL cannot submit evaluations by default -- unless granted eval_submit
+    // in the Role Permissions matrix (same override canSubmitEval() applies
+    // everywhere else; without this, the base applyRoleUI's permission-aware
+    // show/hide gets silently clobbered by this wrapper).
+    if(!canSubmitEval()) document.querySelectorAll('.nav-btn').forEach(b=>{
       if(b.textContent.includes('New Evaluation')) b.style.display='none';
     });
     // Show My Team nav
@@ -24743,8 +24760,8 @@ applyRoleUI = function(){
     const roleEl = document.getElementById('userBarRole');
     roleEl.textContent = '📊 Manager';
     roleEl.className = 'role-badge role-manager';
-    // Manager cannot submit evaluations
-    document.querySelectorAll('.nav-btn').forEach(b=>{
+    // Manager cannot submit evaluations by default -- same matrix override as TL above.
+    if(!canSubmitEval()) document.querySelectorAll('.nav-btn').forEach(b=>{
       if(b.textContent.includes('New Evaluation')) b.style.display='none';
     });
     // Ensure My Team nav is hidden for managers (may be visible if TL was previously logged in)
