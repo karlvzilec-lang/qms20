@@ -1,5 +1,9 @@
 # QMS20 — Cellcard QA Monitoring System
 
+[![CI](https://github.com/karlvzilec-lang/qms20/actions/workflows/ci.yml/badge.svg)](https://github.com/karlvzilec-lang/qms20/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6.svg)](tsconfig.json)
+
 A single-file SPA (`index.html`) for managing call-center QA evaluations, backed by Netlify Functions and a Postgres/Supabase data layer. Includes role-based access control, an Auto QA pipeline that scores Yellow Messenger transcripts (rule-based and LLM), and an NPS dashboard.
 
 ## Setup
