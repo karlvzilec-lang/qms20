@@ -99,9 +99,25 @@ export default async (req: Request) => {
       if (netlifyResult.status === "fulfilled") absorb(netlifyResult.value);
       if (supabaseResult.status === "fulfilled") absorb(supabaseResult.value);
 
+      // This GET is intentionally unauthenticated (health-check / initial load,
+      // per the comment above) -- the "users" bucket must never carry password
+      // hashes out through it. The client verifies logins against /api/auth
+      // (which never exposes the hash either); it does not need the hash
+      // locally. See _setUserPassword()/getCurrentUser() in index.html for the
+      // pwVersion-based session-staleness check that replaced the old
+      // hash-derived one this made impossible.
+      const stripPassword = (bucket: string, data: unknown): unknown => {
+        if (bucket !== "users" || !Array.isArray(data)) return data;
+        return data.map((u) => {
+          if (!u || typeof u !== "object" || !("password" in u)) return u;
+          const { password: _password, ...rest } = u as Record<string, unknown>;
+          return rest;
+        });
+      };
+
       const rows = [...merged.values()].map(({ bucket, data }) => ({
         bucket,
-        data,
+        data: stripPassword(bucket, data),
       }));
 
       return Response.json(rows, {

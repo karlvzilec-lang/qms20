@@ -20,6 +20,10 @@ interface QamsForm {
   sections: FormSection[];
 }
 
+interface QamsSettings {
+  globalScoringMode?: string;
+}
+
 export default async (req: Request) => {
   if (req.method !== "GET") return new Response("Method not allowed", { status: 405 });
 
@@ -48,10 +52,11 @@ export default async (req: Request) => {
   };
 
   try {
-    const [forms, agents, drafts] = await Promise.all([
+    const [forms, agents, drafts, settings] = await Promise.all([
       readBucket<QamsForm[]>("forms"),
       readBucket<RosterAgent[]>("agents"),
       readBucket<ApprovedDraftForCorrections[]>("autoQaDrafts"),
+      readBucket<QamsSettings>("settings"),
     ]);
     const published = (forms || []).find((f) => f.status === "published");
     if (!published) {
@@ -68,7 +73,7 @@ export default async (req: Request) => {
       ? { apiKey, model: process.env.AUTOQA_AI_MODEL || process.env.ANTHROPIC_MODEL || undefined }
       : undefined;
     const corrections = getRecentCorrections(drafts || [], published.sections);
-    const result = await scoreYellowLink(url, published.sections, agents || [], hints, llmConfig, corrections);
+    const result = await scoreYellowLink(url, published.sections, agents || [], hints, llmConfig, corrections, settings?.globalScoringMode || "per-section");
     return Response.json({
       success: true,
       formId: published.id,

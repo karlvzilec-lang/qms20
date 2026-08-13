@@ -51,13 +51,19 @@ interface QamsForm {
   sections: FormSection[];
 }
 
+interface QamsSettings {
+  globalScoringMode?: string;
+}
+
 export default async () => {
-  const [queue, forms, agents, drafts] = await Promise.all([
+  const [queue, forms, agents, drafts, settings] = await Promise.all([
     readBucket<QueueRow[]>("autoQaLinkQueue"),
     readBucket<QamsForm[]>("forms"),
     readBucket<RosterAgent[]>("agents"),
     readBucket<ApprovedDraftForCorrections[]>("autoQaDrafts"),
+    readBucket<QamsSettings>("settings"),
   ]);
+  const globalScoringMode = settings?.globalScoringMode || "per-section";
 
   const published = (forms || []).find((f) => f.status === "published");
   const pending = (queue || []).filter((r) => r.status === "queued").slice(0, MAX_PER_RUN);
@@ -91,7 +97,7 @@ export default async () => {
         evalDate: row.evalDate,
         refNo: row.refNo,
         mobileNumber: row.mobileNumber,
-      }, llmConfig, corrections);
+      }, llmConfig, corrections, globalScoringMode);
       const draftId = crypto.randomUUID();
       draftsToUpsert.push({
         id: draftId,

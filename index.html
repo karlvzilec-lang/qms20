@@ -1470,7 +1470,7 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
     <div style="font-size:12px;color:var(--gray);margin-bottom:8px;">One Yellow Messenger public link per line, e.g. <code>https://app.yellow.ai/public/messages/&lt;signature&gt;/start/&lt;ms&gt;/end/&lt;ms&gt;</code></div>
     <textarea id="autoQALinks" placeholder="https://app.yellow.ai/public/messages/..." style="width:100%;box-sizing:border-box;min-height:90px;font-size:12px;font-family:monospace;"></textarea>
     <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
-      <button class="btn btn-primary" onclick="autoQAFetchAll()" style="display:flex;align-items:center;gap:6px;">
+      <button id="autoQAFetchAllBtn" class="btn btn-primary" onclick="autoQAFetchAll()" style="display:flex;align-items:center;gap:6px;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
         Fetch &amp; Pre-Score All
       </button>
@@ -6081,6 +6081,16 @@ async function hashPw(pw){
   const hashHex = Array.from(new Uint8Array(bits)).map(b=>b.toString(16).padStart(2,'0')).join('');
   return `pbkdf2:200000:${saltHex}:${hashHex}`;
 }
+// Centralizes every place a user record's password gets (re)hashed, so
+// pwVersion always bumps alongside it. pwVersion (not the password hash
+// itself) is what session-staleness detection (_sig, see getCurrentUser())
+// is keyed on -- the hash itself is no longer ever sent to the client via
+// /api/data's GET (see the matching server-side change in data.ts), so
+// _sig can't be computed from it anymore.
+async function _setUserPassword(userObj, plainPw){
+  userObj.password = await hashPw(plainPw);
+  userObj.pwVersion = (userObj.pwVersion||0) + 1;
+}
 async function verifyPw(plain, stored){
   if(!stored) return false;
   if(_IS_PBKDF2.test(stored)){
@@ -6700,7 +6710,12 @@ function toast(msg, type='success', title='', duration=4000){
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){
   document.getElementById(id).classList.remove('open');
-  if(id==='confirmModal') _confirmClearCountdown();
+  if(id==='confirmModal'){
+    _confirmClearCountdown();
+    // Drain any confirm() calls that arrived while this one was open (see
+    // the queue guard in showConfirm()) instead of just dropping them.
+    if(_confirmQueue.length) setTimeout(()=>showConfirm(_confirmQueue.shift()), 250);
+  }
   if(id==='uploadModal') resetUploadModal();
 }
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m.id);}));
@@ -9007,8 +9022,14 @@ function _evalAgentBlur(){
 function startEvaluateAgent(agentId){
   const evalNavBtn = Array.from(document.querySelectorAll('.nav-btn')).find(b=>b.textContent.includes('Evaluation')||b.onclick?.toString().includes('evaluation'));
   showScreen('evaluation', evalNavBtn || document.querySelectorAll('.nav-btn')[1]);
+  // Captured AFTER showScreen()'s buildEvalForm() call bumps the counter --
+  // same guard pattern as startEvalFromAutoQaDraft() below, so a stale
+  // prefill can't silently overwrite a manual agent re-selection made in
+  // the gap before this timeout fires.
+  const myGeneration = _evalFormGeneration;
   // Wait for the screen to render, then pre-select
   setTimeout(()=>{
+    if(_evalFormGeneration !== myGeneration) return;
     const hiddenEl = document.getElementById('evalAgent');
     const searchEl = document.getElementById('evalAgentSearch');
     if(hiddenEl){
@@ -9440,11 +9461,19 @@ async function _fetchAndScoreYellowLink(link, hints){
   return json;
 }
 
+let _autoQAFetchAllBusy = false;
 async function autoQAFetchAll(){
   if(!isQA()){ toast('QA officers only','error'); return; }
+  // Without this guard, a second click while the first batch's sequential
+  // await-loop is mid-flight reassigns the shared _autoQAQueue global out
+  // from under the first loop, mixing/truncating both batches' results.
+  if(_autoQAFetchAllBusy){ toast('Already fetching — please wait for the current batch to finish.','info'); return; }
   const ta = document.getElementById('autoQALinks');
   const links = (ta.value||'').split('\n').map(s=>s.trim()).filter(Boolean);
   if(!links.length){ toast('Paste at least one Yellow Messenger link.','error'); return; }
+  _autoQAFetchAllBusy = true;
+  const btn = document.getElementById('autoQAFetchAllBtn');
+  if(btn) btn.disabled = true;
   _autoQAQueue = links.map(link=>({ id: uuid(), link, status:'pending' }));
   renderAutoQAQueue();
   const statusEl = document.getElementById('autoQAStatusLine');
@@ -9480,6 +9509,8 @@ async function autoQAFetchAll(){
     renderAutoQAQueue();
   }
   if(statusEl) statusEl.textContent = 'Done — ' + _autoQAQueue.filter(q=>q.status==='ready').length + ' ready, ' + _autoQAQueue.filter(q=>q.status==='error').length + ' failed.';
+  _autoQAFetchAllBusy = false;
+  if(btn) btn.disabled = false;
 }
 
 function renderAutoQAQueue(){
@@ -9756,20 +9787,28 @@ function renderAutoQaLinkQueueTable(){
 // requiring a separate "Save as Draft" click.
 async function autoQaCheckLinkNow(rowId){
   if(!isQA()){ toast('QA officers only','error'); return; }
-  const queue = getAutoQaLinkQueue();
-  const row = queue.find(r=>r.id===rowId);
-  if(!row || row.status!=='queued') return;
-  row.status = 'checking';
-  saveAutoQaLinkQueue(queue);
+  const queue0 = getAutoQaLinkQueue();
+  const row0 = queue0.find(r=>r.id===rowId);
+  if(!row0 || row0.status!=='queued') return;
+  // Capture the fields this check actually needs from a snapshot, but never
+  // hold onto `queue`/`row` themselves across the await below -- getRecords()-
+  // style full-array reads are private deep copies (DB.get→JSON.parse), so a
+  // second "Check Now" click on a DIFFERENT row while this row's fetch is
+  // still in flight would otherwise get silently reverted when this call's
+  // stale queue snapshot is saved back at the end (same bug class the
+  // _DbSync push fix addressed, at this app-logic layer instead).
+  const linkInfo = { link: row0.link, staffId: row0.staffId, agentName: row0.agentName, campaign: row0.campaign, evalDate: row0.evalDate, refNo: row0.refNo, mobileNumber: row0.mobileNumber };
+  row0.status = 'checking';
+  saveAutoQaLinkQueue(queue0);
   renderAutoQaLinkQueueTable();
   try{
-    const r = await _fetchAndScoreYellowLink(row.link, {
-      staffId: row.staffId, agentName: row.agentName, campaign: row.campaign,
-      evalDate: row.evalDate, refNo: row.refNo, mobileNumber: row.mobileNumber,
+    const r = await _fetchAndScoreYellowLink(linkInfo.link, {
+      staffId: linkInfo.staffId, agentName: linkInfo.agentName, campaign: linkInfo.campaign,
+      evalDate: linkInfo.evalDate, refNo: linkInfo.refNo, mobileNumber: linkInfo.mobileNumber,
     });
     const user = getCurrentUser();
     const draft = {
-      id: uuid(), link: row.link, status: 'pending',
+      id: uuid(), link: linkInfo.link, status: 'pending',
       createdBy: user ? (user.displayName||user.username) : 'unknown',
       createdAt: new Date().toISOString(),
       transcript: r.transcript, scoringMethod: r.scoringMethod || 'rule-based',
@@ -9787,14 +9826,24 @@ async function autoQaCheckLinkNow(rowId){
     drafts.unshift(draft);
     saveAutoQaDrafts(drafts);
     logChange('evaluation','Auto QA Draft Saved',`Individual "Check Now" — saved Auto QA draft for "${r.agentNameGuess||'unmatched agent'}" (draft score ${r.draftScore.finalScore}%) — awaiting QA approval`,'QMS');
-    row.status = 'processed'; row.processedAt = new Date().toISOString(); row.draftId = draft.id; row.error = null;
+    // Re-fetch the queue fresh here rather than reusing queue0/row0 -- those
+    // were captured before the await above, so saving them back now would
+    // silently revert any OTHER row a concurrent "Check Now" click updated
+    // in the meantime.
+    const queue1 = getAutoQaLinkQueue();
+    const row1 = queue1.find(x=>x.id===rowId);
+    if(row1){ row1.status = 'processed'; row1.processedAt = new Date().toISOString(); row1.draftId = draft.id; row1.error = null; }
+    saveAutoQaLinkQueue(queue1);
     checkPendingAutoQaDrafts();
     toast('Checked — saved as draft, awaiting QA approval.','success');
   }catch(e){
-    row.status = 'error'; row.error = e && e.message ? e.message : String(e);
-    toast('Check failed: ' + row.error,'error');
+    const errMsg = e && e.message ? e.message : String(e);
+    const queue1 = getAutoQaLinkQueue();
+    const row1 = queue1.find(x=>x.id===rowId);
+    if(row1){ row1.status = 'error'; row1.error = errMsg; }
+    saveAutoQaLinkQueue(queue1);
+    toast('Check failed: ' + errMsg,'error');
   }
-  saveAutoQaLinkQueue(queue);
   renderAutoQaLinkQueueTable();
 }
 
@@ -9852,10 +9901,10 @@ function showEvalResult(record){
     <div class="er-score er-score-${theme}">${record.finalScore.toFixed(1)}<span style="font-size:26px;font-weight:700;color:#d1d5db">%</span></div>
     <div class="er-score-label">Quality Score</div>
     <div class="er-meta">
-      <div class="er-meta-row"><span class="er-meta-lbl">${icons.agent} Agent</span><span class="er-meta-val">${record.agentName||record.agentId}</span></div>
-      <div class="er-meta-row"><span class="er-meta-lbl">${icons.eval} Evaluator</span><span class="er-meta-val">${record.qaOfficer}</span></div>
+      <div class="er-meta-row"><span class="er-meta-lbl">${icons.agent} Agent</span><span class="er-meta-val">${esc(record.agentName||record.agentId)}</span></div>
+      <div class="er-meta-row"><span class="er-meta-lbl">${icons.eval} Evaluator</span><span class="er-meta-val">${esc(record.qaOfficer)}</span></div>
       <div class="er-meta-row"><span class="er-meta-lbl">${icons.date} Date</span><span class="er-meta-val">${fmtDate(record.evalDate)}</span></div>
-      <div class="er-meta-row"><span class="er-meta-lbl">${icons.form} Form</span><span class="er-meta-val">${record.formName||'Standard QA Form'}</span></div>
+      <div class="er-meta-row"><span class="er-meta-lbl">${icons.form} Form</span><span class="er-meta-val">${esc(record.formName||'Standard QA Form')}</span></div>
       ${record.evalDurationMin ? `<div class="er-meta-row"><span class="er-meta-lbl">${icons.timer} Eval Time</span><span class="er-meta-val">${record.evalDurationMin} min</span></div>` : ''}
     </div>
     ${autoFailItems ? `<div class="er-failed-list"><div class="er-failed-list-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Auto-Fail Triggers</div>${autoFailItems}</div>` : ''}
@@ -10072,7 +10121,7 @@ function printEvalPDF(){
         <td class="item-cell">${item.id} — ${item.title}${item.autoFail?' <span class="af-tag">AUTO FAIL</span>':''}</td>
         <td class="pts-cell">${item.points}pt</td>
         <td class="ans-cell"><span class="${ansClass}">${ansLabel}</span></td>
-        <td class="cmt-cell">${comment||''}</td>
+        <td class="cmt-cell">${esc(comment||'')}</td>
       </tr>`;
     });
     sectionsHTML += `
@@ -10233,6 +10282,12 @@ ${sectionsHTML}
 // opts: { title, message, sub, icon, btnLabel, btnClass, headerColor, onConfirm }
 let _confirmAutoCloseTimer = null;
 let _confirmCountdownInterval = null;
+// Queued showConfirm() calls that arrived while the shared #confirmModal was
+// already open -- without this, a second call (e.g. _afterEvalSubmit()'s
+// delayed "Send FAIL Notification?" prompt) silently overwrites the
+// currently-displayed dialog's title/message/button handler in place, so a
+// user mid-click on one action can end up firing a different one.
+let _confirmQueue = [];
 
 function _confirmStartCountdown(secs=10){
   _confirmClearCountdown();
@@ -10274,6 +10329,16 @@ function _confirmClearCountdown(){
 }
 
 function showConfirm(opts){
+  // If a confirm dialog is already open, queue this one instead of
+  // overwriting the currently-displayed one's title/message/handler in
+  // place -- a user mid-click on what they're reading right now must not
+  // end up firing a different, just-swapped-in action. Drained in
+  // closeModal()'s 'confirmModal' branch.
+  const _existing = document.getElementById('confirmModal');
+  if(_existing && _existing.classList.contains('open')){
+    _confirmQueue.push(opts);
+    return;
+  }
   // headerColor drives the icon-badge tint, not a full-bleed header fill —
   // the header itself is always a neutral white/hairline-border surface now
   // (a minimalist redesign choice: severity is conveyed by one small icon
@@ -10730,7 +10795,7 @@ function dihShowPreview(type){
       const d=r.data;
       const sc=r.status;
       const badge=sc==='new'?`<span class="dih-badge dih-badge-new">NEW</span>`:sc==='duplicate'?`<span class="dih-badge dih-badge-update">DUP</span>`:`<span class="dih-badge dih-badge-error">ERROR</span>`;
-      return `<tr><td style="color:#94a3b8;">${r.row}</td><td>${badge}</td><td>${d.agentName||'—'}</td><td>${d.qaOfficer||'—'}</td><td>${d.evalDate||'—'}</td><td style="font-weight:700;">${d.finalScore||'—'}${d.finalScore?'%':''}</td><td>${d.result||'—'}</td><td style="color:#dc2626;font-size:11px;">${r.errors.join('; ')}</td></tr>`;
+      return `<tr><td style="color:#94a3b8;">${r.row}</td><td>${badge}</td><td>${esc(d.agentName)||'—'}</td><td>${esc(d.qaOfficer)||'—'}</td><td>${esc(d.evalDate)||'—'}</td><td style="font-weight:700;">${d.finalScore||'—'}${d.finalScore?'%':''}</td><td>${esc(d.result)||'—'}</td><td style="color:#dc2626;font-size:11px;">${esc(r.errors.join('; '))}</td></tr>`;
     }).join('');
   } else if(type==='agents'){
     thead='<tr><th>#</th><th>Status</th><th>Name</th><th>Staff ID</th><th>Team</th><th>Supervisor</th><th>Status</th><th>Issue</th></tr>';
@@ -10738,7 +10803,7 @@ function dihShowPreview(type){
       const d=r.data;
       const sc=r.status;
       const badge=sc==='new'?`<span class="dih-badge dih-badge-new">NEW</span>`:sc==='duplicate'?`<span class="dih-badge dih-badge-update">DUP</span>`:`<span class="dih-badge dih-badge-error">ERROR</span>`;
-      return `<tr><td style="color:#94a3b8;">${r.row}</td><td>${badge}</td><td>${d.name||'—'}</td><td>${d.staffId||'—'}</td><td>${d.team||'—'}</td><td>${d.supervisor||'—'}</td><td>${d.status||'—'}</td><td style="color:#dc2626;font-size:11px;">${r.errors.join('; ')}</td></tr>`;
+      return `<tr><td style="color:#94a3b8;">${r.row}</td><td>${badge}</td><td>${esc(d.name)||'—'}</td><td>${esc(d.staffId)||'—'}</td><td>${esc(d.team)||'—'}</td><td>${esc(d.supervisor)||'—'}</td><td>${esc(d.status)||'—'}</td><td style="color:#dc2626;font-size:11px;">${esc(r.errors.join('; '))}</td></tr>`;
     }).join('');
   } else if(type==='users'){
     thead='<tr><th>#</th><th>Status</th><th>Username</th><th>Display Name</th><th>Role</th><th>Email</th><th>Team</th><th>Issue</th></tr>';
@@ -10746,11 +10811,11 @@ function dihShowPreview(type){
       const d=r.data;
       const sc=r.status;
       const badge=sc==='new'?`<span class="dih-badge dih-badge-new">NEW</span>`:sc==='duplicate'?`<span class="dih-badge dih-badge-update">DUP</span>`:`<span class="dih-badge dih-badge-error">ERROR</span>`;
-      return `<tr><td style="color:#94a3b8;">${r.row}</td><td>${badge}</td><td>${d.username||'—'}</td><td>${d.displayName||'—'}</td><td>${d.role||'—'}</td><td>${d.email||'—'}</td><td>${d.team||'—'}</td><td style="color:#dc2626;font-size:11px;">${r.errors.join('; ')}</td></tr>`;
+      return `<tr><td style="color:#94a3b8;">${r.row}</td><td>${badge}</td><td>${esc(d.username)||'—'}</td><td>${esc(d.displayName)||'—'}</td><td>${esc(d.role)||'—'}</td><td>${esc(d.email)||'—'}</td><td>${esc(d.team)||'—'}</td><td style="color:#dc2626;font-size:11px;">${esc(r.errors.join('; '))}</td></tr>`;
     }).join('');
   }
   document.getElementById('dihPreviewWrap').innerHTML=`<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
-  document.getElementById('dihFileInfo').innerHTML=`<strong>📄 ${_dihFileName}</strong> — ${total} rows parsed`;
+  document.getElementById('dihFileInfo').innerHTML=`<strong>📄 ${esc(_dihFileName)}</strong> — ${total} rows parsed`;
   document.getElementById('dihBackBtn').style.display='';
   document.getElementById('dihImportBtn').style.display = newRows>0||dups>0 ? '' : 'none';
   document.getElementById('dihImportBtn').textContent = `✅ Import ${newRows} new${dups>0?' + '+dups+' duplicates':''}`;
@@ -10814,7 +10879,7 @@ function dihCommitImport(){
         if(r.isDup){
           if(dupOpt==='skip'){ skipped++; continue; }
           const idx=agents.findIndex(a=>a.staffId===d.staffId);
-          if(idx>=0){ agents[idx]={...agents[idx],...d}; updated++; }
+          if(idx>=0){ agents[idx]={...agents[idx],...d,id:agents[idx].id}; updated++; }
           else { const obj={...d,id:uuid(),createdAt:new Date().toISOString()}; agents.push(obj); newlyAdded.push(obj); added++; }
         } else {
           const obj={...d,id:uuid(),createdAt:new Date().toISOString()}; agents.push(obj); newlyAdded.push(obj); added++;
@@ -10829,11 +10894,11 @@ function dihCommitImport(){
       const users = getUsers ? getUsers() : [];
       for(const r of toProcess){
         const d=r.data;
-        if(d.password) d.password = await hashPw(d.password); // hash before storing, matching saveUser()'s behavior
+        if(d.password){ d.password = await hashPw(d.password); d.pwVersion = 1; } // hash before storing, matching saveUser()'s behavior
         if(r.isDup){
           if(dupOpt==='skip'){ skipped++; continue; }
           const idx=users.findIndex(u=>u.username.toLowerCase()===d.username.toLowerCase());
-          if(idx>=0){ const pw=users[idx].password; users[idx]={...users[idx],...d}; if(!d.password) users[idx].password=pw; updated++; }
+          if(idx>=0){ const pw=users[idx].password, pwv=users[idx].pwVersion; users[idx]={...users[idx],...d,id:users[idx].id}; if(!d.password){ users[idx].password=pw; users[idx].pwVersion=pwv; } updated++; }
           else { users.push({...d,id:uuid(),createdAt:new Date().toISOString()}); added++; }
         } else {
           users.push({...d,id:uuid(),createdAt:new Date().toISOString()}); added++;
@@ -13569,18 +13634,24 @@ function getCurrentUser(){
   const users = getUsers();
   const u = users.find(x=>x.id===sess.id);
   if(!u) { sessionStorage.removeItem('qms_session'); return null; }
-  // Compute expected _sig from the stored password.
-  // For PBKDF2 format ("pbkdf2:{iters}:{salt}:{hash}") extract the hash part;
-  // for legacy SHA-256 / plaintext use the full value directly.
-  const stored = u.password||'';
-  const sigSource = stored.startsWith('pbkdf2:') ? (stored.split(':')[3]||stored) : stored;
+  // Compute expected _sig from pwVersion, a counter bumped by _setUserPassword()
+  // every time this user's password changes -- NOT from the password hash
+  // itself, which the client no longer ever receives (see /api/data's GET,
+  // netlify/functions/data.ts: the users bucket has its password field
+  // stripped server-side before the response is sent, so a hash-derived
+  // _sig would always read as empty here regardless of whether the password
+  // actually changed). Missing/undefined pwVersion (accounts that predate
+  // this field) is treated as 0 consistently on both the set-side and the
+  // check-side, so existing sessions aren't spuriously invalidated by this
+  // change shipping.
+  const sigSource = String(u.pwVersion||0);
   // Admin and superadmin bypass the _sig re-check so a password sync from another
   // device (Supabase Realtime / dual-DB pull) does not silently invalidate their
   // active session. Write authorization is still enforced server-side via the
   // bearer token issued by /api/auth, so this does not weaken the real security
   // boundary — it only prevents a client-side UI lockout.
   if(u.role!=='superadmin'&&u.role!=='admin'){
-    if(!sess._sig || sess._sig!==sigSource.slice(0,32)){
+    if(!sess._sig || sess._sig!==sigSource){
       sessionStorage.removeItem('qms_session');
       return null;
     }
@@ -14323,8 +14394,8 @@ function _renderOvsatCharts(){
       const fs=Math.round(10*scale);
       const isPos=sentiment==='pos';
       const bg=isPos?'#dcfce7':'#fee2e2', color=isPos?'#15803d':'#b91c1c', border=isPos?'#86efac':'#fca5a5';
-      return `<span title="${k}: ${v} mentions" style="background:${bg};color:${color};border:1px solid ${border};padding:4px 10px;border-radius:20px;font-size:${fs}px;font-weight:700;cursor:default;transition:.15s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''">
-        ${isPos?'✅':'⚠️'} ${k}
+      return `<span title="${esc(k)}: ${v} mentions" style="background:${bg};color:${color};border:1px solid ${border};padding:4px 10px;border-radius:20px;font-size:${fs}px;font-weight:700;cursor:default;transition:.15s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''">
+        ${isPos?'✅':'⚠️'} ${esc(k)}
         <span style="font-size:9px;opacity:.7;margin-left:3px;">${v}</span>
       </span>`;
     }).join('');
@@ -20366,15 +20437,18 @@ function _srdDrawWordCloud(words){
 }
 
 function srdWordClick(word, count){
-  // Filter verbatims containing that word and show a quick popover
+  // Filter verbatims containing that word and show a quick popover.
+  // r.comment comes from the public, unauthenticated NPS survey form -- must
+  // be esc()'d before it reaches toast()'s innerHTML, or a crafted survey
+  // comment executes in whichever internal user later clicks this word.
   const recs = DB.get('npsRecords')||[];
   const hits = recs.filter(r=>(r.comment||'').toLowerCase().includes(word)).slice(0,6);
-  if(!hits.length){ toast(`"${word}" — ${count} mention${count!==1?'s':''} in theme/reason data`,'info'); return; }
+  if(!hits.length){ toast(`"${esc(word)}" — ${count} mention${count!==1?'s':''} in theme/reason data`,'info'); return; }
   const lines = hits.map(r=>{
     const cat = r.score>=9?'🟢':r.score>=7?'🟡':'🔴';
-    return `<div style="padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;color:#374151;">${cat} "${r.comment||''}" <span style="color:#94a3b8;font-size:10px;">— Score ${r.score}</span></div>`;
+    return `<div style="padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;color:#374151;">${cat} "${esc(r.comment||'')}" <span style="color:#94a3b8;font-size:10px;">— Score ${r.score}</span></div>`;
   }).join('');
-  toast(`<strong>"${word}"</strong> found in ${hits.length}+ comments:<br><div style="margin-top:6px;">${lines}</div>`,'info', 8000);
+  toast(`<strong>"${esc(word)}"</strong> found in ${hits.length}+ comments:<br><div style="margin-top:6px;">${lines}</div>`,'info', 8000);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -21842,7 +21916,7 @@ async function saveNpsEditUser(){
   u.email       = email;
   u.role        = role;
   u.status      = status;
-  if(newPw) u.password = await hashPw(newPw);
+  if(newPw) await _setUserPassword(u, newPw);
 
   DB.set('users', users);
   logChange('user','Updated',`NPS: Updated user "${name}" — ${changes.join(', ')||'no changes'}`, 'NPS');
@@ -21927,7 +22001,7 @@ function npsEditPw(uid){
       const inp = document.getElementById('_npsNewPwInput');
       const newPw = inp ? inp.value.trim() : '';
       if(!newPw){ toast('Password cannot be empty.','error'); return; }
-      u.password = await hashPw(newPw);
+      await _setUserPassword(u, newPw);
       DB.set('users', users);
       toast(`Password updated for ${esc(u.displayName||u.username)}.`,'success');
       renderNpsUserList();
@@ -22695,7 +22769,7 @@ async function doSysLogin(){
       if(await verifyPw(password,u.password)){
         // Upgrade legacy SHA-256 or plaintext → PBKDF2 on successful login
         if(!_IS_PBKDF2.test(u.password)){
-          u.password=await hashPw(password);
+          await _setUserPassword(u, password);
           saveUsers(users);
         }
         return u;
@@ -22730,10 +22804,13 @@ async function doSysLogin(){
           }catch(_e){/* pull failed — still honor the verified server login below */}
           user = await _tryLocalMatch(); // retry now that the local cache is fresh
           if(!user){
-            // Extremely rare: server verified the password but the freshly-pulled
-            // users bucket still doesn't contain this id (e.g. pull failed above).
-            // Trust the server's verification rather than lock out a correct password.
-            user = { id:_sad.userId, username, role:_sad.role, displayName:_sad.displayName, status:'active', password:'' };
+            // The normal path now that /api/data never ships password hashes to
+            // the client at all (_tryLocalMatch() can never find a hash to
+            // compare, so it always falls through here) -- trust the server's
+            // verification. pwVersion comes from /api/auth's response (the
+            // server has the real user record) so _sig below still reflects
+            // the actual current password generation, not a default.
+            user = { id:_sad.userId, username, role:_sad.role, displayName:_sad.displayName, status:'active', password:'', pwVersion:_sad.pwVersion||0 };
           }
           if(_sad.token) sessionStorage.setItem('qms_token', _sad.token);
         }
@@ -22758,10 +22835,10 @@ async function doSysLogin(){
     return;
   }
   _clearLoginFail(lockKey);
-  // Compute _sig from the hash portion of the stored password (PBKDF2-safe)
-  const _stored=user.password||'';
-  const _sigSrc=_stored.startsWith('pbkdf2:')?(_stored.split(':')[3]||_stored):_stored;
-  sessionStorage.setItem('qms_session', JSON.stringify({id:user.id,username:user.username,role:user.role,displayName:user.displayName||user.username,_sig:_sigSrc.slice(0,32)}));
+  // _sig is keyed on pwVersion (bumped by _setUserPassword() on every real
+  // password change), not the password hash -- the client never receives
+  // the hash itself (see getCurrentUser()'s matching comment).
+  sessionStorage.setItem('qms_session', JSON.stringify({id:user.id,username:user.username,role:user.role,displayName:user.displayName||user.username,_sig:String(user.pwVersion||0)}));
   // Obtain server-issued token (graceful — app works without it if secret not configured)
   try{
     const _ar=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
@@ -22808,11 +22885,11 @@ function showForcedPasswordChange(userId){
       if(p1!==p2){ toast('Passwords do not match.','error'); return false; }
       const users=getUsers();
       const u=users.find(x=>x.id===userId); if(!u) return;
-      u.password=await hashPw(p1);
+      await _setUserPassword(u, p1);
       delete u.mustChangePw;
       saveUsers(users);
       // Refresh session signature
-      sessionStorage.setItem('qms_session', JSON.stringify({id:u.id,username:u.username,role:u.role,displayName:u.displayName||u.username,_sig:(u.password||'').slice(0,32)}));
+      sessionStorage.setItem('qms_session', JSON.stringify({id:u.id,username:u.username,role:u.role,displayName:u.displayName||u.username,_sig:String(u.pwVersion||0)}));
       toast('Password changed! Welcome, '+(u.displayName||u.username)+'!','success');
     }
   });
@@ -22966,7 +23043,7 @@ async function approveReset(resetId){
   const req=resets.find(r=>r.id===resetId); if(!req) return;
   const users=getUsers();
   const user=users.find(u=>u.id===req.userId);
-  if(user){ user.password=await hashPw(inp.value.trim()); saveUsers(users); }
+  if(user){ await _setUserPassword(user, inp.value.trim()); saveUsers(users); }
   req.status='approved'; req.resolvedAt=new Date().toISOString();
   saveResets(resets);
   toast('Password reset approved for '+req.username,'success');
@@ -23138,7 +23215,7 @@ function saveUser(){
         if(users[idx].role==='superadmin'){ toast('🔒 Super Admin account is locked and cannot be edited.','error'); return; }
         users[idx].username=username; users[idx].role=role; users[idx].status=status; users[idx].displayName=displayName||username;
         users[idx].email=emailVal.trim(); users[idx].team=teamVal.trim();
-        if(password) users[idx].password=await hashPw(password);
+        if(password) await _setUserPassword(users[idx], password);
       }
       logChange('user','Updated',`Updated user "${displayName||username}" (role: ${role}, status: ${status})`,'QMS');
       toast('User updated!','success');
@@ -23407,6 +23484,7 @@ async function importUserBatch(){
       id: uuid(),
       username: r.username,
       password: r.password ? await hashPw(r.password) : r.password, // hash before storing, matching saveUser()'s behavior
+      pwVersion: r.password ? 1 : 0,
       role: r.role,
       status: r.status,
       displayName: r.displayName||r.username,
@@ -24512,7 +24590,7 @@ async function init(){
           // so leave as-is until user next logs in (login path will then upgrade)
         } else {
           // Plaintext: hash immediately with PBKDF2
-          u.password = await hashPw(u.password);
+          await _setUserPassword(u, u.password);
           changed = true;
         }
       }
@@ -25007,8 +25085,8 @@ function openTLReview(recordId){
     disputeInfoHtml = '<div style="background:#fff8e1;border:1px solid #fcd34d;border-radius:6px;padding:10px 14px;margin-top:10px;font-size:12px;">'
       +'<strong>⚠️ Dispute Status: <span style="color:'+dCls+'">'+dispute.status.toUpperCase()+'</span></strong>'
       +(dispute.finalScore!=null?'<br>Final Agreed Score: <strong>'+dispute.finalScore+'%</strong>':'')
-      +'<br>Reason: '+dispute.reason
-      +(dispute.qaNote?'<br>QA Note: '+dispute.qaNote:'')
+      +'<br>Reason: '+esc(dispute.reason)
+      +(dispute.qaNote?'<br>QA Note: '+esc(dispute.qaNote):'')
       +'</div>';
   }
 
@@ -25018,25 +25096,25 @@ function openTLReview(recordId){
       <div class="form-grid" style="margin-bottom:12px;">
         <div class="form-group">
           <label>Coaching Date <span class="req">*</span></label>
-          <input type="date" id="tlCoachDate" value="${ev.coachDate||''}">
+          <input type="date" id="tlCoachDate" value="${esc(ev.coachDate)}">
         </div>
         <div class="form-group" style="grid-column:1/-1;">
           <label>Coaching Details <span class="req">*</span></label>
-          <textarea id="tlCoachDetails" placeholder="Describe what was discussed, training given, improvement areas..." style="min-height:70px;">${ev.coachDetails||''}</textarea>
+          <textarea id="tlCoachDetails" placeholder="Describe what was discussed, training given, improvement areas..." style="min-height:70px;">${esc(ev.coachDetails)}</textarea>
         </div>
       </div>
       <div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:8px;">⚡ 3 Action Plans Required</div>
       <div class="action-plan-row">
         <span class="ap-num">1</span>
-        <input type="text" id="tlAP1" placeholder="Action Plan 1" value="${ev.ap1||''}">
+        <input type="text" id="tlAP1" placeholder="Action Plan 1" value="${esc(ev.ap1)}">
       </div>
       <div class="action-plan-row">
         <span class="ap-num">2</span>
-        <input type="text" id="tlAP2" placeholder="Action Plan 2" value="${ev.ap2||''}">
+        <input type="text" id="tlAP2" placeholder="Action Plan 2" value="${esc(ev.ap2)}">
       </div>
       <div class="action-plan-row">
         <span class="ap-num">3</span>
-        <input type="text" id="tlAP3" placeholder="Action Plan 3" value="${ev.ap3||''}">
+        <input type="text" id="tlAP3" placeholder="Action Plan 3" value="${esc(ev.ap3)}">
       </div>
     </div>` : '';
 
@@ -25246,12 +25324,12 @@ function openDisputeReview(disputeId){
   document.getElementById('disputeReviewBody').innerHTML = `
     <input type="hidden" id="reviewDisputeId" value="${dispute.id}">
     <div style="margin-bottom:14px;">
-      <strong>${dispute.agentName}</strong> — Eval Date: ${fmtDate(dispute.evalDate)}<br>
+      <strong>${esc(dispute.agentName)}</strong> — Eval Date: ${fmtDate(dispute.evalDate)}<br>
       <span style="font-size:22px;font-weight:800;color:var(--danger);">Original Score: ${_origScore.toFixed(1)}%</span>
       ${dispute.suggestedScore!=null?'<span style="font-size:13px;color:var(--gray);margin-left:10px;">TL Suggested: '+dispute.suggestedScore+'%</span>':''}
     </div>
     <div style="background:#fff3cd;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:14px;">
-      <strong>TL Dispute Reason:</strong><br>${dispute.reason}
+      <strong>TL Dispute Reason:</strong><br>${esc(dispute.reason)}
       ${dispute.disputedItemIds&&dispute.disputedItemIds.length?'<br><strong>Disputed Attributes:</strong> '+dispute.disputedItemIds.map(esc).join(', '):''}
     </div>
     <div style="margin-bottom:12px;">
@@ -25460,7 +25538,7 @@ function renderCoachingCompliance(){
     } else { notCoached++; statusLabel='Not Reviewed'; }
     const apCount = c?[c.ap1,c.ap2,c.ap3].filter(Boolean).length:0;
     return '<tr>'
-      +'<td><strong>'+r.agentName+'</strong></td>'
+      +'<td><strong>'+esc(r.agentName)+'</strong></td>'
       +'<td>'+fmtDate(r.evalDate)+'</td>'
       +'<td style="font-weight:700;color:var(--danger)">'+r.finalScore.toFixed(1)+'%</td>'
       +'<td style="text-align:center">'+(c?'<span style="color:var(--success)">✅</span>':'<span style="color:var(--danger)">❌</span>')+'</td>'
@@ -25489,12 +25567,12 @@ function renderCoachingCompliance(){
 
   // Action Plans table
   const apRows = coachings.filter(c=>c.isBelowTarget).map(c=>`<tr>
-    <td><strong>${c.agentName}</strong></td>
+    <td><strong>${esc(c.agentName)}</strong></td>
     <td>${fmtDate(c.evalDate)}</td>
-    <td>${c.ap1||'—'}</td>
-    <td>${c.ap2||'—'}</td>
-    <td>${c.ap3||'—'}</td>
-    <td><small>${c.coachDetails||'—'}</small></td>
+    <td>${esc(c.ap1)||'—'}</td>
+    <td>${esc(c.ap2)||'—'}</td>
+    <td>${esc(c.ap3)||'—'}</td>
+    <td><small>${esc(c.coachDetails)||'—'}</small></td>
     <td><small style="color:var(--gray)">${fmtDate(c.submittedAt)}</small></td>
   </tr>`).join('');
   document.getElementById('actionPlanBody').innerHTML = apRows || '<tr class="empty-row"><td colspan="7">No action plans recorded yet.</td></tr>';
@@ -25999,8 +26077,8 @@ function renderTLTeamView(){
         html += `<div class="tl-eval-card ${cardClass}">
           <div class="tl-ec-body">
             <div class="tl-ec-left">
-              <div class="tl-ec-date">📅 ${fmtDate(rec.evalDate)}${rec.refNo?` <span style="color:var(--gray);font-size:11px;font-weight:400;">· ${rec.refNo}</span>`:''}</div>
-              <div class="tl-ec-sub">QA: ${rec.qaOfficer}${rec.campaign?' · 📡 '+rec.campaign:''}${rec.callType?' · '+rec.callType:''}</div>
+              <div class="tl-ec-date">📅 ${fmtDate(rec.evalDate)}${rec.refNo?` <span style="color:var(--gray);font-size:11px;font-weight:400;">· ${esc(rec.refNo)}</span>`:''}</div>
+              <div class="tl-ec-sub">QA: ${esc(rec.qaOfficer)}${rec.campaign?' · 📡 '+esc(rec.campaign):''}${rec.callType?' · '+esc(rec.callType):''}</div>
               ${rec.duration?`<div class="tl-ec-sub">⏱ ${rec.duration}</div>`:''}
             </div>
             <div class="tl-ec-right">

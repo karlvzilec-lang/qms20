@@ -692,17 +692,27 @@ export interface DraftScore {
 }
 
 // Mirrors the client-side computeScoreFromAnswers()'s section-mode/auto-fail math
-// (index.html, ~line 8611) so the score preview stored on a draft matches exactly
+// (index.html, ~line 8888) so the score preview stored on a draft matches exactly
 // what the real evaluation form would compute for the same answers. Auto-Fail
 // unconditionally zeroes the score -- this app's compliance rule, not a setting
 // (see index.html's updateScore()/computeScoreFromAnswers(), fixed to be
 // unconditional this session).
-export function computeDraftScore(formSections: FormSection[], answers: Record<string, string>): DraftScore {
+//
+// globalScoringMode mirrors settings.globalScoringMode client-side: 'per-section'
+// (default) lets each section use its own scoringMode; any other value overrides
+// every section. Without this, a draft's preview score could silently disagree
+// with the score the real evaluation form computes for the identical answers
+// once an admin sets the global override away from its 'per-section' default.
+export function computeDraftScore(
+  formSections: FormSection[],
+  answers: Record<string, string>,
+  globalScoringMode: string = "per-section",
+): DraftScore {
   let totalEarned = 0;
   let totalPossible = 0;
   let autoFailTriggered = false;
   (formSections || []).forEach((sec) => {
-    const mode = sec.scoringMode || "weighted";
+    const mode = globalScoringMode === "per-section" ? (sec.scoringMode || "weighted") : globalScoringMode;
     const answered = (sec.items || []).filter((it) => answers[it.id] && answers[it.id] !== "NA");
     const noItems = answered.filter((it) => answers[it.id] === "N");
     noItems.forEach((it) => {
@@ -758,6 +768,7 @@ export async function scoreYellowLink(
   hints: LinkHints = {},
   llmConfig?: LlmScoringConfig,
   corrections: ScoringCorrectionExample[] = [],
+  globalScoringMode: string = "per-section",
 ): Promise<ScoredLinkResult> {
   const raw = await fetchYellowTranscript(link);
   const transcript = normalizeYellowTranscript(raw);
@@ -805,7 +816,7 @@ export async function scoreYellowLink(
     if (agentMatch) agentMatchSource = "transcriptGuess";
   }
 
-  const draftScore = computeDraftScore(formSections, prefill.answers);
+  const draftScore = computeDraftScore(formSections, prefill.answers, globalScoringMode);
   return {
     transcript,
     prefill,

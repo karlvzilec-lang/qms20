@@ -27,6 +27,7 @@ interface UserRecord {
   role: string;
   displayName?: string;
   status?: string;
+  pwVersion?: number;
 }
 
 async function verifyPassword(plain: string, stored: string): Promise<boolean> {
@@ -116,6 +117,10 @@ export default async (req: Request) => {
     userId: user.id,
     role: user.role,
     displayName: user.displayName ?? user.username,
+    // Client uses this (not the password hash, which is never sent to it) to
+    // compute the session's staleness signature -- see getCurrentUser() in
+    // index.html.
+    pwVersion: user.pwVersion ?? 0,
   });
 };
 
