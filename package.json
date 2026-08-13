@@ -2,8 +2,14 @@
   "name": "qams20",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Cellcard QAMS — Quality Assurance Monitoring System",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "check-index-syntax": "node scripts/check-index-syntax.js",
+    "ci": "npm run typecheck && npm run check-index-syntax"
+  },
   "dependencies": {
     "@netlify/database": "^1.0.0",
     "@netlify/functions": "^5.3.0",
@@ -11,6 +17,8 @@
     "pg": "^8.21.0"
   },
   "devDependencies": {
-    "drizzle-kit": "^1.0.0-beta.22"
+    "@types/node": "^26.2.0",
+    "drizzle-kit": "^1.0.0-beta.22",
+    "typescript": "^5.9.3"
   }
 }

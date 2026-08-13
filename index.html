@@ -6051,7 +6051,6 @@ function _recordLoginFail(u){
     localStorage.setItem('_lf_'+u,JSON.stringify(d)); }catch(e){}
 }
 function _clearLoginFail(u){ try{ localStorage.removeItem('_lf_'+u); }catch(e){} }
-function getForm()    { return DB.get('form')    || DEFAULT_FORM; }
 function getAgents()  { return DB.get('agents')  || []; }
 function getRecords() {
   const recs = DB.get('records') || [];
@@ -6671,8 +6670,21 @@ function showScreen(name,btn){
     // The evaluation screen's role list can be extended (never restricted)
     // by the Role Permissions matrix -- a role in the denied list that has
     // been granted eval_submit in Access Management still gets in.
-    const _permOverride = name==='evaluation' && canSubmitEval();
-    if((denied[name]||[]).includes(r) && !_permOverride){
+    const _permOverride = (name==='evaluation' && canSubmitEval()) || (name==='tlteam' && hasPermission('team_view'));
+    // Records/Reports have no hardcoded role list at all -- they're gated
+    // purely by the Role Permissions matrix (eval_view_all / dash_reports).
+    // Without this check an explicit denial set in Access Management (e.g.
+    // dash_reports=false for viewer) had zero effect, same bug class as
+    // eval_submit above.
+    const _screenPerms = {records:'eval_view_all', reports:'dash_reports'};
+    let _permDenied = _screenPerms[name] && !hasPermission(_screenPerms[name]);
+    // tlteam has no hardcoded role list beyond viewer/qa above -- a role like
+    // manager was never actually blocked there, so hiding its nav button was
+    // NOT real enforcement (a manager could still reach the screen directly).
+    // TL keeps its base access regardless of the matrix, same as qa does for
+    // eval_submit via canSubmitEval().
+    if(name==='tlteam' && !isTL() && !hasPermission('team_view')) _permDenied = true;
+    if(((denied[name]||[]).includes(r) && !_permOverride) || _permDenied){
       toast('You do not have permission to access that screen.','error');
       // Ensure denied screen is never left active — redirect to dashboard
       if(name!=='dashboard'){
@@ -8482,7 +8494,10 @@ function renderPendingReviewTab(){
 
 // ── Show/hide TL tabs on renderDashboard ────────────
 function _setupTLDashTabs(){
-  const isTLU=currentRole()==='tl';
+  // TL always sees this tab bar; any other role explicitly granted
+  // pending_review or dash_attribute in the Role Permissions matrix also gets in
+  // (e.g. a manager), same additive-override pattern as eval_submit above.
+  const isTLU=currentRole()==='tl' || hasPermission('pending_review') || hasPermission('dash_attribute');
   const tabBar=document.getElementById('tlDashTabs');
   if(tabBar) tabBar.style.display=isTLU?'flex':'none';
   if(isTLU){
@@ -9957,7 +9972,7 @@ function viewRecord(id){
   const _delBtn = document.getElementById('viewDeleteBtn');
   const _vUser = getCurrentUser();
   if(_erBtn){
-    _erBtn.style.display = (_vUser&&(_vUser.role==='qa'||_vUser.role==='tl'))?'':'none';
+    _erBtn.style.display = (_vUser&&(_vUser.role==='qa'||_vUser.role==='tl'||hasPermission('eval_edit')))?'':'none';
     // Label reflects what will actually happen on submit for THIS record —
     // direct apply within the 7-day ownership window, admin approval otherwise.
     _erBtn.textContent = _canDirectEditRecord(r) ? '✏️ Edit Directly' : '✏️ Request Edit';
@@ -22807,6 +22822,8 @@ function applyRoleUI(){
   const navBtns=document.querySelectorAll('.nav-btn');
   navBtns.forEach(b=>{
     if(b.textContent.includes('New Evaluation')) b.style.display=canSubmitEval()?'':'none';
+    else if(b.textContent.trim()==='Records') b.style.display=hasPermission('eval_view_all')?'':'none';
+    else if(b.textContent.trim()==='Reports') b.style.display=hasPermission('dash_reports')?'':'none';
   });
   // Auto QA — same audience as New Evaluation (qa/admin/superadmin)
   const autoQaBtn=document.getElementById('autoQaNavBtn');
@@ -24764,17 +24781,18 @@ applyRoleUI = function(){
     if(!canSubmitEval()) document.querySelectorAll('.nav-btn').forEach(b=>{
       if(b.textContent.includes('New Evaluation')) b.style.display='none';
     });
-    // Ensure My Team nav is hidden for managers (may be visible if TL was previously logged in)
+    // My Team nav is hidden for managers by default -- unless granted team_view
+    // in the Role Permissions matrix (same additive-override pattern as eval_submit above).
     const tlBtnM = document.getElementById('tlTeamNavBtn');
-    if(tlBtnM) tlBtnM.style.display='none';
+    if(tlBtnM) tlBtnM.style.display=hasPermission('team_view')?'':'none';
   } else {
     const tlBtn = document.getElementById('tlTeamNavBtn');
-    if(tlBtn) tlBtn.style.display='none';
+    if(tlBtn) tlBtn.style.display=hasPermission('team_view')?'':'none';
   }
   // Show edit button for QA and TL on view modal — viewRecord() sets the
   // precise label/eligibility per-record when a specific record is open.
   const erBtn = document.getElementById('viewEditReqBtn');
-  if(erBtn) erBtn.style.display = (user.role==='qa'||user.role==='tl')?'':'none';
+  if(erBtn) erBtn.style.display = (user.role==='qa'||user.role==='tl'||hasPermission('eval_edit'))?'':'none';
   // Email notify button for admin/QA
   const enBtn = document.getElementById('viewEmailBtn');
   if(enBtn) enBtn.style.display = (isQA()||isAdmin())?'':'none';
@@ -24982,9 +25000,10 @@ function openTLReview(recordId){
       ${coachingSection}
     </div>`;
 
-  // Show/hide dispute button (TL can dispute if not already disputed or if pending)
+  // Show/hide dispute button (TL can dispute if not already disputed or if pending) --
+  // also allow any role explicitly granted eval_dispute in the Role Permissions matrix.
   const dispBtn = document.getElementById('tlDisputeBtn');
-  if(isTL() && (!dispute || dispute.status==='rejected')){
+  if((isTL()||hasPermission('eval_dispute')) && (!dispute || dispute.status==='rejected')){
     dispBtn.style.display='';
   } else {
     dispBtn.style.display='none';
