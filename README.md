@@ -46,8 +46,14 @@ Set these in Netlify (Site configuration → Environment variables) for producti
 ```bash
 npm run typecheck          # tsc --noEmit over netlify/functions, lib, db
 npm run check-index-syntax # parse-checks index.html's inline <script>
-npm run ci                 # both of the above — same as CI runs on push/PR to main
+npm run test:dbsync-merge  # regression test for the offline-sync merge logic
+npm run ci                 # all of the above — same as CI runs on push/PR to main
 ```
+
+### Notes for maintainers
+
+- **Offline sync is merge-based, not replace-based.** `_DbSync` (in `index.html`) diffs each bucket against the last-confirmed server state and pushes only what actually changed (`op:'merge'` with explicit upserts/deletes) via the server's `qams_merge_bucket` function — never a blind full-array replace. A stale device's sync can never silently overwrite data it doesn't know about. See `scripts/test_dbsync_merge_logic.mjs` for the regression coverage.
+- **`/api/data`'s GET is intentionally unauthenticated** (health-check/initial load), but never returns password hashes — `data.ts` strips the `password` field from the `users` bucket before responding. Session-staleness detection (`_sig` in `getCurrentUser()`) is keyed on a `pwVersion` counter, not the password hash itself.
 
 ## Deployment
 
