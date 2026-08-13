@@ -8,7 +8,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "check-index-syntax": "node scripts/check-index-syntax.js",
-    "ci": "npm run typecheck && npm run check-index-syntax"
+    "test:dbsync-merge": "node scripts/test_dbsync_merge_logic.mjs",
+    "ci": "npm run typecheck && npm run check-index-syntax && npm run test:dbsync-merge"
   },
   "dependencies": {
     "@netlify/database": "^1.0.0",

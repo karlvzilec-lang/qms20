@@ -5607,6 +5607,17 @@ const _DbSync = (function(){
   // in-memory value exists yet).
   var _pendingValues = {};
 
+  // Per-bucket snapshot of the last CONFIRMED server state, for _MERGE_BUCKETS
+  // only. Seeded from pull()'s raw (pre-merge) server response, updated after
+  // every successful push. Lets _flush() send only what actually changed on
+  // this tab (upserts + deletes) instead of a full-array replace -- a full
+  // replace silently erases anything the server has that this tab hasn't
+  // pulled yet (confirmed live: a stale tab's push wiped out evaluations
+  // another device had added in the meantime). In-memory only (not persisted
+  // across reload) -- a fresh pull always re-seeds it before any flush can
+  // run, since _flushIfReady() blocks on _bootDone.
+  var _lastSynced = {};
+
   // ── Load persisted offline queue on startup ───────────────────────────────
   try{
     var _pq = JSON.parse(localStorage.getItem(OQ_KEY)||'[]');
@@ -5668,6 +5679,7 @@ const _DbSync = (function(){
       // push re-read a stale records array that didn't contain it).
       var held = (k in _pendingValues) ? _pendingValues[k] : undefined;
       var payload = (held!==undefined) ? held : DB.get(k);
+      var body;
       if(_MERGE_BUCKETS.has(k) && Array.isArray(payload)){
         var _seen=new Set();
         payload = payload.filter(function(x){
@@ -5678,11 +5690,31 @@ const _DbSync = (function(){
           return true;
         });
         if(k==='agents') payload = _dedupeAgentsByStaffId(payload);
+        // Row-level merge instead of a full-array replace: a blind replace
+        // silently erases anything the server has that this tab hasn't
+        // pulled yet (confirmed live: a stale tab's push wiped out real
+        // evaluations another device had added since this tab's last pull).
+        // Diff against the last CONFIRMED server state (seeded/updated by
+        // pull(), never by this tab's own optimistic local writes) so only
+        // genuine local deletions are sent as deletes -- everything else
+        // this tab doesn't know about is left completely untouched
+        // server-side. Upserting every current item (not just changed ones)
+        // is deliberate: it's a harmless no-op for unchanged rows, and
+        // avoids the risk of a change-detection bug silently dropping a
+        // real edit.
+        var snapshot = _lastSynced[k];
+        var localIds = new Set(payload.map(function(x){ return x&&x.id; }).filter(Boolean));
+        var deletes = Array.isArray(snapshot)
+          ? snapshot.map(function(x){ return x&&x.id; }).filter(function(id){ return id&&!localIds.has(id); })
+          : [];
+        body = {bucket:k, op:'merge', upserts:payload, deletes:deletes};
+      } else {
+        body = {bucket:k, data:payload};
       }
       return fetch(API,{
         method:'POST',
         headers:Object.assign({'Content-Type':'application/json'},_authHeaders()),
-        body:JSON.stringify({bucket:k,data:payload})
+        body:JSON.stringify(body)
       }).then(function(r){
         if(!r.ok) throw r.status;
         // Only clear the held value once the server confirmed this push AND
@@ -5690,6 +5722,10 @@ const _DbSync = (function(){
         // the ORIGINAL held reference, since the dedup filter above builds a
         // new array) -- a failed push keeps it for the 10s retry.
         if(_pendingValues[k]===held) delete _pendingValues[k];
+        // Advance the confirmed-state snapshot to match what the server now
+        // has, so the NEXT flush's diff is against current reality instead
+        // of re-sending the same deletes/upserts forever.
+        if(body.op==='merge') _lastSynced[k]=payload;
       }).catch(function(e){
         failed.push(k);
         console.warn('[DbSync] Push failed for bucket: '+k, e);
@@ -5809,12 +5845,24 @@ const _DbSync = (function(){
         rows.forEach(function(row){
           if(!row.bucket||_DB_LOCAL_ONLY.has(row.bucket)) return;
           if(row.data===null) return;
+          // Snapshot the raw (pre-merge) server response as the last-confirmed
+          // state _flush() diffs against -- must be the server's own data,
+          // never the merged result, or a local-only item not yet pushed would
+          // look "already synced" and never actually get sent.
+          if(_MERGE_BUCKETS.has(row.bucket)) _lastSynced[row.bucket]=row.data;
           var localRaw=localStorage.getItem('qms2_'+row.bucket);
           var finalData=row.data;
+          var recoveredLocalOnly=false;
           if(_MERGE_BUCKETS.has(row.bucket)&&localRaw){
             try{
               var localArr=JSON.parse(localRaw);
               finalData=_mergeBucket(row.bucket,row.data,localArr);
+              // finalData grew beyond what the server sent -> this tab had
+              // items the server doesn't have yet (e.g. a device that's been
+              // offline since before another push overwrote the server).
+              // Schedule a push so that recovery actually reaches the server
+              // instead of sitting local-only until some unrelated write.
+              if(Array.isArray(finalData)&&Array.isArray(row.data)&&finalData.length>row.data.length) recoveredLocalOnly=true;
             }catch(e){}
           }
           var finalStr=JSON.stringify(finalData);
@@ -5822,6 +5870,7 @@ const _DbSync = (function(){
             localStorage.setItem('qms2_'+row.bucket,finalStr);
             changed=true;
           }
+          if(recoveredLocalOnly) schedule(row.bucket);
         });
         if(changed) rerender(); _status(_rtOk?'rt':'ok');
       })
@@ -5938,11 +5987,23 @@ const _DbSync = (function(){
           if(!row.bucket||_DB_LOCAL_ONLY.has(row.bucket)) return;
           remoteBuckets.add(row.bucket);
           if(row.data===null) return;
+          // Snapshot the raw (pre-merge) server response as the last-confirmed
+          // state _flush() diffs against -- see the matching comment in pull().
+          if(_MERGE_BUCKETS.has(row.bucket)) _lastSynced[row.bucket]=row.data;
           var localRaw=localStorage.getItem('qms2_'+row.bucket);
           var finalData=row.data;
           // Merge on boot: preserves entries added offline since the last push.
           if(_MERGE_BUCKETS.has(row.bucket)&&localRaw){
-            try{ finalData=_mergeBucket(row.bucket,row.data,JSON.parse(localRaw)); }catch(_){}
+            try{
+              var localArrB=JSON.parse(localRaw);
+              finalData=_mergeBucket(row.bucket,row.data,localArrB);
+              // This device had items the server doesn't have yet (e.g. it's
+              // been offline/closed since before another push overwrote the
+              // server -- exactly the Aug-4 recovery scenario). Schedule a
+              // push so the recovery actually reaches the server on login,
+              // instead of sitting local-only until some unrelated write.
+              if(Array.isArray(finalData)&&finalData.length>row.data.length) schedule(row.bucket);
+            }catch(_){}
           }
           var finalStr=JSON.stringify(finalData);
           if(finalStr!==localRaw) localStorage.setItem('qms2_'+row.bucket,finalStr);
