@@ -24,3 +24,6 @@ jobs:
 
       - name: Syntax-check index.html inline script
         run: npm run check-index-syntax
+
+      - name: DbSync merge-safety regression test
+        run: npm run test:dbsync-merge
