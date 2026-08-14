@@ -18,6 +18,7 @@ interface QamsForm {
   id: string;
   status: string;
   sections: FormSection[];
+  settings?: { globalScoringMode?: string };
 }
 
 interface QamsSettings {
@@ -73,7 +74,10 @@ export default async (req: Request) => {
       ? { apiKey, model: process.env.AUTOQA_AI_MODEL || process.env.ANTHROPIC_MODEL || undefined }
       : undefined;
     const corrections = getRecentCorrections(drafts || [], published.sections);
-    const result = await scoreYellowLink(url, published.sections, agents || [], hints, llmConfig, corrections, settings?.globalScoringMode || "per-section");
+    // Form-level override takes precedence over the system-wide setting --
+    // see matching comment in auto-qa-daily.ts / the client's resolveScoringMode().
+    const globalScoringMode = published.settings?.globalScoringMode || settings?.globalScoringMode || "per-section";
+    const result = await scoreYellowLink(url, published.sections, agents || [], hints, llmConfig, corrections, globalScoringMode);
     return Response.json({
       success: true,
       formId: published.id,

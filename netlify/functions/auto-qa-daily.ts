@@ -49,6 +49,7 @@ interface QamsForm {
   id: string;
   status: string;
   sections: FormSection[];
+  settings?: { globalScoringMode?: string };
 }
 
 interface QamsSettings {
@@ -63,9 +64,14 @@ export default async () => {
     readBucket<ApprovedDraftForCorrections[]>("autoQaDrafts"),
     readBucket<QamsSettings>("settings"),
   ]);
-  const globalScoringMode = settings?.globalScoringMode || "per-section";
 
   const published = (forms || []).find((f) => f.status === "published");
+  // A form's own settings.globalScoringMode (an admin explicitly forcing a
+  // mode for that specific form) takes precedence over the system-wide
+  // Settings screen value -- matches the client's resolveScoringMode()
+  // precedence so a draft's batch-computed score can't silently disagree
+  // with what the live evaluation form would compute for the same answers.
+  const globalScoringMode = published?.settings?.globalScoringMode || settings?.globalScoringMode || "per-section";
   const pending = (queue || []).filter((r) => r.status === "queued").slice(0, MAX_PER_RUN);
 
   if (!pending.length) {

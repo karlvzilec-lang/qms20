@@ -5444,7 +5444,7 @@ function _chartGradient(ctx, chartArea, colorTop, colorBot){
 const DEFAULT_FORM = [
   {
     id:'s1',
-    scoringMode:'weighted', title:'Call Opening', totalPoints:5,
+    scoringMode:'all-or-nothing', title:'Call Opening', totalPoints:5,
     items:[
       {id:'1.1', title:'Call Opening Spiel', points:2, autoFail:false, naAllowed:false,
        desc:'Agent delivers the proper and standard opening spiel: "Thank you for calling Cellcard, My name is ____ how can I help you today?"'},
@@ -5456,7 +5456,7 @@ const DEFAULT_FORM = [
   },
   {
     id:'s2',
-    scoringMode:'weighted', title:'Probing', totalPoints:20,
+    scoringMode:'all-or-nothing', title:'Probing', totalPoints:20,
     items:[
       {id:'2.1', title:'Probing Questions', points:10, autoFail:false, naAllowed:false,
        desc:'Agent must ask appropriate probing questions to understand customer concern and inquiry'},
@@ -5466,7 +5466,7 @@ const DEFAULT_FORM = [
   },
   {
     id:'s3',
-    scoringMode:'weighted', title:'Resolution', totalPoints:30,
+    scoringMode:'all-or-nothing', title:'Resolution', totalPoints:30,
     items:[
       {id:'3.1', title:'Product Knowledge', points:7, autoFail:false, naAllowed:false,
        desc:'Agent accurately explains, supports, troubleshoots, and recommends products or services based on correct and updated information'},
@@ -5482,7 +5482,7 @@ const DEFAULT_FORM = [
   },
   {
     id:'s4',
-    scoringMode:'weighted', title:'Show You Care', totalPoints:25,
+    scoringMode:'all-or-nothing', title:'Show You Care', totalPoints:25,
     items:[
       {id:'4.1', title:'Apology Statement', points:4, autoFail:false, naAllowed:false,
        desc:'Agent delivers apology statement when customer experiences inconvenience, frustration, service failure, or dissatisfaction.\nex. "I\'m sorry that you are experiencing this issue. Let me help you resolve this."'},
@@ -5500,7 +5500,7 @@ const DEFAULT_FORM = [
   },
   {
     id:'s5',
-    scoringMode:'weighted', title:'Expectation Setting', totalPoints:15,
+    scoringMode:'all-or-nothing', title:'Expectation Setting', totalPoints:15,
     items:[
       {id:'5.1', title:'Educate on Self-Service Channels', points:5, autoFail:false, naAllowed:false,
        desc:'Educate and empower the customer about Cellcard App and other self-service channels (corporate website, IVR, chatbot)'},
@@ -5512,7 +5512,7 @@ const DEFAULT_FORM = [
   },
   {
     id:'s6',
-    scoringMode:'weighted', title:'Closing the Call', totalPoints:5,
+    scoringMode:'all-or-nothing', title:'Closing the Call', totalPoints:5,
     items:[
       {id:'6.1', title:'Proper Closing Spiel', points:3, autoFail:false, naAllowed:false,
        desc:'Agent professionally ends the interaction after ensuring the concern has been addressed.\n"Thank you for calling Cellcard Mr./Ms. [Name], have a nice day!"'},
@@ -5535,7 +5535,7 @@ const _DB_LOCAL_ONLY = new Set([
 
 // All buckets QMS.html uses — synced on every DB.set
 const _SYNC_BUCKETS = [
-  'records','agents','users','settings','form',
+  'records','agents','users','settings','form','forms',
   'coachings','disputes','editRequests','accessRequests',
   'evaluations','changeLog','pwresets','passwordResets',
   'npsInputData','npsRecords','npsRoleMatrix','npsSurveys',
@@ -5771,7 +5771,13 @@ const _DbSync = (function(){
   // that exist on other devices — the server's GET picks "newest bucket wins"
   // between its two databases, which is a whole-document decision and does not
   // protect against a client overwriting both mirrors with an incomplete array.
-  var _MERGE_BUCKETS = new Set(['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','npsInputData','accessRequests','pwresets','autoQaLinkQueue','autoQaDrafts']);
+  // 'forms' added 2026-08-14: it was pushed as a blind full-array replace like
+  // any non-merge bucket, so a browser tab holding a stale forms cache (e.g.
+  // missing a section's scoringMode field, or missing a form another admin
+  // just created) could silently clobber the server's current forms array the
+  // next time that tab saved anything -- the write-side twin of the read-side
+  // stale-scoring-mode incident this same date, for the exact same bucket.
+  var _MERGE_BUCKETS = new Set(['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','npsInputData','accessRequests','pwresets','autoQaLinkQueue','autoQaDrafts','forms']);
 
   // Same real person can end up under two different internal ids -- e.g. a
   // device with a stale cached copy re-adds someone because its own copy
@@ -8628,19 +8634,19 @@ function buildEvalForm(){
   if(elST) elST.textContent = new Date().toLocaleTimeString();
   populateEvalFormSelector();
   // Use selected form if available, otherwise first published
-  let form;
+  let form, _formObjForBadge;
   if(_selectedFormId){
     const f = getFormById(_selectedFormId);
     form = f ? f.sections : getForm();
+    _formObjForBadge = f;
   } else {
     form = getForm();
+    _formObjForBadge = getPublishedForms()[0] || null;
   }
   evalAnswers = {}; evalComments = {};
   let html = '';
   form.forEach(sec=>{
-    const settings2 = getSettings();
-    const globalMode2 = settings2.globalScoringMode || 'per-section';
-    const secMode2 = globalMode2 === 'per-section' ? (sec.scoringMode||'weighted') : globalMode2;
+    const secMode2 = resolveScoringMode(sec, getSettings(), _formObjForBadge && _formObjForBadge.settings);
     const modeBadge = secMode2 === 'all-or-nothing'
       ? `<span style="background:rgba(220,38,38,.25);color:#fca5a5;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">⚡ ALL OR NOTHING</span>`
       : `<span style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.3px;">WEIGHTED</span>`;
@@ -8749,6 +8755,24 @@ function setRating(itemId, val, btn){
   updateScore();
 }
 
+// Single source of truth for resolving a section's effective scoring mode.
+// Precedence: the form's OWN settings.globalScoringMode (an admin explicitly
+// forcing a mode for that specific form) > the system-wide Settings screen's
+// globalScoringMode > the section's own per-section scoringMode. If nothing
+// resolves at all (missing/stale cached section data), default to
+// all-or-nothing, not weighted -- the 2026-08-14 incident showed 'weighted'
+// as the silent fallback let a stale client cache silently under-score
+// sections that were actually configured all-or-nothing. Defaulting to the
+// stricter mode instead means a stale-cache miss can only make scoring MORE
+// conservative, never mask a real failure as a pass. Used by every scoring
+// entry point (updateScore, computeScoreFromAnswers) and every UI preview
+// that displays a section's mode, so there is exactly one place this logic
+// can drift instead of the six independent copies that used to exist.
+function resolveScoringMode(sec, settings, formSettings){
+  const globalMode = (formSettings && formSettings.globalScoringMode) || (settings && settings.globalScoringMode) || 'per-section';
+  return globalMode === 'per-section' ? ((sec && sec.scoringMode) || 'all-or-nothing') : globalMode;
+}
+
 function updateScore(){
   // Must resolve the form the same way buildEvalForm() (line ~7601) and
   // _doSubmitEval() (activeFormObj) do -- getForm() alone always returns the
@@ -8759,14 +8783,13 @@ function updateScore(){
   const _activeFormObj = _selectedFormId ? getFormById(_selectedFormId) : null;
   const form = _activeFormObj ? _activeFormObj.sections : getForm();
   const settings = getSettings();
-  const globalMode = settings.globalScoringMode || 'per-section';
   let totalEarned=0, totalPossible=0;
   let autoFailTriggered=false, autoFailItems=[];
   const sectionData={};
 
   form.forEach(sec=>{
     // Determine effective scoring mode for this section
-    const mode = globalMode === 'per-section' ? (sec.scoringMode || 'weighted') : globalMode;
+    const mode = resolveScoringMode(sec, settings, _activeFormObj && _activeFormObj.settings);
 
     // Collect answered items (excluding NA)
     const answeredItems = sec.items.filter(item => {
@@ -8787,15 +8810,19 @@ function updateScore(){
       // If any answered item is N → section = 0
       // If at least one Y and no N → section = totalPoints
       // If nothing answered yet → 0/0
+      // (+x||0) guards a malformed totalPoints from poisoning the whole
+      // record's total with NaN -- see matching comment in
+      // computeScoreFromAnswers(), the function this mirrors.
       if(answeredItems.length > 0){
-        secPossible = sec.totalPoints;
-        secEarned   = noItems.length > 0 ? 0 : sec.totalPoints;
+        secPossible = (+sec.totalPoints)||0;
+        secEarned   = noItems.length > 0 ? 0 : secPossible;
       }
     } else {
       // Weighted: each item contributes its individual points
       answeredItems.forEach(item => {
-        secPossible += item.points;
-        if(evalAnswers[item.id] === 'Y') secEarned += item.points;
+        const pts = (+item.points)||0;
+        secPossible += pts;
+        if(evalAnswers[item.id] === 'Y') secEarned += pts;
       });
     }
 
@@ -8912,33 +8939,38 @@ function updateScore(){
 // change; that function copy should always be re-derived from here.
 function computeScoreFromAnswers(form, answers, settings, formSettings){
   settings = settings || {};
-  const globalMode = settings.globalScoringMode || 'per-section';
+  answers = answers || {};
   let totalEarned=0, totalPossible=0;
   let autoFailTriggered=false, autoFailItems=[];
   const sectionScores={};
   (form||[]).forEach(sec=>{
-    const mode = globalMode === 'per-section' ? (sec.scoringMode || 'weighted') : globalMode;
-    const answeredItems = sec.items.filter(item=>{
+    const mode = resolveScoringMode(sec, settings, formSettings);
+    const answeredItems = (sec.items||[]).filter(item=>{
       const ans = answers[item.id] || '';
       return ans !== '' && ans !== 'NA';
     });
     const noItems = answeredItems.filter(item=>answers[item.id]==='N');
     noItems.forEach(item=>{ if(item.autoFail){ autoFailTriggered=true; autoFailItems.push(item.title); } });
     let secEarned=0, secPossible=0;
+    // (+x||0) guards against a malformed/migrated form record (missing or
+    // non-numeric totalPoints/points) poisoning the whole record's total with
+    // NaN -- NaN silently loses to the ">0" check below and used to present
+    // as an ordinary-looking 0%, indistinguishable from a real failing score.
     if(mode==='all-or-nothing'){
       if(answeredItems.length>0){
-        secPossible = sec.totalPoints;
-        secEarned = noItems.length>0 ? 0 : sec.totalPoints;
+        secPossible = (+sec.totalPoints)||0;
+        secEarned = noItems.length>0 ? 0 : secPossible;
       }
     } else {
       answeredItems.forEach(item=>{
-        secPossible += item.points;
-        if(answers[item.id]==='Y') secEarned += item.points;
+        const pts = (+item.points)||0;
+        secPossible += pts;
+        if(answers[item.id]==='Y') secEarned += pts;
       });
     }
     totalEarned += secEarned;
     totalPossible += secPossible;
-    sectionScores[sec.id] = { earned:secEarned, possible:secPossible, title:sec.title, total:sec.totalPoints, mode, hasNoItems:noItems.length>0 };
+    sectionScores[sec.id] = { earned:secEarned, possible:secPossible, title:sec.title, total:(+sec.totalPoints)||0, mode, hasNoItems:noItems.length>0 };
   });
   let finalScore = totalPossible>0 ? (totalEarned/totalPossible*100) : 0;
   // Auto-Fail always zeroes the score -- see the matching comment in updateScore()
@@ -10064,9 +10096,18 @@ function viewRecord(id){
 
   form.forEach(sec=>{
     const sd=r.sectionScores?r.sectionScores[sec.id]:null;
+    // Historical records can carry a section scored under a different mode
+    // than the section's current live definition (e.g. a since-corrected
+    // stale-cache mis-score) -- sd.mode is the mode it was ACTUALLY scored
+    // under and was silently dropped from this view, leaving a reviewer no
+    // way to tell an all-or-nothing zero-out from a weighted section that
+    // legitimately earned nothing.
+    const modeTag = sd&&sd.mode ? (sd.mode==='all-or-nothing'
+      ? '<span style="font-size:9px;background:#fee2e2;color:#dc2626;padding:1px 5px;border-radius:6px;font-weight:700;margin-left:6px;">A/N</span>'
+      : '<span style="font-size:9px;background:#fff3e0;color:#E56A00;padding:1px 5px;border-radius:6px;font-weight:700;margin-left:6px;">WGT</span>') : '';
     html+=`<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
       <div style="background:var(--primary-light);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
-        <strong style="color:var(--primary)">${esc(sec.title)}</strong>
+        <strong style="color:var(--primary)">${esc(sec.title)}${modeTag}</strong>
         ${sd?`<span style="font-weight:700;font-size:13px;">${sd.earned||0}/${sd.possible||sec.totalPoints} pts</span>`:''}
       </div>`;
     sec.items.forEach(item=>{
@@ -10134,10 +10175,11 @@ function printEvalPDF(){
         <td class="cmt-cell">${esc(comment||'')}</td>
       </tr>`;
     });
+    const modeTag = sd&&sd.mode ? ` (${sd.mode==='all-or-nothing'?'A/N':'WGT'})` : '';
     sectionsHTML += `
       <div class="section-block">
         <div class="section-hdr">
-          <span>${sec.title}</span>
+          <span>${sec.title}${modeTag}</span>
           ${sd ? `<span class="section-pts">${sd.earned||0} / ${sd.possible||sec.totalPoints} pts</span>` : ''}
         </div>
         <table class="items-table">
@@ -10666,6 +10708,19 @@ function dihValidateRecords(headers, rows){
     // Try to resolve agentId from roster
     const agentRec = agents.find(a=>a.name&&a.name.toLowerCase()===agentName.toLowerCase());
 
+    // autoFail/result/finalScore are three independent spreadsheet columns
+    // with nothing to stop a malformed or hand-edited row asserting them
+    // inconsistently (e.g. finalScore:88, result:'PASS', autoFail:'true').
+    // Every downstream KPI/report keys off r.result, so normalize here at
+    // import time rather than trust the file: autoFail always wins and
+    // forces score/result to match it, exactly like every other scoring
+    // path in this app (computeScoreFromAnswers, updateScore).
+    let importAutoFail = (_dihGet(headers,row,'autoFail')||'').toLowerCase()==='true';
+    let importResult = ['PASS','FAIL','AUTO FAIL'].includes(result)?result:'PENDING';
+    let importScore = isNaN(finalScore)?0:finalScore;
+    if(importResult==='AUTO FAIL') importAutoFail = true;
+    if(importAutoFail){ importResult='AUTO FAIL'; importScore=0; }
+
     const data = {
       id: idField || uuid(),
       agentName, agentId: agentRec?agentRec.id:(idField||agentName),
@@ -10676,9 +10731,9 @@ function dihValidateRecords(headers, rows){
       refNo:        _dihGet(headers,row,'refNo')||_dihGet(headers,row,'ref')||'',
       callType:     _dihGet(headers,row,'callType')||'Inbound',
       campaign:     _dihGet(headers,row,'campaign')||'',
-      finalScore:   isNaN(finalScore)?0:finalScore,
-      result:       ['PASS','FAIL','AUTO FAIL'].includes(result)?result:'PENDING',
-      autoFail:     (_dihGet(headers,row,'autoFail')||'').toLowerCase()==='true',
+      finalScore:   importScore,
+      result:       importResult,
+      autoFail:     importAutoFail,
       remarks:      _dihGet(headers,row,'remarks')||'',
       formName:     _dihGet(headers,row,'formName')||'Imported',
       answers:{}, comments:{}, sectionScores:[],
@@ -12045,16 +12100,21 @@ function renderOverviewInsightCharts(data, settings){
           const k=fi.sectionTitle||(fi.sectionId||'Unknown');
           driverMap[k]=(driverMap[k]||0)+1;
         });
-      } else if(r.answers){
-        // Fall back: count 'N' answers per section using sectionScores
-        if(r.sectionScores && Array.isArray(r.sectionScores)){
-          r.sectionScores.forEach(ss=>{
-            if(ss.earned===0 && ss.possible>0){
-              const k=ss.title||ss.id||'Unknown';
-              driverMap[k]=(driverMap[k]||0)+1;
-            }
-          });
-        }
+      } else if(r.answers && r.sectionScores){
+        // Fall back: count 'N' answers per section using sectionScores.
+        // Stored as a plain object keyed by section id (see
+        // computeScoreFromAnswers), never an array -- the old
+        // Array.isArray(r.sectionScores) guard was never true for any real
+        // record, so this fallback silently never ran, understating driver
+        // counts for any weighted section that failed without going through
+        // failedItems.
+        const ssList = Array.isArray(r.sectionScores) ? r.sectionScores : Object.values(r.sectionScores);
+        ssList.forEach(ss=>{
+          if(ss.earned===0 && ss.possible>0){
+            const k=ss.title||ss.id||'Unknown';
+            driverMap[k]=(driverMap[k]||0)+1;
+          }
+        });
       }
     });
     const sorted=Object.entries(driverMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
@@ -12839,7 +12899,7 @@ function renderSettings(){
   const isPerSection = gm === 'per-section';
 
   form.forEach((sec,si)=>{
-    const mode = isPerSection ? (sec.scoringMode||'weighted') : gm;
+    const mode = resolveScoringMode(sec, settings, null);
     const isAon = mode === 'all-or-nothing';
     const borderColor = isAon ? '#fca5a5' : 'rgba(255,121,0,.2)';
     const headerBg    = isAon ? '#fff5f5' : '#fff';
@@ -13356,7 +13416,7 @@ function fbRenderSections(){
   }
 
   el.innerHTML = _fbSections.map((sec,si)=>{
-    const mode = isPerSec ? (sec.scoringMode||'weighted') : gm;
+    const mode = resolveScoringMode(sec, null, {globalScoringMode: gm});
     const isAon = mode==='all-or-nothing';
     const modeHtml = isPerSec ? `
       <select onchange="fbUpdateSection(${si},'scoringMode',this.value);fbGlobalModeChange()" style="font-size:11px;padding:3px 7px;border-radius:4px;border:1.5px solid var(--border);">
@@ -13428,7 +13488,7 @@ function fbRemoveItem(si,ii){
   });
 }
 function fbAddSection(){
-  _fbSections.push({id:'s'+Date.now(),title:'New Section',totalPoints:0,scoringMode:'weighted',items:[]});
+  _fbSections.push({id:'s'+Date.now(),title:'New Section',totalPoints:0,scoringMode:'all-or-nothing',items:[]});
   fbDirty=true; fbRenderSections();
   // Scroll to bottom
   const body=document.getElementById('fbSectionsBody');
@@ -25385,9 +25445,23 @@ function resolveDispute(status){
       } else if(newScore){
         // No per-attribute detail — fall back to the original manual-score path.
         const fs = +newScore;
+        // A manually typed score is QA explicitly asserting a new outcome, so
+        // it must also clear autoFail -- otherwise a record could end up
+        // internally inconsistent (autoFail:true stuck alongside a nonzero
+        // PASS score), which every downstream KPI/report that keys off
+        // r.result would silently count as a pass, hiding a real compliance
+        // auto-fail. Log it explicitly when that's what's happening so the
+        // override is traceable.
+        const _wasAutoFail = !!records[ri].autoFail;
         dispute.finalScore = fs;
         records[ri].finalScore = fs;
         records[ri].result = fs>=(+getSettings().passScore||80)?'PASS':'FAIL';
+        records[ri].autoFail = false;
+        if(_wasAutoFail){
+          logChange('evaluation','Auto-Fail Manually Overridden',
+            `Dispute resolution manually cleared AUTO FAIL on record ${dispute.recordId} ("${dispute.agentName}"), setting score to ${fs}% by ${(getCurrentUser()||{}).username||'QA'}.`,
+            'QMS');
+        }
       } else {
         dispute.finalScore = _fallbackScore;
       }
@@ -26522,24 +26596,36 @@ function _renderEditableReviewForm(record, proposedAnswers){
   return html;
 }
 
+// Was a hand-rolled always-weighted sum (item.points, ignoring section
+// scoringMode) -- exactly the bug class the comment above
+// _applyAnswersAndRecalc() documents as already fixed in three other call
+// sites; this one was missed. For an all-or-nothing section item.points is
+// legitimately 0 (the section's weight lives in totalPoints instead), so the
+// old math always previewed 0.0% for any such section regardless of the real
+// answers. Now routes through the same computeScoreFromAnswers() engine
+// resolveEditRequest() actually commits with, reading every rendered
+// .edit-review-ans select (one per item across the whole form, defaulted to
+// either the proposed or current answer) the identical way
+// resolveEditRequest() itself does -- so the preview an admin approves
+// against is guaranteed to match the score that gets saved.
 function _editReviewRecalc(){
   const selects = document.querySelectorAll('.edit-review-ans');
-  let earned=0, possible=0, autoFail=false;
+  const reqIdEl = document.getElementById('reviewEditReqId');
+  const req = reqIdEl ? getEditRequests().find(r=>r.id===reqIdEl.value) : null;
+  const rec = req ? getRecords().find(r=>r.id===req.recordId) : null;
+  const formObj = rec && rec.formId ? getFormById(rec.formId) : null;
+  const form = formObj ? formObj.sections : getForm();
+  const answers = {};
   selects.forEach(function(sel){
-    const pts = +sel.getAttribute('data-pts')||0;
-    const af  = sel.getAttribute('data-af')==='1';
-    const val = sel.value;
-    if(val!=='NA'){ possible += pts; }
-    if(val==='Y') earned += pts;
-    if(val==='N' && af) autoFail=true;
+    answers[sel.getAttribute('data-item')] = sel.value;
     const row = sel.closest('.edit-review-row');
-    if(row) row.style.background = (val!==row.getAttribute('data-current')) ? '#fef9c3' : '#fff';
+    if(row) row.style.background = (sel.value!==row.getAttribute('data-current')) ? '#fef9c3' : '#fff';
   });
-  const pct = possible>0 ? (earned/possible*100).toFixed(1) : '0.0';
+  const result = computeScoreFromAnswers(form, answers, getSettings(), formObj && formObj.settings);
   const preview = document.getElementById('editReviewScorePreview');
   if(preview){
-    preview.textContent = autoFail ? 'AUTO FAIL (0%)' : pct + '%';
-    preview.style.color = autoFail ? 'var(--danger)' : (+pct>=80?'var(--success)':+pct>=60?'var(--warning)':'var(--danger)');
+    preview.textContent = result.autoFailTriggered ? 'AUTO FAIL (0%)' : result.finalScore + '%';
+    preview.style.color = result.autoFailTriggered ? 'var(--danger)' : (result.finalScore>=80?'var(--success)':result.finalScore>=60?'var(--warning)':'var(--danger)');
   }
 }
 

@@ -712,7 +712,12 @@ export function computeDraftScore(
   let totalPossible = 0;
   let autoFailTriggered = false;
   (formSections || []).forEach((sec) => {
-    const mode = globalScoringMode === "per-section" ? (sec.scoringMode || "weighted") : globalScoringMode;
+    // Defaults to all-or-nothing, not weighted, when a section's own
+    // scoringMode is missing -- mirrors the 2026-08-14 fix to the client's
+    // resolveScoringMode()/computeScoreFromAnswers(): a missing/stale mode
+    // field should make scoring MORE conservative, never silently mask a
+    // real failure as a pass.
+    const mode = globalScoringMode === "per-section" ? (sec.scoringMode || "all-or-nothing") : globalScoringMode;
     const answered = (sec.items || []).filter((it) => answers[it.id] && answers[it.id] !== "NA");
     const noItems = answered.filter((it) => answers[it.id] === "N");
     noItems.forEach((it) => {
