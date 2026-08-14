@@ -5873,7 +5873,12 @@ const _DbSync = (function(){
 
   function pull(){
     if(_busy) return; _busy=true;
-    fetch(API,{headers:Object.assign({'Cache-Control':'no-cache'},_authHeaders())})
+    // Cache-busting query param, not just the Cache-Control request header --
+    // a misconfigured intermediate proxy (common on managed corporate
+    // networks) can cache a GET by URL alone, ignoring request headers
+    // entirely. Varying the URL itself defeats that even when the header is
+    // ignored.
+    fetch(API+'?_='+Date.now(),{headers:Object.assign({'Cache-Control':'no-cache'},_authHeaders())})
       .then(function(r){ return r.ok?r.json():Promise.reject(r.status); })
       .then(function(rows){
         var changed=false;
@@ -6019,8 +6024,9 @@ const _DbSync = (function(){
       var infoWrap = bar.querySelector('.user-bar-info');
       (infoWrap||bar).appendChild(dot);
     }
-    // Hydrate from remote using merge (not full-replace), then push local-only buckets
-    fetch(API,{headers:Object.assign({'Cache-Control':'no-cache'},_authHeaders())})
+    // Hydrate from remote using merge (not full-replace), then push local-only buckets.
+    // Cache-busting query param -- see matching comment in pull().
+    fetch(API+'?_='+Date.now(),{headers:Object.assign({'Cache-Control':'no-cache'},_authHeaders())})
       .then(function(r){ return r.ok?r.json():Promise.reject(r.status); })
       .then(function(rows){
         var remoteBuckets=new Set();
