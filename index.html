@@ -1253,6 +1253,9 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
   <div class="page-header">
     <div><h2>👥 My Team — Evaluations</h2><p id="tlTeamSubtitle">View and manage evaluations for agents under your team</p></div>
     <div class="btn-group">
+      <button class="btn btn-sm" id="tlBatchCoachBtn" onclick="batchRunCoaching()" title="Auto-create coaching write-ups for your team's uncoached FAIL / AUTO FAIL evaluations" style="display:none;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;">
+        📋 Bulk Coaching <span id="tlBatchCoachCount" style="background:rgba(255,255,255,.2);padding:1px 7px;border-radius:10px;font-size:11px;"></span>
+      </button>
       <select id="tlTeamMonth" onchange="renderTLTeamView()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;">
         <option value="">Last 3 Months</option>
         <option value="all">All History</option>
@@ -1499,17 +1502,18 @@ tbody td{padding:11px 14px;vertical-align:middle;color:#374151;}
   <div class="page-header">
     <div><h2>Evaluation Records</h2><p>All completed QA evaluations</p></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <!-- Batch Operations — Admin / Super Admin only -->
+      <!-- Batch Operations — Bulk Coaching: Admin/Super Admin (site-wide) or Team Lead (own team). Auto-Dispute: Admin/Super Admin only. -->
       <div id="batchOpsBar" style="display:none;gap:6px;align-items:center;">
-        <button class="btn" onclick="batchRunCoaching()" title="Auto-create coaching for all uncoached FAIL / AUTO FAIL records"
+        <button class="btn" id="batchCoachBtn" onclick="batchRunCoaching()" title="Auto-create coaching for all uncoached FAIL / AUTO FAIL records"
           style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;">
           📋 Bulk Coaching <span id="batchCoachCount" style="background:rgba(255,255,255,.2);padding:1px 7px;border-radius:10px;font-size:11px;"></span>
         </button>
-        <button class="btn" onclick="batchRunDispute()" title="Auto-raise disputes for a random 1% of all completed audits"
+        <button class="btn" id="batchDisputeBtn" onclick="batchRunDispute()" title="Auto-raise disputes for a random 1% of all completed audits"
           style="background:linear-gradient(135deg,#0891b2,#0369a1);color:#fff;">
           ⚖️ Auto-Dispute 1% <span id="batchDisputeCount" style="background:rgba(255,255,255,.2);padding:1px 7px;border-radius:10px;font-size:11px;"></span>
         </button>
       </div>
+      <button class="btn btn-gray" id="recBatchUploadBtn" onclick="openRecordsBatchUpload()" title="Bulk-import evaluations from a CSV/Excel file" style="display:none;">⬆ Batch Upload</button>
       <button class="btn btn-gray" onclick="exportCSV('records')">⬇ Export CSV</button>
 <button class="btn btn-gray" onclick="exportJSON('records')" title="Download all records as JSON">⬇ Export JSON</button>
       <span id="qaExportBtns" style="display:none;gap:6px;display:none;"><button class="btn btn-gray" onclick="qaExportCSV()" title="Download records as CSV" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#86efac;color:#166534;">⬇ CSV</button><button class="btn btn-gray" onclick="qaExportHTML()" title="Download formatted HTML report" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#93c5fd;color:#1e40af;">⬇ HTML</button><button class="btn btn-gray" onclick="qaExportJSON()" title="Download full system backup as JSON" style="background:linear-gradient(135deg,#faf5ff,#ede9fe);border-color:#c4b5fd;color:#5b21b6;">⬇ Full Backup</button></span>
@@ -9993,23 +9997,42 @@ function resultBadge(r){
 }
 
 function renderRecords(){
-  // Batch ops bar visibility + live counts
+  // Batch ops bar visibility + live counts. Bulk Coaching opens to Admin/Super
+  // Admin (site-wide) and Team Lead (own team only); Auto-Dispute stays
+  // Admin/Super Admin only -- it's a QA-integrity audit action against QA
+  // officers' work, not a coaching action a TL would run against their own
+  // reports.
   const bBar=document.getElementById('batchOpsBar');
+  const coachBtn=document.getElementById('batchCoachBtn');
+  const disputeBtn=document.getElementById('batchDisputeBtn');
   if(bBar){
-    const canBatch=isAdmin();
-    bBar.style.display=canBatch?'flex':'none';
-    if(canBatch){
-      const allRecs=getRecords(); const coachings=getCoachings(); const disputes=getDisputes();
-      const openCoach=allRecs.filter(r=>(r.result==='FAIL'||r.result==='AUTO FAIL')&&!coachings.find(c=>c.recordId===r.id));
+    const tlScoped=!isAdmin()&&isTL();
+    const canCoach=isAdmin()||tlScoped;
+    const canDispute=isAdmin();
+    bBar.style.display=(canCoach||canDispute)?'flex':'none';
+    if(coachBtn) coachBtn.style.display=canCoach?'':'none';
+    if(disputeBtn) disputeBtn.style.display=canDispute?'':'none';
+    if(canCoach){
+      const coachScopeRecs = tlScoped
+        ? getRecords().filter(r=>new Set(getTLAgents().map(a=>a.id)).has(r.agentId))
+        : getRecords();
+      const coachings=getCoachings();
+      const openCoach=coachScopeRecs.filter(r=>(r.result==='FAIL'||r.result==='AUTO FAIL')&&!coachings.find(c=>c.recordId===r.id));
+      const countEl=document.getElementById('batchCoachCount');
+      if(countEl) countEl.textContent=openCoach.length+' open';
+    }
+    if(canDispute){
+      const allRecs=getRecords(); const disputes=getDisputes();
       const alreadyDisputed=new Set(disputes.map(d=>d.recordId));
       const disputeTarget=Math.max(1,Math.floor(allRecs.length*0.01));
       const eligibleDisp=allRecs.filter(r=>!alreadyDisputed.has(r.id));
-      const countEl=document.getElementById('batchCoachCount');
       const dispEl=document.getElementById('batchDisputeCount');
-      if(countEl) countEl.textContent=openCoach.length+' open';
       if(dispEl) dispEl.textContent=Math.min(disputeTarget,eligibleDisp.length)+' records';
     }
   }
+
+  const batchUploadBtn=document.getElementById('recBatchUploadBtn');
+  if(batchUploadBtn) batchUploadBtn.style.display=canSubmitEval()?'':'none';
 
   let data=getRecords();
   const q=document.getElementById('recSearch').value.toLowerCase();
@@ -10557,6 +10580,12 @@ function exportCSV(type){
 let _dihType     = null;   // 'records' | 'agents' | 'users' | 'json'
 let _dihParsed   = [];     // [{row, data, status, reason}]
 let _dihFileName = '';
+// True when the modal was opened via openRecordsBatchUpload() (Records screen,
+// canSubmitEval() gate) rather than openDataImportModal() (Settings, admin-only
+// full hub). Restricts what dihCommitImport() will actually persist -- see the
+// gate there -- independent of _dihType, which lives in module scope and could
+// otherwise be tampered with from the console to bypass a DOM-only restriction.
+let _dihRestrictedToRecords = false;
 const DIH_LOG_KEY = 'qms2_importLog';
 
 // ── Column mappings & templates ──────────────────
@@ -10574,7 +10603,7 @@ const DIH_TEMPLATES = {
 
 function openDataImportModal(){
   if(!isAdmin()){ toast('Admin access required.','error'); return; }
-  _dihType = null; _dihParsed = []; _dihFileName = '';
+  _dihType = null; _dihParsed = []; _dihFileName = ''; _dihRestrictedToRecords = false;
   // Reset UI
   document.getElementById('dihStep1').style.display = '';
   document.getElementById('dihStep2').style.display = 'none';
@@ -10583,12 +10612,39 @@ function openDataImportModal(){
   document.getElementById('dihFileInfo').style.display = 'none';
   document.getElementById('dihTemplateRow').style.display = 'none';
   document.getElementById('dihFileInput').value = '';
-  document.querySelectorAll('.dih-type-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.dih-type-btn').forEach(b=>{ b.classList.remove('active'); b.style.display=''; });
   document.getElementById('dihDropHint').textContent = 'Select a data type first, then upload your file';
   document.getElementById('dihFileInput').accept = '.csv,.xls,.xlsx,.json';
   document.getElementById('dihModalSubtitle').textContent = 'Select what you want to import';
   dihRefreshLog();
   openModal('dataImportModal');
+}
+
+// Records screen entry point ("Batch Upload" next to New Evaluation) -- open
+// to anyone who can submit evaluations (isQA()/eval_submit), not just admins.
+// Unlike openDataImportModal(), this locks the flow to the "Evaluations" type
+// only: Agents/Users/JSON-restore stay behind the full Admin-only hub in
+// Settings, since those touch the roster, login accounts, and full-system
+// restore -- well beyond what a QA officer batch-uploading their own
+// evaluations should be able to reach.
+function openRecordsBatchUpload(){
+  if(!canSubmitEval()){ toast('You do not have permission to import evaluations.','error'); return; }
+  _dihType = null; _dihParsed = []; _dihFileName = ''; _dihRestrictedToRecords = true;
+  document.getElementById('dihStep1').style.display = '';
+  document.getElementById('dihStep2').style.display = 'none';
+  document.getElementById('dihImportBtn').style.display = 'none';
+  document.getElementById('dihBackBtn').style.display = 'none';
+  document.getElementById('dihFileInfo').style.display = 'none';
+  document.getElementById('dihTemplateRow').style.display = 'none';
+  document.getElementById('dihFileInput').value = '';
+  document.querySelectorAll('.dih-type-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('dihTypeAgents').style.display = 'none';
+  document.getElementById('dihTypeUsers').style.display  = 'none';
+  document.getElementById('dihTypeJson').style.display   = 'none';
+  document.getElementById('dihModalSubtitle').textContent = 'Import Evaluations';
+  dihRefreshLog();
+  openModal('dataImportModal');
+  dihSelectType('records', document.getElementById('dihTypeRecords'));
 }
 
 function dihSelectType(type, btn){
@@ -10910,6 +10966,18 @@ function dihGoBack(){
 // ── Commit import ────────────────────────────────
 function dihCommitImport(){
   if(!_dihParsed.length) return;
+  // Defense in depth: openRecordsBatchUpload() only hides the Agents/Users/
+  // JSON buttons in the DOM, which is a UI nicety, not a real boundary --
+  // _dihType lives in module scope and nothing stops it being reassigned from
+  // devtools by a non-admin who reached this modal via the restricted entry
+  // point. Re-check the real permission here, at the point data actually
+  // gets persisted, independent of whichever button happened to be clicked.
+  if(_dihRestrictedToRecords && _dihType!=='records'){
+    toast('Admin access required for this import type.','error'); return;
+  }
+  if(!_dihRestrictedToRecords && !isAdmin()){
+    toast('Admin access required.','error'); return;
+  }
   const dupOpt = (document.querySelector('input[name="dihDupOpt"]:checked')||{value:'skip'}).value;
 
   // JSON full backup restore
@@ -24802,9 +24870,20 @@ function _pickRng(arr, seed){
 }
 
 // ── 1. Bulk Coaching ───────────────────────────────────────────
+// Admin/Super Admin can run this against every record site-wide. A TL can
+// also run it, but only against their own team's agents (getTLAgents(), the
+// same scoping renderTLTeamView()/renderDashboard() already use for a TL) --
+// this generates coaching write-ups, not a QA-integrity audit action like
+// Auto-Dispute, so it's safe to open up to the person who'd actually be
+// having these coaching conversations, as long as it stays scoped to their
+// own reports.
 function batchRunCoaching(){
-  if(!isAdmin()){ toast('Admin or Super Admin only.','error'); return; }
-  const allRecs   = getRecords();
+  const _tlScoped = !isAdmin() && isTL();
+  if(!isAdmin() && !_tlScoped){ toast('Admin, Super Admin, or Team Lead only.','error'); return; }
+  const allRecs   = _tlScoped ? (function(){
+    const myAgentsSet = new Set(getTLAgents().map(a=>a.id));
+    return getRecords().filter(r=>myAgentsSet.has(r.agentId));
+  })() : getRecords();
   const coachings = getCoachings();
   const coachedIds= new Set(coachings.map(c=>c.recordId));
   const open      = allRecs.filter(r=>(r.result==='FAIL'||r.result==='AUTO FAIL')&&!coachedIds.has(r.id));
@@ -24854,6 +24933,7 @@ function batchRunCoaching(){
       saveCoachings(coachings);
       try{ renderRecords(); }catch(e){}
       try{ renderDashboard(); }catch(e){}
+      try{ renderTLTeamView(); }catch(e){}
       toast(`✅ ${added} coaching record${added!==1?'s':''} created successfully.`,'success');
 
       // Summary modal — defer so parent confirm closes first
@@ -26085,6 +26165,21 @@ function renderTLTeamView(){
 
   const periodLabel = !monFilter?'Last 3 months':monFilter==='all'?'All history':monFilter;
   document.getElementById('tlTeamSubtitle').textContent='Team: '+(fullUser.team||fullUser.displayName||fullUser.username)+' · '+myAgents.length+' agent'+(myAgents.length!==1?'s':'')+' · '+periodLabel;
+
+  // Bulk Coaching -- TL-scoped equivalent of the Admin-only batch op on
+  // Records. Counted against full history (not the period filter above),
+  // same as batchRunCoaching() itself, so the badge always matches what
+  // clicking the button will actually process.
+  const coachBtn = document.getElementById('tlBatchCoachBtn');
+  if(coachBtn){
+    coachBtn.style.display = isTL() ? '' : 'none';
+    if(isTL()){
+      const myAgentIdsAll = new Set(myAgents.map(a=>a.id));
+      const myOpenCoach = allRecords.filter(r=>myAgentIdsAll.has(r.agentId) && (r.result==='FAIL'||r.result==='AUTO FAIL') && !coachings.find(c=>c.recordId===r.id));
+      const countEl = document.getElementById('tlBatchCoachCount');
+      if(countEl) countEl.textContent = myOpenCoach.length+' open';
+    }
+  }
 
   // KPIs
   const myIds = myAgents.map(a=>a.id);
