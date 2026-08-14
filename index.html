@@ -6051,6 +6051,17 @@ const _DbSync = (function(){
         if(_queue.length){ _saveQueue(); _flush(); }
         _status('ok');
         _autoSnapshot();
+        // init() calls renderDashboard() synchronously on page load, BEFORE this
+        // fetch (boot's one-time initial sync) has resolved -- so on any fresh
+        // browser/session with empty localStorage, the dashboard renders "0
+        // Total Evaluations" against nothing, then silently never re-renders once
+        // the real data lands here. pull() (the periodic poll) already calls
+        // rerender() for exactly this reason; boot() never did, so a first-time
+        // session stayed stuck on the empty state for up to POLL_MS (2 min) --
+        // or indefinitely if the user never navigated off the Dashboard screen to
+        // re-trigger it. Confirmed live: reported as "Super Admin/Manager sees no
+        // data" despite the server holding 1020 real records the whole time.
+        rerender();
       })
       .catch(function(){
         _status('offline');
