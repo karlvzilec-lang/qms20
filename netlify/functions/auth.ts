@@ -28,6 +28,7 @@ interface UserRecord {
   displayName?: string;
   status?: string;
   pwVersion?: number;
+  mustChangePw?: boolean;
 }
 
 async function verifyPassword(plain: string, stored: string): Promise<boolean> {
@@ -121,6 +122,7 @@ export default async (req: Request) => {
     // compute the session's staleness signature -- see getCurrentUser() in
     // index.html.
     pwVersion: user.pwVersion ?? 0,
+    mustChangePw: user.mustChangePw ?? false,
   });
 };
 

@@ -22980,7 +22980,12 @@ async function doSysLogin(){
             // verification. pwVersion comes from /api/auth's response (the
             // server has the real user record) so _sig below still reflects
             // the actual current password generation, not a default.
-            user = { id:_sad.userId, username, role:_sad.role, displayName:_sad.displayName, status:'active', password:'', pwVersion:_sad.pwVersion||0 };
+            // mustChangePw must also come from here, not from the local users
+            // cache -- that field was previously silently dropped on every
+            // login going through this (now-normal) path, so a temp-password
+            // account's forced-change prompt never actually fired for anyone
+            // logging in from a fresh session.
+            user = { id:_sad.userId, username, role:_sad.role, displayName:_sad.displayName, status:'active', password:'', pwVersion:_sad.pwVersion||0, mustChangePw:!!_sad.mustChangePw };
           }
           if(_sad.token) sessionStorage.setItem('qms_token', _sad.token);
         }
