@@ -156,6 +156,38 @@ export default async (req: Request) => {
           return Response.json({ ok: true, bucket, persisted: { netlify: true, supabase: supabaseEnabled() ? true : null } });
         }
 
+        // Server-side guard, independent of the client's own fix for the same
+        // bug: this GET response strips `password` from every users row
+        // before it reaches a browser (see stripPassword() below), so any
+        // client's local merge of that response can end up with a
+        // password-less copy of an existing user, which then arrives here as
+        // an upsert. Applying it as-is would permanently erase that user's
+        // password server-side — confirmed live 2026-08-14, this exact path
+        // wiped all 110 users' passwords and locked out the entire site.
+        // Re-attach the currently-stored password whenever an upsert to an
+        // EXISTING user omits it, but only when the upsert's own pwVersion
+        // still matches what's stored — an upsert asserting a genuinely new
+        // password (higher pwVersion) is never overridden.
+        if (bucket === "users") {
+          try {
+            const existingRows = await db
+              .select({ data: qamsData.data })
+              .from(qamsData)
+              .where(sql`${qamsData.bucket} = 'users'`);
+            const existing = Array.isArray(existingRows[0]?.data) ? (existingRows[0].data as Array<Record<string, unknown>>) : [];
+            const existingById = new Map(existing.filter((u) => u && u.id).map((u) => [u.id, u]));
+            for (const u of upserts as Array<Record<string, unknown>>) {
+              if (!u || u.password) continue;
+              const cur = existingById.get(u.id as string);
+              if (cur && cur.password && (cur.pwVersion ?? 0) === (u.pwVersion ?? 0)) {
+                u.password = cur.password;
+              }
+            }
+          } catch {
+            // Read failed — fall through and merge as-is rather than blocking the write.
+          }
+        }
+
         const upsertsJson = JSON.stringify(upserts);
         const deletesJson = JSON.stringify(deletes);
 

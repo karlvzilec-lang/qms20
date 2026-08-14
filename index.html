@@ -5847,6 +5847,27 @@ const _DbSync = (function(){
       if(item&&item.id&&!remoteIds.has(item.id)) merged.push(item);
     });
     if(bucket==='agents') merged = _dedupeAgentsByStaffId(merged);
+    // /api/data's GET intentionally strips `password` from every users-bucket
+    // row before it ever reaches a browser (data.ts's stripPassword() -- the
+    // hash must never be sent to a client). "Remote wins" above otherwise
+    // means every merge silently drops each user's password from the merged
+    // copy, and the next save from this device pushes that password-less
+    // array back to the server -- permanently wiping it there too. Confirmed
+    // live 2026-08-14: this exact path wiped all 110 users' passwords and
+    // locked out the entire site, including both built-in admin accounts.
+    // Re-attach each user's own last-known local password/pwVersion whenever
+    // the merged (remote) copy is missing one -- but only when pwVersion
+    // still matches what the server just reported, so a password that's
+    // genuinely been changed elsewhere since this device's last sync is never
+    // resurrected from a stale local cache.
+    if(bucket==='users'){
+      var localById = new Map(localArr.filter(function(x){ return x&&x.id; }).map(function(x){ return [x.id,x]; }));
+      merged.forEach(function(u){
+        if(!u||u.password) return;
+        var loc = localById.get(u.id);
+        if(loc&&loc.password&&(loc.pwVersion||0)===(u.pwVersion||0)) u.password = loc.password;
+      });
+    }
     return merged;
   }
 
