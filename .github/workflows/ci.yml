@@ -27,3 +27,6 @@ jobs:
 
       - name: DbSync merge-safety regression test
         run: npm run test:dbsync-merge
+
+      - name: Server-side scoring regression test
+        run: npm run test:score-record

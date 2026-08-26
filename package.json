@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "check-index-syntax": "node scripts/check-index-syntax.js",
     "test:dbsync-merge": "node scripts/test_dbsync_merge_logic.mjs",
-    "ci": "npm run typecheck && npm run check-index-syntax && npm run test:dbsync-merge"
+    "test:score-record": "tsx scripts/test_score_record.mts",
+    "ci": "npm run typecheck && npm run check-index-syntax && npm run test:dbsync-merge && npm run test:score-record"
   },
   "dependencies": {
     "@netlify/database": "^1.0.0",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "drizzle-kit": "^1.0.0-beta.22",
+    "tsx": "^4.23.12",
     "typescript": "^5.9.3"
   }
 }

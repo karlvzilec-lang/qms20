@@ -9,6 +9,7 @@ import {
   mergeBucketSupabase,
 } from "../../db/supabase.js";
 import { tokenFromRequest } from "../../db/token.js";
+import { computeScoreFromAnswers, type ScoreFormSection, type ScoreFormSettings } from "../../lib/scoreRecord.js";
 
 // Shared data API for the QAMS app, backed by TWO independent databases.
 //
@@ -185,6 +186,96 @@ export default async (req: Request) => {
             }
           } catch {
             // Read failed — fall through and merge as-is rather than blocking the write.
+          }
+        }
+
+        // Server-side guard against a stale client reverting a config
+        // bucket to an old snapshot of the SAME row it already holds.
+        // _MERGE_BUCKETS' row-level merge (upsert-by-id) protects rows a
+        // client doesn't know about from being lost, but it does nothing to
+        // stop a client's own outdated copy of a row it DOES know about
+        // from overwriting a newer one -- "merge" only means "don't drop
+        // other people's rows," not "don't let my old copy of this row
+        // win." Confirmed live 2026-08-25: a device whose local `forms`
+        // cache still held the form exactly as it was on 2026-08-04 (its
+        // own updatedAt field proved this) pushed that snapshot again,
+        // silently reverting every section's scoringMode from the
+        // corrected 'all-or-nothing' back to 'weighted' -- with no
+        // corresponding admin action in changeLog, i.e. nobody edited
+        // Settings, a stale client just re-uploaded what it already had.
+        // Every real edit path (saveSettings(), the form builder) stamps a
+        // fresh updatedAt on the form object itself, so an incoming upsert
+        // whose own updatedAt is OLDER than what's already stored for that
+        // same id can only be a stale replay, never a legitimate edit --
+        // keep the newer, currently-stored version instead.
+        if (bucket === "forms") {
+          try {
+            const existingRows = await db
+              .select({ data: qamsData.data })
+              .from(qamsData)
+              .where(sql`${qamsData.bucket} = 'forms'`);
+            const existing = Array.isArray(existingRows[0]?.data) ? (existingRows[0].data as Array<Record<string, unknown>>) : [];
+            const existingById = new Map(existing.filter((f) => f && f.id).map((f) => [f.id, f]));
+            for (let i = (upserts as Array<Record<string, unknown>>).length - 1; i >= 0; i--) {
+              const incoming = (upserts as Array<Record<string, unknown>>)[i];
+              if (!incoming) continue;
+              const cur = existingById.get(incoming.id as string);
+              const incomingTs = typeof incoming.updatedAt === "string" ? Date.parse(incoming.updatedAt) : NaN;
+              const curTs = cur && typeof cur.updatedAt === "string" ? Date.parse(cur.updatedAt) : NaN;
+              if (!Number.isNaN(incomingTs) && !Number.isNaN(curTs) && incomingTs < curTs) {
+                (upserts as Array<Record<string, unknown>>).splice(i, 1); // drop the stale replay — keep what's already stored
+              }
+            }
+          } catch {
+            // Read failed — fall through and merge as-is rather than blocking the write.
+          }
+        }
+
+        // Authoritative server-side re-score, independent of whatever the
+        // submitting browser computed. computeScoreFromAnswers() on the
+        // client is scored against that device's own locally-cached `forms`
+        // bucket, and this exact bug (a section scored under a stale
+        // 'weighted' cache instead of the form's real 'all-or-nothing'
+        // configuration) has already recurred twice despite two client-side
+        // fixes -- once for a MISSING scoringMode field defaulting wrong,
+        // once for a client not re-fetching before scoring. Both fixes only
+        // help a browser that is actually running the patched code and
+        // whose fetch to re-verify actually succeeds; neither is guaranteed
+        // for a device with a long-broken background sync, which is exactly
+        // the device that kept reproducing this. Recomputing here, from the
+        // raw answers against the form definition this database actually
+        // holds right now, is correct regardless of any client's state.
+        // Skipped when `answers` is empty (CSV/JSON imports intentionally
+        // carry no raw answers to recompute from -- their finalScore/result
+        // are the only source of truth for those rows) so imports are never
+        // silently zeroed out.
+        if (bucket === "records") {
+          try {
+            const [formsRows, settingsRows] = await Promise.all([
+              db.select({ data: qamsData.data }).from(qamsData).where(sql`${qamsData.bucket} = 'forms'`),
+              db.select({ data: qamsData.data }).from(qamsData).where(sql`${qamsData.bucket} = 'settings'`),
+            ]);
+            const forms = Array.isArray(formsRows[0]?.data) ? (formsRows[0].data as Array<Record<string, unknown>>) : [];
+            const settings = (settingsRows[0]?.data as ScoreFormSettings) || {};
+            for (const rec of upserts as Array<Record<string, unknown>>) {
+              const answers = rec?.answers as Record<string, string> | undefined;
+              if (!rec || !answers || Object.keys(answers).length === 0) continue;
+              const formObj = forms.find((f) => f.id === rec.formId) || forms.find((f) => f.status === "published");
+              if (!formObj) continue;
+              const sections = formObj.sections as ScoreFormSection[] | undefined;
+              const formSettings = formObj.settings as ScoreFormSettings | undefined;
+              const scored = computeScoreFromAnswers(sections, answers, settings, formSettings);
+              rec.finalScore = scored.finalScore;
+              rec.autoFail = scored.autoFailTriggered;
+              rec.sectionScores = scored.sectionScores;
+              rec.failedItems = scored.failedItems;
+              const passScore = (formSettings?.passScore as number | undefined) ?? (settings.passScore as number | undefined) ?? 80;
+              rec.result = scored.autoFailTriggered ? "AUTO FAIL" : scored.finalScore >= passScore ? "PASS" : "FAIL";
+            }
+          } catch {
+            // Read failed — fall through and persist the client's own score
+            // rather than blocking the write; better than an outage, and no
+            // worse than this check not existing at all.
           }
         }
 
