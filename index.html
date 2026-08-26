@@ -6145,7 +6145,43 @@ const _DbSync = (function(){
     }
   }
 
-  return {schedule:schedule,pull:pull,boot:boot,flush:_flush,rerender:rerender,status:_status};
+  // On-demand refresh of a single bucket, used at scoring-critical moments
+  // (evaluation submission) where trusting whatever has been sitting in
+  // localStorage isn't good enough. A device whose background sync has been
+  // broken for any length of time -- flaky network, a corporate proxy
+  // interfering with the poll/realtime connections, or simply a browser tab
+  // left open for days -- keeps scoring every new evaluation against a
+  // stale form definition indefinitely, no matter how correct the server-
+  // side data is, because nothing ever forces that device to look again.
+  // Confirmed live 2026-08-21: a submission scored under 'weighted' on
+  // every section despite the form being correctly configured all-or-
+  // nothing server-side for a week -- the earlier fix to default a MISSING
+  // scoringMode field to all-or-nothing doesn't help here, since this
+  // device's cached copy had the stale 'weighted' value actually PRESENT,
+  // not missing. Resolves to null (caller falls back to whatever's already
+  // cached, today's behavior) if the fetch fails, e.g. genuinely offline.
+  function refreshBucket(bucket){
+    return fetch(API+'?_='+Date.now(),{headers:Object.assign({'Cache-Control':'no-cache'},_authHeaders())})
+      .then(function(r){ return r.ok?r.json():Promise.reject(r.status); })
+      .then(function(rows){
+        var row = rows.find(function(x){ return x.bucket===bucket; });
+        if(!row || row.data===null) return null;
+        var localRaw = localStorage.getItem('qms2_'+bucket);
+        var finalData = row.data;
+        if(_MERGE_BUCKETS.has(bucket)){
+          _lastSynced[bucket] = row.data;
+          if(localRaw){
+            try{ finalData = _mergeBucket(bucket, row.data, JSON.parse(localRaw)); }catch(_){}
+          }
+        }
+        var finalStr = JSON.stringify(finalData);
+        if(finalStr!==localRaw) localStorage.setItem('qms2_'+bucket, finalStr);
+        return finalData;
+      })
+      .catch(function(){ return null; });
+  }
+
+  return {schedule:schedule,pull:pull,boot:boot,flush:_flush,rerender:rerender,status:_status,refreshBucket:refreshBucket};
 })();
 
 // ── HTML escaper (prevents XSS in innerHTML injections) ──────────────────────
@@ -9377,7 +9413,7 @@ function clearEvalForm(){
   toast('Form cleared.','info');
 }
 
-function submitEval(){
+async function submitEval(){
   const agentId=document.getElementById('evalAgent').value;
   const qao=document.getElementById('evalQAO').value.trim();
   const date=document.getElementById('evalDate').value;
@@ -9394,6 +9430,16 @@ function submitEval(){
   if(!date){ _markErr('evalDate','Please select an evaluation date.'); return; }
   const campaign = document.getElementById('evalCampaign')?.value;
   if(!campaign){ _markErr('evalCampaign','Please select a campaign / queue.'); return; }
+
+  // Refresh the form definition from the server right before scoring --
+  // trusting whatever's been sitting in this device's local cache is what
+  // let a stale scoringMode value silently keep scoring evaluations wrong
+  // for as long as this device's background sync stayed broken (see
+  // _DbSync.refreshBucket()'s comment). Falls back to the local copy
+  // (today's prior behavior) if the fetch fails, e.g. genuinely offline --
+  // never blocks a submission outright over this.
+  await _DbSync.refreshBucket('forms');
+
   // Zero items answered -> totalPossible stays 0, so the "below passing
   // score" alert in updateScore() never fires (its own guard requires
   // totalPossible>0) and a completely unscored evaluation would otherwise
