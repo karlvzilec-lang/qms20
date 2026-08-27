@@ -165,10 +165,24 @@ export default async (req: Request) => {
         // an upsert. Applying it as-is would permanently erase that user's
         // password server-side — confirmed live 2026-08-14, this exact path
         // wiped all 110 users' passwords and locked out the entire site.
-        // Re-attach the currently-stored password whenever an upsert to an
-        // EXISTING user omits it, but only when the upsert's own pwVersion
-        // still matches what's stored — an upsert asserting a genuinely new
-        // password (higher pwVersion) is never overridden.
+        //
+        // Originally re-attached the stored password only when the upsert's
+        // own pwVersion matched what's stored, reasoning that a mismatch
+        // meant the password had genuinely changed elsewhere and shouldn't
+        // be resurrected from a stale copy — but that gate reproduced the
+        // exact same outage a second time (2026-08-26): a device whose
+        // local pwVersion predated a real password change pushed its stale,
+        // password-less copy, the version check correctly declined to
+        // "restore" a mismatched password, and the field was wiped anyway.
+        // The guard was protecting against the wrong, much smaller risk
+        // (briefly reverting to a slightly stale but still-valid password,
+        // which self-corrects on the next real sync) while leaving the
+        // catastrophic one (site-wide lockout) wide open. No legitimate
+        // code path ever produces an upsert that intentionally omits an
+        // existing user's password, so restoring unconditionally whenever a
+        // stored password exists is strictly safer. Restores password and
+        // pwVersion as a matched pair so a client's staleness check (_sig)
+        // never sees an inconsistent combination.
         if (bucket === "users") {
           try {
             const existingRows = await db
@@ -180,8 +194,9 @@ export default async (req: Request) => {
             for (const u of upserts as Array<Record<string, unknown>>) {
               if (!u || u.password) continue;
               const cur = existingById.get(u.id as string);
-              if (cur && cur.password && (cur.pwVersion ?? 0) === (u.pwVersion ?? 0)) {
+              if (cur && cur.password) {
                 u.password = cur.password;
+                u.pwVersion = cur.pwVersion;
               }
             }
           } catch {

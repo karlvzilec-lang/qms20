@@ -83,5 +83,46 @@ function check(name, cond) {
   check('deletes is empty during recovery (nothing was actually deleted)', deletes.length === 0);
 }
 
+// ── Scenario 5: the users-password-wipe bug (recurred twice: 2026-08-14 and
+// 2026-08-26) — /api/data strips `password` from every users row before it
+// reaches a browser, so a plain remote-wins merge on the `users` bucket
+// silently drops each user's password, and the next push from that device
+// wipes it server-side too. Reimplements the FIXED restore guard from
+// _mergeBucket() (index.html) / data.ts's merge handler: restore password
+// (paired with its own pwVersion) whenever the merged/remote copy is
+// missing one and a local/stored copy has one -- UNCONDITIONALLY, not
+// gated on pwVersion matching. The gated version is exactly what caused
+// the second recurrence: a device with a stale pwVersion pushed a
+// password-less copy, the version check declined to "restore" a
+// mismatched password, and the field was wiped anyway.
+{
+  function mergeBucketUsersSide(remoteArr, localArr) {
+    const merged = remoteArr.slice();
+    const remoteIds = new Set(remoteArr.map(x => x.id));
+    localArr.forEach(item => { if (!remoteIds.has(item.id)) merged.push(item); });
+    const localById = new Map(localArr.map(x => [x.id, x]));
+    merged.forEach(u => {
+      if (u.password) return;
+      const loc = localById.get(u.id);
+      if (loc && loc.password) { u.password = loc.password; u.pwVersion = loc.pwVersion; }
+    });
+    return merged;
+  }
+
+  // The exact reproduction: this device's local pwVersion (1) predates a
+  // real password change made elsewhere (server is now at pwVersion 2),
+  // and the server response has password stripped as always.
+  const serverStripped = [{ id: 'U1', pwVersion: 2 }]; // password field absent, as /api/data always sends it
+  const staleLocal = [{ id: 'U1', password: 'OLD_HASH', pwVersion: 1 }];
+  const merged = mergeBucketUsersSide(serverStripped, staleLocal);
+  const u1 = merged.find(u => u.id === 'U1');
+  check('password is restored even when local pwVersion is stale/mismatched', u1.password === 'OLD_HASH');
+  check('pwVersion is restored as a matched pair with the restored password (not left at the mismatched remote value)', u1.pwVersion === 1);
+
+  // A brand-new user with no password anywhere yet must not crash or fabricate one.
+  const merged2 = mergeBucketUsersSide([{ id: 'U2' }], []);
+  check('a user with no known password anywhere stays password-less (no crash, no fabrication)', !merged2[0].password);
+}
+
 if (failures) { console.error(`\n${failures} check(s) failed.`); process.exit(1); }
 console.log('\nAll checks passed.');

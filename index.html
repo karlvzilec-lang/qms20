@@ -5890,16 +5890,31 @@ const _DbSync = (function(){
     // live 2026-08-14: this exact path wiped all 110 users' passwords and
     // locked out the entire site, including both built-in admin accounts.
     // Re-attach each user's own last-known local password/pwVersion whenever
-    // the merged (remote) copy is missing one -- but only when pwVersion
-    // still matches what the server just reported, so a password that's
-    // genuinely been changed elsewhere since this device's last sync is never
-    // resurrected from a stale local cache.
+    // the merged (remote) copy is missing one. Originally gated on
+    // loc.pwVersion matching the remote's pwVersion, reasoning that a
+    // mismatch meant the password had genuinely changed elsewhere and
+    // shouldn't be resurrected from a stale local copy -- but that gate
+    // itself reproduced the exact same outage a second time (2026-08-26,
+    // ~2 weeks after the first): a device whose local pwVersion predated a
+    // real password change pushed its stale, password-less copy, the
+    // version check correctly declined to "restore" a mismatched password,
+    // and the field was wiped anyway -- the guard was protecting against
+    // the wrong, much smaller risk (briefly reverting to a slightly stale
+    // but still-valid password, which self-corrects on the next real sync)
+    // while leaving the catastrophic one (site-wide lockout) wide open. No
+    // legitimate code path ever produces an upsert that intentionally omits
+    // an existing user's password -- _setUserPassword() always writes a
+    // real hash -- so restoring unconditionally whenever we have ANY known
+    // copy is strictly safer than not. Restore password and pwVersion as a
+    // matched pair (never mix a hash from one snapshot with a version
+    // number from another) so a session's staleness check (_sig) never
+    // sees an inconsistent combination.
     if(bucket==='users'){
       var localById = new Map(localArr.filter(function(x){ return x&&x.id; }).map(function(x){ return [x.id,x]; }));
       merged.forEach(function(u){
         if(!u||u.password) return;
         var loc = localById.get(u.id);
-        if(loc&&loc.password&&(loc.pwVersion||0)===(u.pwVersion||0)) u.password = loc.password;
+        if(loc&&loc.password){ u.password = loc.password; u.pwVersion = loc.pwVersion; }
       });
     }
     return merged;
