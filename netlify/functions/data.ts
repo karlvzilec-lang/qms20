@@ -246,6 +246,34 @@ export default async (req: Request) => {
           }
         }
 
+        // Same guard as 'forms' above, same reasoning: saveNpsSurvey() and
+        // toggleNpsSurveyStatus() both stamp a fresh updatedAt on every real
+        // edit, so an incoming upsert whose own updatedAt is OLDER than
+        // what's already stored for that same id can only be a stale
+        // replay -- keep the newer, currently-stored version instead.
+        if (bucket === "npsSurveys") {
+          try {
+            const existingRows = await db
+              .select({ data: qamsData.data })
+              .from(qamsData)
+              .where(sql`${qamsData.bucket} = 'npsSurveys'`);
+            const existing = Array.isArray(existingRows[0]?.data) ? (existingRows[0].data as Array<Record<string, unknown>>) : [];
+            const existingById = new Map(existing.filter((s) => s && s.id).map((s) => [s.id, s]));
+            for (let i = (upserts as Array<Record<string, unknown>>).length - 1; i >= 0; i--) {
+              const incoming = (upserts as Array<Record<string, unknown>>)[i];
+              if (!incoming) continue;
+              const cur = existingById.get(incoming.id as string);
+              const incomingTs = typeof incoming.updatedAt === "string" ? Date.parse(incoming.updatedAt) : NaN;
+              const curTs = cur && typeof cur.updatedAt === "string" ? Date.parse(cur.updatedAt) : NaN;
+              if (!Number.isNaN(incomingTs) && !Number.isNaN(curTs) && incomingTs < curTs) {
+                (upserts as Array<Record<string, unknown>>).splice(i, 1); // drop the stale replay — keep what's already stored
+              }
+            }
+          } catch {
+            // Read failed — fall through and merge as-is rather than blocking the write.
+          }
+        }
+
         // Authoritative server-side re-score, independent of whatever the
         // submitting browser computed. computeScoreFromAnswers() on the
         // client is scored against that device's own locally-cached `forms`

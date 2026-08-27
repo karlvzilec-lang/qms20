@@ -5815,7 +5815,18 @@ const _DbSync = (function(){
   // just created) could silently clobber the server's current forms array the
   // next time that tab saved anything -- the write-side twin of the read-side
   // stale-scoring-mode incident this same date, for the exact same bucket.
-  var _MERGE_BUCKETS = new Set(['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','npsInputData','accessRequests','pwresets','autoQaLinkQueue','autoQaDrafts','forms']);
+  // 'npsSurveys' added (proactive audit): same shape (id-bearing array,
+  // actively created/published/unpublished/deleted from the NPS admin UI) and
+  // same exposure as the incidents above -- a device with a stale survey list
+  // could silently un-delete, un-publish, or wipe another admin's changes on
+  // its next save. Other array buckets audited at the same time were left out
+  // deliberately, not overlooked: 'evaluations'/'form'/'passwordResets' are
+  // dead writes (nothing in the app pushes real data into them anymore -- see
+  // getForm()'s own "orphaned legacy key" comment), and
+  // 'npsDsatReasons'/'npsSatReasons' are plain string arrays with no `.id` to
+  // upsert/delete against, so this id-based merge can't apply to them without
+  // a shape migration first.
+  var _MERGE_BUCKETS = new Set(['users','agents','records','coachings','disputes','editRequests','changeLog','npsRecords','npsResponses','npsInputData','accessRequests','pwresets','autoQaLinkQueue','autoQaDrafts','forms','npsSurveys']);
 
   // Same real person can end up under two different internal ids -- e.g. a
   // device with a stale cached copy re-adds someone because its own copy
@@ -20155,6 +20166,12 @@ function saveNpsSurvey(){
   _sfb.form.status=document.getElementById('sfbStatus')?.value||_sfb.form.status;
   _sfb.form.channel=document.getElementById('sfbChannel')?.value||_sfb.form.channel;
   if(!_sfb.form.name){toast('Please enter a survey name.','error');return;}
+  // Stamped on every real edit path (mirrors forms' updatedAt) so the server's
+  // per-row staleness guard has something to compare against -- without this
+  // a stale device's cached copy of a survey it already knows about could
+  // silently win over a newer edit made elsewhere, the exact failure the
+  // forms bucket's own guard was built to close.
+  _sfb.form.updatedAt=new Date().toISOString();
   const surveys=getNpsSurveys();
   const ei=surveys.findIndex(s=>s.id===_sfb.form.id);
   if(ei>=0) surveys[ei]=_sfb.form; else surveys.push(_sfb.form);
@@ -20173,10 +20190,10 @@ function toggleNpsSurveyStatus(id){
   const wasActive = (s.status||'draft')==='active';
   if(wasActive){
     showConfirm({ title:'Unpublish Survey', message:`Unpublish "<strong>${s.name}</strong>"?`, sub:'It will no longer be visible to respondents.', icon:'⏸', btnLabel:'⏸ Unpublish', btnClass:'btn-primary',
-      onConfirm:()=>{ s.status='draft'; saveNpsSurveyData(surveys); logChange('nps','Updated',`Unpublished survey "${s.name}"`,'NPS'); renderNpsSurveys(); toast(`"${s.name}" unpublished.`,'info'); }
+      onConfirm:()=>{ s.status='draft'; s.updatedAt=new Date().toISOString(); saveNpsSurveyData(surveys); logChange('nps','Updated',`Unpublished survey "${s.name}"`,'NPS'); renderNpsSurveys(); toast(`"${s.name}" unpublished.`,'info'); }
     });
   } else {
-    s.status='active'; saveNpsSurveyData(surveys);
+    s.status='active'; s.updatedAt=new Date().toISOString(); saveNpsSurveyData(surveys);
     logChange('nps','Updated',`Published survey "${s.name}"`,'NPS');
     renderNpsSurveys();
     toast(`"${s.name}" is now Published and live.`,'success');
