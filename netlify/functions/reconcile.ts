@@ -144,6 +144,55 @@ export default async (req: Request) => {
     fixed?: boolean;
   }
 
+  // /api/data's GET strips `password` from every users row before it reaches
+  // a browser -- so if either database's OWN stored copy of `users` has
+  // genuinely lost passwords (any of the merge-path incidents this app has
+  // had), reconcile's normal "copy whichever side has the newer updatedAt
+  // over the other" logic would propagate that loss to the GOOD side in one
+  // raw, unguarded overwrite -- exactly the kind of write every other fix
+  // this session added a guard against, and this endpoint bypassed every one
+  // of them (db.insert()/upsertToSupabase() here call the database directly,
+  // never routing through data.ts's merge handler where those guards live).
+  // Before pushing the "winner" over the "loser", re-attach any password the
+  // loser still has for a user the winner is about to overwrite without one.
+  function preserveUserPasswords(winnerData: unknown, loserData: unknown): unknown {
+    if (!Array.isArray(winnerData) || !Array.isArray(loserData)) return winnerData;
+    const loserById = new Map(
+      (loserData as Array<Record<string, unknown>>).filter((u) => u && u.id).map((u) => [u.id, u]),
+    );
+    for (const u of winnerData as Array<Record<string, unknown>>) {
+      if (!u || u.password) continue;
+      const loser = loserById.get(u.id as string);
+      if (loser && loser.password) {
+        u.password = loser.password;
+        u.pwVersion = loser.pwVersion;
+      }
+    }
+    return winnerData;
+  }
+
+  // Same reasoning, for the other proven incident this session: a form
+  // object with an older internal updatedAt can only be a stale snapshot
+  // (every real edit path stamps a fresh one), never a legitimate edit --
+  // pushing it over a newer one via this endpoint's raw overwrite would
+  // silently revert a form's scoringMode exactly like the 2026-08-25
+  // incident, bypassing the staleness guard data.ts's merge handler has.
+  function dropStaleFormOverwrites(winnerData: unknown, loserData: unknown): unknown {
+    if (!Array.isArray(winnerData) || !Array.isArray(loserData)) return winnerData;
+    const loserById = new Map(
+      (loserData as Array<Record<string, unknown>>).filter((f) => f && f.id).map((f) => [f.id, f]),
+    );
+    return (winnerData as Array<Record<string, unknown>>).map((f) => {
+      const loser = f && f.id ? loserById.get(f.id as string) : undefined;
+      const winnerTs = f && typeof f.updatedAt === "string" ? Date.parse(f.updatedAt) : NaN;
+      const loserTs = loser && typeof loser.updatedAt === "string" ? Date.parse(loser.updatedAt) : NaN;
+      if (loser && !Number.isNaN(winnerTs) && !Number.isNaN(loserTs) && winnerTs < loserTs) {
+        return loser; // the "loser" side actually has the more recently-edited copy of this form
+      }
+      return f;
+    });
+  }
+
   const report: BucketReport[] = [];
   const fixes: Promise<void>[] = [];
 
@@ -174,21 +223,27 @@ export default async (req: Request) => {
       if (status === "netlify_only" || (status === "drifted" && nTs >= sTs)) {
         // Netlify is authoritative — push to Supabase
         entry.winner = "netlify";
+        let winnerData: unknown = dedupeById(n!.data);
+        if (bucket === "users") winnerData = preserveUserPasswords(winnerData, s?.data);
+        if (bucket === "forms") winnerData = dropStaleFormOverwrites(winnerData, s?.data);
         fixes.push(
-          upsertToSupabase(bucket, dedupeById(n!.data), n!.updatedAt ?? new Date())
+          upsertToSupabase(bucket, winnerData, n!.updatedAt ?? new Date())
             .then(() => { entry.fixed = true; })
             .catch((e) => { console.error(`fix→supabase ${bucket}`, e); entry.fixed = false; }),
         );
       } else {
         // Supabase is authoritative — push to Netlify
         entry.winner = "supabase";
+        let winnerData: unknown = dedupeById(s!.data);
+        if (bucket === "users") winnerData = preserveUserPasswords(winnerData, n?.data);
+        if (bucket === "forms") winnerData = dropStaleFormOverwrites(winnerData, n?.data);
         fixes.push(
           db
             .insert(qamsData)
-            .values({ bucket, data: dedupeById(s!.data) as any, updatedAt: s!.updatedAt ?? new Date() })
+            .values({ bucket, data: winnerData as any, updatedAt: s!.updatedAt ?? new Date() })
             .onConflictDoUpdate({
               target: qamsData.bucket,
-              set: { data: dedupeById(s!.data) as any, updatedAt: s!.updatedAt ?? new Date() },
+              set: { data: winnerData as any, updatedAt: s!.updatedAt ?? new Date() },
             })
             .then(() => { entry.fixed = true; })
             .catch((e) => { console.error(`fix→netlify ${bucket}`, e); entry.fixed = false; }),
