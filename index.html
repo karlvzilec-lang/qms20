@@ -6281,6 +6281,20 @@ function getRecords() {
   const recs = DB.get('records') || [];
   // Ensure every record has finalScore (legacy seed records used 'score' field)
   recs.forEach(r=>{ if(r.finalScore==null && r.score!=null) r.finalScore = +r.score||0; });
+  // A single record with a missing/non-numeric finalScore has crashed the
+  // Records table (and Edit Requests, Disputes, TL Team, Repeat Offenders,
+  // Pareto, and the email-notification modal -- every one of them calls
+  // .toFixed() on this field with no guard) for EVERY user, not just
+  // whoever happened to view that one record, since one throw inside a
+  // .map() aborts the whole render before tbody.innerHTML is ever
+  // assigned. Confirmed live 2026-08-28: a throwaway test row
+  // ({id,x} only, no finalScore) leaked into the live `records` bucket and
+  // blanked the Records screen for the entire team. Normalizing here, the
+  // single choke point every screen already reads through, closes the
+  // whole class of "one bad row breaks everyone's screen" bug at once,
+  // instead of relying on every render site remembering to guard its own
+  // .toFixed() call.
+  recs.forEach(r=>{ if(typeof r.finalScore !== 'number' || Number.isNaN(r.finalScore)) r.finalScore = 0; });
   return recs;
 }
 function getSettings(){ return DB.get('settings') || { passScore:80, autoFailMode:'zero', globalScoringMode:'per-section' }; }
@@ -10088,7 +10102,7 @@ function showEvalResult(record){
   card.innerHTML = `
     <div class="er-icon-wrap er-icon-${theme}">${svgIcon}</div>
     <div class="er-result-badge er-badge-${theme}">${record.result}</div>
-    <div class="er-score er-score-${theme}">${record.finalScore.toFixed(1)}<span style="font-size:26px;font-weight:700;color:#d1d5db">%</span></div>
+    <div class="er-score er-score-${theme}">${(+record.finalScore||0).toFixed(1)}<span style="font-size:26px;font-weight:700;color:#d1d5db">%</span></div>
     <div class="er-score-label">Quality Score</div>
     <div class="er-meta">
       <div class="er-meta-row"><span class="er-meta-lbl">${icons.agent} Agent</span><span class="er-meta-val">${esc(record.agentName||record.agentId)}</span></div>
@@ -10217,7 +10231,7 @@ function renderRecords(){
     <td>${esc(r.qaOfficer)}</td>
     <td>${fmtDate(r.evalDate)}</td>
     <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.refNo)||''}">${r.refNo&&/^https?:\/\//i.test(r.refNo)?`<a href="${esc(r.refNo)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;font-size:12px;" title="${esc(r.refNo)}">${esc(r.refNo.length>22?r.refNo.slice(0,22)+'…':r.refNo)}</a>`:esc(r.refNo)||'—'}</td>
-    <td style="font-weight:800;color:${r.finalScore>=80?'var(--success)':r.finalScore>=60?'var(--warning)':'var(--danger)'}">${r.finalScore.toFixed(1)}%</td>
+    <td style="font-weight:800;color:${r.finalScore>=80?'var(--success)':r.finalScore>=60?'var(--warning)':'var(--danger)'}">${(+r.finalScore||0).toFixed(1)}%</td>
     <td>${resultBadge(r.result)}${r.editApproved?'<span title="Score edited by QA, approved by Admin" style="margin-left:4px;background:#fef9c3;color:#92400e;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:700;vertical-align:middle;">EDITED</span>':''}${r.directEdit?`<span title="Directly edited by ${esc(r.directEditBy||'the QA officer')} within the 7-day self-edit window — no admin approval required. Reason: ${esc(r.directEditReason||'')}" style="margin-left:4px;background:#dbeafe;color:#1e40af;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:700;vertical-align:middle;">DIRECT EDIT</span>`:''}</td>
     <td style="white-space:nowrap">
       <button class="btn btn-sm btn-outline" onclick="viewRecord('${r.id}')" style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View</button>
@@ -10247,7 +10261,7 @@ function viewRecord(id){
     <div><div style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;">Ref No.</div><div style="font-weight:700">${esc(r.refNo)||'—'}</div></div>
     <div><div style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;">Duration</div><div style="font-weight:700">${esc(r.duration)||'—'}</div></div>
     <div><div style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;">Campaign</div><div style="font-weight:700">${esc(r.campaign)||'—'}</div></div>
-    <div><div style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;">Score</div><div style="font-weight:900;font-size:22px;color:${r.finalScore>=80?'var(--success)':r.finalScore>=60?'var(--warning)':'var(--danger)'}">${r.finalScore.toFixed(1)}%</div></div>
+    <div><div style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;">Score</div><div style="font-weight:900;font-size:22px;color:${r.finalScore>=80?'var(--success)':r.finalScore>=60?'var(--warning)':'var(--danger)'}">${(+r.finalScore||0).toFixed(1)}%</div></div>
     <div><div style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;">Result</div><div style="margin-top:4px">${resultBadge(r.result)}</div></div>
   </div>`;
 
@@ -25545,7 +25559,7 @@ function openTLReview(recordId){
     <div style="padding:4px 0 12px;">
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
         <div><strong style="font-size:16px;">${esc(r.agentName)}</strong><br><small style="color:var(--gray)">${esc(r.agentTeam||'')}</small></div>
-        <div style="font-size:28px;font-weight:800;color:${scoreColor}">${r.finalScore.toFixed(1)}%</div>
+        <div style="font-size:28px;font-weight:800;color:${scoreColor}">${(+r.finalScore||0).toFixed(1)}%</div>
         <div>${resultBadgeHtml}</div>
         <div style="font-size:12px;color:var(--gray);">Evaluated: ${fmtDate(r.evalDate)}<br>QA: ${esc(r.qaOfficer)}</div>
       </div>
@@ -25977,7 +25991,7 @@ function renderCoachingCompliance(){
     return '<tr>'
       +'<td><strong>'+esc(r.agentName)+'</strong></td>'
       +'<td>'+fmtDate(r.evalDate)+'</td>'
-      +'<td style="font-weight:700;color:var(--danger)">'+r.finalScore.toFixed(1)+'%</td>'
+      +'<td style="font-weight:700;color:var(--danger)">'+(+r.finalScore||0).toFixed(1)+'%</td>'
       +'<td style="text-align:center">'+(c?'<span style="color:var(--success)">✅</span>':'<span style="color:var(--danger)">❌</span>')+'</td>'
       +'<td>'+coachDate+'</td>'
       +'<td>'+withinThree+'</td>'
@@ -26144,7 +26158,7 @@ function renderEditRequestsReport(){
           +'<td>'+esc(r.directEditBy||'—')+'</td>'
           +'<td>'+(r.directEditAt?new Date(r.directEditAt).toLocaleString():'—')+'</td>'
           +'<td><small>'+esc(r.directEditReason||'—')+'</small></td>'
-          +'<td style="font-weight:700;">'+r.finalScore.toFixed(1)+'%</td>'
+          +'<td style="font-weight:700;">'+(+r.finalScore||0).toFixed(1)+'%</td>'
           +'<td>'+resultBadge(r.result)+'</td>'
           +'</tr>').join('');
   }
@@ -26158,7 +26172,7 @@ function renderEditRequestsReport(){
     const actionBtn = r.status==='pending'
       ? '<button class="btn btn-xs btn-primary" onclick="openEditReview(\''+r.id+'\')">🔍 Review</button>'
       : '';
-    const scoreAtRequest = r.oldScore!=null ? r.oldScore.toFixed(1)+'%' : (rec?rec.finalScore.toFixed(1)+'%':'—');
+    const scoreAtRequest = r.oldScore!=null ? r.oldScore.toFixed(1)+'%' : (rec?(+rec.finalScore||0).toFixed(1)+'%':'—');
     const proposedTxt = r.proposedAutoFail ? 'AUTO FAIL' : (r.proposedScore!=null ? r.proposedScore+'%' : '—');
     const finalTxt = r.finalScoreAfter!=null ? r.finalScoreAfter.toFixed(1)+'%' : '—';
     return '<tr>'
@@ -26534,7 +26548,7 @@ function renderTLTeamView(){
               ${rec.duration?`<div class="tl-ec-sub">⏱ ${rec.duration}</div>`:''}
             </div>
             <div class="tl-ec-right">
-              <div class="tl-ec-score" style="color:${scoreColor}">${rec.finalScore.toFixed(1)}%</div>
+              <div class="tl-ec-score" style="color:${scoreColor}">${(+rec.finalScore||0).toFixed(1)}%</div>
               ${resultBadge(rec.result)}
             </div>
           </div>
@@ -26699,7 +26713,7 @@ function renderEvalTiming(){
         <td>${fmtDate(r.evalDate)}</td>
         <td>${new Date(r.createdAt).toLocaleString()}</td>
         <td style="font-weight:700;color:var(--primary)">${r.evalDurationMin||'—'}</td>
-        <td style="color:${r.finalScore>=80?'var(--success)':'var(--danger)'};font-weight:700">${r.finalScore.toFixed(1)}%</td>
+        <td style="color:${r.finalScore>=80?'var(--success)':'var(--danger)'};font-weight:700">${(+r.finalScore||0).toFixed(1)}%</td>
         <td>${resultBadge(r.result)}</td>
       </tr>`).join('')
     :'<tr class="empty-row"><td colspan="7">No timing data available. Data is captured from new evaluations submitted after this feature was enabled.</td></tr>';
@@ -27165,12 +27179,12 @@ function openEmailNotif(){
   const subject=encodeURIComponent('QA Evaluation Result — '+r.agentName+' ('+fmtDate(r.evalDate)+')');
   const body=encodeURIComponent(
     'Dear '+r.agentName+',\n\nYour QA evaluation has been completed.\n\n'+
-    'Date: '+fmtDate(r.evalDate)+'\nScore: '+r.finalScore.toFixed(1)+'%\nResult: '+r.result+'\nQA Officer: '+r.qaOfficer+'\n\n'+
+    'Date: '+fmtDate(r.evalDate)+'\nScore: '+(+r.finalScore||0).toFixed(1)+'%\nResult: '+r.result+'\nQA Officer: '+r.qaOfficer+'\n\n'+
     (r.result!=='PASS'?'Please review the evaluation details with your Team Lead.\n\n':'')+
     'Regards,\nCellcard QA Team'
   );
   document.getElementById('emailNotifBody').innerHTML=`
-    <p style="font-size:13px;color:#555;margin-bottom:14px;">Send notification email for: <strong>${esc(r.agentName)}</strong> — Score: <strong style="color:${r.finalScore>=getSettings().passScore?'var(--success)':'var(--danger)'}">${r.finalScore.toFixed(1)}%</strong> <span class="badge badge-${r.result==='PASS'?'pass':'fail'}">${r.result}</span></p>
+    <p style="font-size:13px;color:#555;margin-bottom:14px;">Send notification email for: <strong>${esc(r.agentName)}</strong> — Score: <strong style="color:${r.finalScore>=getSettings().passScore?'var(--success)':'var(--danger)'}">${(+r.finalScore||0).toFixed(1)}%</strong> <span class="badge badge-${r.result==='PASS'?'pass':'fail'}">${r.result}</span></p>
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${agentEmail?`<a href="mailto:${agentEmail}?subject=${subject}&body=${body}" class="btn btn-primary" target="_blank">📧 Email Agent — ${agentEmail}</a>`:'<div style="color:var(--gray);font-size:13px;">⚠️ Agent email not on file. Add it in Roster.</div>'}
       ${tlEmail?`<a href="mailto:${tlEmail}?subject=${encodeURIComponent('[TL Alert] '+decodeURIComponent(subject))}&body=${body}" class="btn btn-warning" target="_blank">📧 Email Team Lead — ${tlEmail}</a>`:'<div style="color:var(--gray);font-size:13px;">⚠️ TL email not on file. Add it in User Management.</div>'}
