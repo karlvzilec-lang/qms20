@@ -148,6 +148,36 @@ export default async (req: Request) => {
       // One shared timestamp so both copies sort identically on later reads.
       const updatedAt = new Date();
 
+      // Buckets that must only ever be written via the row-level merge path
+      // below (mirrors the client's own _MERGE_BUCKETS in index.html). Every
+      // protective guard in this file — the users password-restore, the
+      // forms staleness check, the records re-score — lives inside the
+      // `op === "merge"` branch below; the plain full-document-replace path
+      // beneath it has none of them and simply overwrites whatever's there.
+      // Root cause of the 2026-08-28 recurrence of the password-wipe bug:
+      // something posted a plain {bucket:"users", data:[...]} write (the
+      // full-replace shape), which reached this function having completely
+      // bypassed the merge branch and every guard in it, wiping 107 of 110
+      // users' passwords in one shot -- explaining why it hit almost
+      // everyone simultaneously rather than one row at a time, the pattern
+      // every prior incident had shown. No legitimate code path constructs
+      // that shape for these buckets (DB.set() always routes anything in
+      // _MERGE_BUCKETS through op:'merge'), so rather than trying to bolt
+      // the same guards onto a second path, refuse the write outright here
+      // — one clear enforcement point instead of a hole that can reopen
+      // every time a new field-level guard gets added to only one path.
+      const MERGE_ONLY_BUCKETS = new Set([
+        "users", "agents", "records", "coachings", "disputes", "editRequests",
+        "changeLog", "npsRecords", "npsResponses", "npsInputData", "accessRequests",
+        "pwresets", "autoQaLinkQueue", "autoQaDrafts", "forms",
+      ]);
+      if (body.op !== "merge" && MERGE_ONLY_BUCKETS.has(bucket)) {
+        return Response.json(
+          { error: `Bucket '${bucket}' must be written via {op:'merge', upserts, deletes} — full-document replace is disabled for this bucket.` },
+          { status: 400 },
+        );
+      }
+
       // ── Row-level delta merge (high-churn array buckets) ──────────────────
       if (body.op === "merge") {
         const upserts = Array.isArray(body.upserts) ? body.upserts : [];
