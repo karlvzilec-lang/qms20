@@ -6,7 +6,15 @@
   [headers.values]
     # Strict CSP — mitigates XSS as defense-in-depth behind the esc() fixes.
     # 'unsafe-inline' is required for the single-file SPA's inline <style>/<script> blocks.
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co https://*.supabase.in; frame-ancestors 'none'; form-action 'self'; base-uri 'self';"
+    # connect-src needs BOTH the https: and wss: scheme for Supabase --
+    # https://*.supabase.co covers the REST API, but CSP does not treat an
+    # https: source as implicitly permitting a wss: connection to the same
+    # host, so the Realtime WebSocket (_connectRealtime() in index.html) was
+    # silently blocked by the browser on every single page load, forcing
+    # permanent fallback to the slower poll-only sync path. Confirmed live:
+    # "Connecting to 'wss://<project>.supabase.co/realtime/...' violates
+    # Content-Security-Policy directive: connect-src" in the browser console.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in; frame-ancestors 'none'; form-action 'self'; base-uri 'self';"
     # Prevent clickjacking
     X-Frame-Options = "DENY"
     # Stop MIME-sniffing
