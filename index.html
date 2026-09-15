@@ -10750,14 +10750,17 @@ const DIH_LOG_KEY = 'qms2_importLog';
 // visible on that screen has a matching template column -- mobileNumber and
 // reasonForCalling were previously missing from both the template AND the
 // import parser (dihValidateRecords() below), not just undocumented.
+// records is deliberately absent here -- its template is now the dynamic,
+// form-aware XLSX built by dihDownloadEvalXlsxTemplate() (per-item Y/N/NA
+// columns + live scoring formulas), not a fixed CSV column list, since a
+// fixed list would drift out of sync the moment the published form's items
+// change. See _dihEvalTemplateLayout() for how those columns are derived.
 const DIH_COLUMNS = {
-  records: ['agentName','agentId','qaOfficer','evalDate','callDateTime','duration','refNo','mobileNumber','callType','campaign','reasonForCalling','remarks','finalScore','result','autoFail','formName'],
   agents:  ['Name','StaffID','Team','Supervisor','Campaign','Status','Email','HireDate'],
   users:   ['Username','DisplayName','Password','Role','Status','Email','Team'],
 };
 
 const DIH_TEMPLATES = {
-  records: 'agentName,agentId,qaOfficer,evalDate,callDateTime,duration,refNo,mobileNumber,callType,campaign,reasonForCalling,remarks,finalScore,result,autoFail,formName\nJohn Doe,A001,QA Officer,2026-06-01,2026-06-01 09:00,300,REF-001,012345678,Inbound,FTTH,Billing inquiry,,92.5,PASS,false,Standard QA Form',
   agents:  'Name,StaffID,Team,Supervisor,Campaign,Status,Email,Hire Date\nJohn Doe,A001,FTTH Team A,Supervisor Name,FTTH,Active,john@example.com,2023-01-15',
   users:   'Username,DisplayName,Password,Role,Status,Email,Team\njdoe,John Doe,Pass@1234,qa,active,jdoe@example.com,Team A',
 };
@@ -10814,7 +10817,7 @@ function dihSelectType(type, btn){
   if(btn) btn.classList.add('active');
 
   const hints = {
-    records: 'Accepts: CSV or Excel with columns: agentName, qaOfficer, evalDate, finalScore, result…',
+    records: 'Accepts: the Excel template (Download Template) with agent/call details plus a Y, N, or NA column per rubric item — the score is computed automatically from those answers.',
     agents:  'Accepts: CSV or Excel with columns: Name, StaffID, Team, Supervisor, Campaign, Status, Email, Hire Date (optional)',
     users:   'Accepts: CSV or Excel with columns: Username, DisplayName, Password, Role, Status, Email, Team',
     json:    'Accepts: a .json backup file exported from any QMS instance'
@@ -10896,9 +10899,11 @@ function dihParseSheetData(csvText, format){
 }
 
 function _dihNorm(headers, key){
-  // find header index case-insensitively, also handle spaces/underscores
-  const k = key.toLowerCase().replace(/[\s_]/g,'');
-  const idx = headers.findIndex(h=>h.toLowerCase().replace(/[\s_]/g,'')===k);
+  // find header index case-insensitively, ignoring spaces/punctuation so a
+  // human-readable column label ("Reference/Ticket No.") can still match a
+  // camelCase lookup key ("refNo") -- strip everything but letters/digits.
+  const k = key.toLowerCase().replace(/[^a-z0-9]/g,'');
+  const idx = headers.findIndex(h=>h.toLowerCase().replace(/[^a-z0-9]/g,'')===k);
   return idx;
 }
 function _dihGet(headers, row, key){
@@ -10906,26 +10911,98 @@ function _dihGet(headers, row, key){
   return i>=0 ? (row[i]||'').replace(/^"|"$/g,'').trim() : '';
 }
 
+// A rubric-item column's header is "${item.id} - ${item.title}", possibly
+// with an " [AUTO-FAIL]" and/or " (NA allowed)" suffix the template adds and
+// a QA officer might reasonably leave untouched, retype, or shorten -- so
+// match on the leading id token rather than the full title text, which is
+// the only part of the header guaranteed stable across a re-download of the
+// template after the form's item wording changes.
+function _dihFindItemColIndex(headers, itemId){
+  const idNorm = String(itemId).toLowerCase().trim();
+  return headers.findIndex(h=>{
+    const hn = String(h||'').toLowerCase().trim();
+    if(hn === idNorm) return true;
+    const m = hn.match(/^([^\s\-:]+)[\s\-:]/);
+    return !!m && m[1] === idNorm;
+  });
+}
+function _dihNormAnswer(v){
+  const s = String(v==null?'':v).trim().toUpperCase();
+  if(['Y','YES','1','TRUE'].includes(s)) return 'Y';
+  if(['N','NO','0','FALSE'].includes(s)) return 'N';
+  if(['NA','N/A','NONE','NOT APPLICABLE'].includes(s)) return 'NA';
+  return '';
+}
+
 // ── Validate Evaluations ─────────────────────────
 function dihValidateRecords(headers, rows){
   const existing = getRecords();
   const existingIds = new Set(existing.map(r=>r.id).filter(Boolean));
   const agents = getAgents();
+  const settings = getSettings();
+  const formObj = getPublishedForms()[0] || null;
+  const formSections = formObj ? formObj.sections : getForm();
+  const formSettings = formObj ? formObj.settings : null;
+  const passScore = (formSettings && formSettings.passScore) ?? settings.passScore ?? 80;
+  const allItems = (formSections||[]).flatMap(sec=>(sec.items||[]).map(item=>({item, sec})));
+  const itemColIdx = new Map(allItems.map(({item})=>[item.id, _dihFindItemColIndex(headers, item.id)]));
 
   _dihParsed = rows.filter(r=>r.join('').trim()).map((row,i)=>{
     const agentName = _dihGet(headers,row,'agentName') || _dihGet(headers,row,'agent');
     const qaOfficer = _dihGet(headers,row,'qaOfficer') || _dihGet(headers,row,'qaofficer') || _dihGet(headers,row,'evaluator');
-    const evalDate  = _dihGet(headers,row,'evalDate')  || _dihGet(headers,row,'date');
-    const scoreStr  = _dihGet(headers,row,'finalScore')|| _dihGet(headers,row,'score');
-    const result    = (_dihGet(headers,row,'result')||'').toUpperCase();
+    const evalDate  = _dihGet(headers,row,'evalDate')  || _dihGet(headers,row,'date') || _dihGet(headers,row,'evaluationDate');
     const idField   = _dihGet(headers,row,'id');
 
     const errors = [];
     if(!agentName) errors.push('Missing agentName');
     if(!evalDate)  errors.push('Missing evalDate');
     if(!qaOfficer) errors.push('Missing qaOfficer');
-    const finalScore = parseFloat(scoreStr);
-    if(isNaN(finalScore)) errors.push('Invalid finalScore');
+
+    // Build the raw answers{} object straight from whichever per-item
+    // columns this row actually has -- this is the whole point of the
+    // redesign: the score is never hand-typed or trusted from the file, it
+    // is derived from the same Y/N/NA answers the live Evaluation Form
+    // itself collects, then run through the exact same scoring engine
+    // (computeScoreFromAnswers) the app uses everywhere else. The server's
+    // own authoritative recompute (data.ts) redoes this exact calculation
+    // again on persist, so this is a preview, not the source of truth --
+    // but it lets the preview table show the real expected score/result
+    // instead of a placeholder.
+    const answers = {};
+    allItems.forEach(({item})=>{
+      const idx = itemColIdx.get(item.id);
+      if(idx<0) return;
+      const norm = _dihNormAnswer(row[idx]);
+      if(norm) answers[item.id] = norm;
+    });
+    const hasItemAnswers = Object.keys(answers).length > 0;
+
+    let importScore, importResult, importAutoFail, sectionScores, failedItems;
+    if(hasItemAnswers){
+      const scored = computeScoreFromAnswers(formSections, answers, settings, formSettings);
+      importScore = scored.finalScore;
+      importAutoFail = scored.autoFailTriggered;
+      importResult = scored.autoFailTriggered ? 'AUTO FAIL' : (scored.finalScore>=passScore ? 'PASS' : 'FAIL');
+      sectionScores = Object.keys(scored.sectionScores).map(id=>({sectionId:id, ...scored.sectionScores[id]}));
+      failedItems = scored.autoFailItems||[];
+    } else {
+      // Backward compatibility for files still using the old flat
+      // finalScore/result/autoFail columns from before this rework -- kept
+      // so a file someone already started filling out isn't rejected
+      // outright, but with no raw answers, data.ts's own recompute guard
+      // skips re-scoring on persist, so this typed value is exactly what
+      // gets stored (same as it always was for this path).
+      const scoreStr = _dihGet(headers,row,'finalScore')|| _dihGet(headers,row,'score');
+      const result   = (_dihGet(headers,row,'result')||'').toUpperCase();
+      const finalScore = parseFloat(scoreStr);
+      if(isNaN(finalScore)) errors.push('Invalid finalScore (no rubric-item answer columns were recognized either — re-download the current template)');
+      importAutoFail = (_dihGet(headers,row,'autoFail')||'').toLowerCase()==='true';
+      importResult = ['PASS','FAIL','AUTO FAIL'].includes(result)?result:'PENDING';
+      importScore = isNaN(finalScore)?0:finalScore;
+      if(importResult==='AUTO FAIL') importAutoFail = true;
+      if(importAutoFail){ importResult='AUTO FAIL'; importScore=0; }
+      sectionScores = []; failedItems = [];
+    }
 
     // Duplicate check: by id (if present) or agentName+evalDate+qaOfficer
     const dupKey = (agentName+evalDate+qaOfficer).toLowerCase().replace(/\s/g,'');
@@ -10936,37 +11013,25 @@ function dihValidateRecords(headers, rows){
     // Try to resolve agentId from roster
     const agentRec = agents.find(a=>a.name&&a.name.toLowerCase()===agentName.toLowerCase());
 
-    // autoFail/result/finalScore are three independent spreadsheet columns
-    // with nothing to stop a malformed or hand-edited row asserting them
-    // inconsistently (e.g. finalScore:88, result:'PASS', autoFail:'true').
-    // Every downstream KPI/report keys off r.result, so normalize here at
-    // import time rather than trust the file: autoFail always wins and
-    // forces score/result to match it, exactly like every other scoring
-    // path in this app (computeScoreFromAnswers, updateScore).
-    let importAutoFail = (_dihGet(headers,row,'autoFail')||'').toLowerCase()==='true';
-    let importResult = ['PASS','FAIL','AUTO FAIL'].includes(result)?result:'PENDING';
-    let importScore = isNaN(finalScore)?0:finalScore;
-    if(importResult==='AUTO FAIL') importAutoFail = true;
-    if(importAutoFail){ importResult='AUTO FAIL'; importScore=0; }
-
     const data = {
       id: idField || uuid(),
       agentName, agentId: agentRec?agentRec.id:(idField||agentName),
       agentTeam: agentRec?agentRec.team:(_dihGet(headers,row,'agentTeam')||''),
       qaOfficer, evalDate,
       callDateTime: _dihGet(headers,row,'callDateTime')||'',
-      duration:     _dihGet(headers,row,'duration')||'',
-      refNo:        _dihGet(headers,row,'refNo')||_dihGet(headers,row,'ref')||'',
+      duration:     _dihGet(headers,row,'duration')||_dihGet(headers,row,'callDuration')||'',
+      refNo:        _dihGet(headers,row,'refNo')||_dihGet(headers,row,'ref')||_dihGet(headers,row,'referenceTicketNo')||'',
       mobileNumber: _dihGet(headers,row,'mobileNumber')||_dihGet(headers,row,'mobile')||'',
       callType:     _dihGet(headers,row,'callType')||'Inbound',
-      campaign:     _dihGet(headers,row,'campaign')||'',
+      campaign:     _dihGet(headers,row,'campaign')||_dihGet(headers,row,'campaignQueue')||'',
       reasonForCalling: _dihGet(headers,row,'reasonForCalling')||_dihGet(headers,row,'reason')||'',
       finalScore:   importScore,
       result:       importResult,
       autoFail:     importAutoFail,
-      remarks:      _dihGet(headers,row,'remarks')||'',
-      formName:     _dihGet(headers,row,'formName')||'Imported',
-      answers:{}, comments:{}, sectionScores:[],
+      remarks:      _dihGet(headers,row,'remarks')||_dihGet(headers,row,'overallCallRemarks')||'',
+      formId:       formObj ? formObj.id : 'form_default',
+      formName:     formObj ? formObj.name : 'Standard QA Form',
+      answers, comments:{}, sectionScores, failedItems,
       createdAt:    new Date().toISOString(),
       importedAt:   new Date().toISOString(),
     };
@@ -11301,7 +11366,162 @@ async function dihMergeBackup(json, dupOpt){
 }
 
 // ── Template download ────────────────────────────
+// 0-indexed column number -> Excel column letter(s) (0->A, 25->Z, 26->AA...).
+function _xlsxColLetter(n){
+  let s = '', m = n + 1;
+  while(m > 0){ const rem = (m-1) % 26; s = String.fromCharCode(65+rem) + s; m = Math.floor((m-1)/26); }
+  return s;
+}
+
+// Records template used to ask for a hand-typed finalScore/result/autoFail --
+// exactly the class of bug this whole app has spent this session fixing: a
+// number disconnected from the actual rubric answers, trusted as-is. Rebuilt
+// so the template instead has one column PER RUBRIC ITEM from the currently
+// published form (Y/N/NA, generated dynamically so it always matches
+// whatever the form's real items/points/autoFail flags currently are, not a
+// hardcoded snapshot that drifts out of sync the next time the form
+// changes), plus live Excel formulas that mirror computeScoreFromAnswers()'s
+// exact section-scoring and auto-fail logic for the QA officer's own preview
+// while filling it out offline. The formulas are ONLY a preview, by design:
+// the actual persisted score is computed by data.ts's server-side
+// authoritative recompute from the real answers once imported (same engine,
+// same rules), so nothing here needs to be perfectly bullet-proof to be
+// safe -- it just needs to give an accurate offline estimate.
+const DIH_EVAL_META_COLS = [
+  {label:'Agent Name',            key:'agentName',        example:'John Doe'},
+  {label:'QA Officer',            key:'qaOfficer',         example:'QA Officer'},
+  {label:'Evaluation Date',       key:'evalDate',           example:'2026-09-15'},
+  {label:'Call Date & Time',      key:'callDateTime',       example:'2026-09-15 09:00'},
+  {label:'Call Duration',         key:'duration',           example:'00:05:23'},
+  {label:'Reference/Ticket No.',  key:'refNo',              example:'REF-10201'},
+  {label:'Mobile Number',         key:'mobileNumber',       example:'012345678'},
+  {label:'Call Type',             key:'callType',           example:'Inbound'},
+  {label:'Campaign/Queue',        key:'campaign',           example:'FTTH Chat'},
+  {label:'Reason for Calling',    key:'reasonForCalling',   example:'Billing inquiry'},
+  {label:'Overall Call Remarks',  key:'remarks',            example:'Agent handled the call professionally.'},
+];
+
+// Shared by the template generator (needs the column layout to place
+// formulas) and the import parser (needs the same layout to read answers
+// back out) -- one definition so they can never drift apart from each other.
+function _dihEvalTemplateLayout(){
+  const formObj = getPublishedForms()[0] || null;
+  const form = formObj ? formObj.sections : getForm();
+  const formSettings = formObj ? formObj.settings : null;
+  const settings = getSettings();
+  const passScore = (formSettings && formSettings.passScore) ?? settings.passScore ?? 80;
+  const sections = [];
+  let col = DIH_EVAL_META_COLS.length;
+  (form||[]).forEach(sec=>{
+    const startCol = col;
+    const items = (sec.items||[]).map(item=>{
+      const c = col++;
+      return { id:item.id, title:item.title, points:(+item.points)||0, autoFail:!!item.autoFail, naAllowed:!!item.naAllowed, col:c };
+    });
+    sections.push({
+      id: sec.id, title: sec.title,
+      totalPoints: (+sec.totalPoints)||0,
+      mode: resolveScoringMode(sec, settings, formSettings),
+      startCol, endCol: col-1, items,
+    });
+  });
+  const sectionScoreStartCol = col;
+  const finalScoreCol = sectionScoreStartCol + sections.length;
+  const resultCol = finalScoreCol + 1;
+  return { formObj, form, formSettings, settings, passScore, sections, sectionScoreStartCol, finalScoreCol, resultCol };
+}
+
+function dihDownloadEvalXlsxTemplate(){
+  const { formObj, sections, passScore, sectionScoreStartCol, finalScoreCol, resultCol } = _dihEvalTemplateLayout();
+  if(!formObj){
+    toast('No published form found — publish a form before downloading a template.','error');
+    return;
+  }
+  if(!sections.length || !sections.some(s=>s.items.length)){
+    toast('The published form has no scoring items to build a template from.','error');
+    return;
+  }
+  const rowNum = 2; // the one example/data row, 1-indexed Excel row
+
+  const headers = [
+    ...DIH_EVAL_META_COLS.map(c=>c.label),
+    ...sections.flatMap(s=>s.items.map(it=>`${it.id} - ${it.title}${it.autoFail?' [AUTO-FAIL]':''}${it.naAllowed?' (NA allowed)':''}`)),
+    ...sections.map(s=>`${s.title} Score (auto)`),
+    'Final Score % (auto)', 'Result (auto)',
+  ];
+  const exampleRow = [
+    ...DIH_EVAL_META_COLS.map(c=>c.example),
+    ...sections.flatMap(s=>s.items.map(()=>'Y')),
+    ...sections.map(()=>''), '', '',
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+  ws['!cols'] = [
+    ...DIH_EVAL_META_COLS.map(()=>({wch:18})),
+    ...sections.flatMap(s=>s.items.map(()=>({wch:16}))),
+    ...sections.map(()=>({wch:16})),
+    {wch:16}, {wch:12},
+  ];
+  ws['!freeze'] = { xSplit: DIH_EVAL_META_COLS.length, ySplit: 1 };
+
+  const allAutoFailCells = [];
+  sections.forEach((s,i)=>{
+    const range = `${_xlsxColLetter(s.startCol)}${rowNum}:${_xlsxColLetter(s.endCol)}${rowNum}`;
+    const cellAddr = _xlsxColLetter(sectionScoreStartCol+i) + rowNum;
+    s.items.forEach(it=>{ if(it.autoFail) allAutoFailCells.push(_xlsxColLetter(it.col)+rowNum); });
+    let earnedFormula, possibleExpr;
+    if(s.mode === 'all-or-nothing'){
+      possibleExpr = `IF(COUNTIFS(${range},"<>",${range},"<>NA")=0,0,${s.totalPoints})`;
+      earnedFormula = `IF(COUNTIFS(${range},"<>",${range},"<>NA")=0,0,IF(COUNTIF(${range},"N")>0,0,${s.totalPoints}))`;
+    } else {
+      const perItem = s.items.map(it=>{ const c=_xlsxColLetter(it.col)+rowNum; return `(${c}="Y")*${it.points}`; });
+      const perItemPossible = s.items.map(it=>{ const c=_xlsxColLetter(it.col)+rowNum; return `(${c}<>"")*(${c}<>"NA")*${it.points}`; });
+      earnedFormula = perItem.length ? perItem.join('+') : '0';
+      possibleExpr = perItemPossible.length ? perItemPossible.join('+') : '0';
+    }
+    ws[cellAddr] = { t:'n', f: earnedFormula };
+    s.__possibleExpr = possibleExpr; // stashed for the final-score formula below
+  });
+
+  const earnedRefs = sections.map((s,i)=>_xlsxColLetter(sectionScoreStartCol+i)+rowNum);
+  const possibleSum = sections.map(s=>`(${s.__possibleExpr})`).join('+');
+  const autoFailCheck = allAutoFailCells.length ? `OR(${allAutoFailCells.map(c=>`${c}="N"`).join(',')})` : 'FALSE';
+  const finalFormula = `IF(${autoFailCheck},0,IF((${possibleSum})=0,0,ROUND((${earnedRefs.join('+')})/(${possibleSum})*100,1)))`;
+  const finalAddr = _xlsxColLetter(finalScoreCol)+rowNum;
+  ws[finalAddr] = { t:'n', f: finalFormula };
+
+  const resultFormula = `IF(${autoFailCheck},"AUTO FAIL",IF(${finalAddr}>=${passScore},"PASS","FAIL"))`;
+  ws[_xlsxColLetter(resultCol)+rowNum] = { t:'str', f: resultFormula };
+
+  const wb = XLSX.utils.book_new();
+  const legendWs = XLSX.utils.aoa_to_sheet([
+    ['How to fill in this template'],
+    [''],
+    ['Fill in every metadata column (Agent Name, QA Officer, Evaluation Date, etc.) plus a Y, N, or NA for each rubric item column.'],
+    ['Y = Yes / criteria met.  N = No / criteria not met.  NA = Not applicable to this call (only where the item allows it).'],
+    ['[AUTO-FAIL] items: answering N on any of these forces the whole evaluation to 0% / AUTO FAIL, regardless of every other answer -- same rule as the live Evaluation Form.'],
+    [''],
+    [`Pass score for this system: ${passScore}%`],
+    [''],
+    ['The Score/Result/Final columns are calculated automatically by formulas so you can preview the outcome while filling this in.'],
+    ['They are for your reference only -- when you upload this file, the system recalculates the real score itself from your Y/N/NA answers using the exact same rules, so it can never be thrown off by a formula being edited or a stale copy of the form.'],
+    [''],
+    [`Generated from the currently published form on ${today()}. If the form's items or points change later, download a fresh template.`],
+  ]);
+  legendWs['!cols'] = [{wch:110}];
+  XLSX.utils.book_append_sheet(wb, legendWs, 'Read Me First');
+  XLSX.utils.book_append_sheet(wb, ws, 'Evaluations');
+  XLSX.writeFile(wb, 'QMS20_Evaluation_Template_'+today()+'.xlsx');
+  toast('Template downloaded — fill it in and re-upload via Batch Upload.','info');
+}
+
+// New Evaluation screen's "Download Template" button, and the Data Import
+// Hub's own template button when Records is selected -- both now generate
+// the rich, form-aware XLSX above instead of the old flat CSV with a
+// hand-typed score. Agents/Users still get the simple CSV template, which
+// has no scoring logic to get wrong.
 function dihDownloadTemplate(){
+  if(_dihType==='records'){ dihDownloadEvalXlsxTemplate(); return; }
   if(!_dihType||!DIH_TEMPLATES[_dihType]){ toast('Select a data type first.','error'); return; }
   const csv = DIH_TEMPLATES[_dihType];
   const name = `QMS_${_dihType}_template.csv`;
