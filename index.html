@@ -10744,14 +10744,20 @@ let _dihRestrictedToRecords = false;
 const DIH_LOG_KEY = 'qms2_importLog';
 
 // ── Column mappings & templates ──────────────────
+// Column order mirrors the New Evaluation screen's own field order top to
+// bottom (Agent, Evaluator, Date, Call Date&Time, Duration, Ref No, Mobile
+// Number, Call Type, Campaign, Reason for Calling, Remarks), so every field
+// visible on that screen has a matching template column -- mobileNumber and
+// reasonForCalling were previously missing from both the template AND the
+// import parser (dihValidateRecords() below), not just undocumented.
 const DIH_COLUMNS = {
-  records: ['agentName','agentId','qaOfficer','evalDate','callDateTime','duration','refNo','callType','campaign','finalScore','result','autoFail','remarks','formName'],
+  records: ['agentName','agentId','qaOfficer','evalDate','callDateTime','duration','refNo','mobileNumber','callType','campaign','reasonForCalling','remarks','finalScore','result','autoFail','formName'],
   agents:  ['Name','StaffID','Team','Supervisor','Campaign','Status','Email','HireDate'],
   users:   ['Username','DisplayName','Password','Role','Status','Email','Team'],
 };
 
 const DIH_TEMPLATES = {
-  records: 'agentName,agentId,qaOfficer,evalDate,callDateTime,duration,refNo,callType,campaign,finalScore,result,autoFail,remarks,formName\nJohn Doe,A001,QA Officer,2026-06-01,2026-06-01 09:00,300,REF-001,Inbound,FTTH,92.5,PASS,false,,Standard QA Form',
+  records: 'agentName,agentId,qaOfficer,evalDate,callDateTime,duration,refNo,mobileNumber,callType,campaign,reasonForCalling,remarks,finalScore,result,autoFail,formName\nJohn Doe,A001,QA Officer,2026-06-01,2026-06-01 09:00,300,REF-001,012345678,Inbound,FTTH,Billing inquiry,,92.5,PASS,false,Standard QA Form',
   agents:  'Name,StaffID,Team,Supervisor,Campaign,Status,Email,Hire Date\nJohn Doe,A001,FTTH Team A,Supervisor Name,FTTH,Active,john@example.com,2023-01-15',
   users:   'Username,DisplayName,Password,Role,Status,Email,Team\njdoe,John Doe,Pass@1234,qa,active,jdoe@example.com,Team A',
 };
@@ -10951,8 +10957,10 @@ function dihValidateRecords(headers, rows){
       callDateTime: _dihGet(headers,row,'callDateTime')||'',
       duration:     _dihGet(headers,row,'duration')||'',
       refNo:        _dihGet(headers,row,'refNo')||_dihGet(headers,row,'ref')||'',
+      mobileNumber: _dihGet(headers,row,'mobileNumber')||_dihGet(headers,row,'mobile')||'',
       callType:     _dihGet(headers,row,'callType')||'Inbound',
       campaign:     _dihGet(headers,row,'campaign')||'',
+      reasonForCalling: _dihGet(headers,row,'reasonForCalling')||_dihGet(headers,row,'reason')||'',
       finalScore:   importScore,
       result:       importResult,
       autoFail:     importAutoFail,
