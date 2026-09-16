@@ -6,13 +6,17 @@
 <title>Cellcard QAMS — Quality Assurance Monitoring System</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<!-- ExcelJS, not SheetJS, generates the evaluation import template: SheetJS's
-     free/CDN build silently drops cell fills/fonts and data-validation rules
-     on write (confirmed empirically -- a style set before XLSX.write() comes
-     back as {patternType:"none"} after a round-trip), those are Pro-only
-     features there. ExcelJS is MIT-licensed and genuinely writes styles,
-     conditional formatting, and native dropdown validation. -->
-<script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+<!-- ExcelJS was tried here for real cell colors/fonts/data-validation on the
+     evaluation import template (SheetJS's free build silently drops those on
+     write -- confirmed empirically, Pro-only features there) but its browser
+     bundle evals code during its own module init regardless of whether it's
+     ever used, which our CSP's script-src correctly refuses without
+     'unsafe-eval' (confirmed live: "Uncaught EvalError ... violates ...
+     script-src ... 'unsafe-eval' is not an allowed source"). Weakening the
+     site's main XSS defense-in-depth for one template's styling isn't a
+     trade worth making silently, so the template generator went back to
+     SheetJS -- see dihDownloadEvalXlsxTemplate()'s own comment. Do not
+     re-add an ExcelJS script tag here without first re-confirming this. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
@@ -11419,25 +11423,6 @@ const DIH_EVAL_META_COLS = [
   {label:'Overall Call Remarks',  key:'remarks',            example:'Agent handled the call professionally.'},
 ];
 
-// Six hand-picked hues so a QA officer can tell one section's item columns
-// from the next at a glance: `header` colors that section's header cells
-// solid, `tint` is a light wash applied to every item's UNANSWERED data
-// cells so the grouping reads even before anything is filled in.
-// Conditional formatting (Y=green/N=red/NA=gray, added below) takes over
-// and overrides the tint the moment a cell actually has an answer. Cycles
-// if a form ever grows past 6 sections.
-const DIH_EVAL_SECTION_COLORS = [
-  { header:'FF4338CA', tint:'FFE0E7FF' }, // indigo — Call Opening
-  { header:'FF0F766E', tint:'FFCCFBF1' }, // teal — Probing
-  { header:'FF7E22CE', tint:'FFF3E8FF' }, // purple — Resolution
-  { header:'FFBE123C', tint:'FFFFE4E6' }, // rose — Show You Care
-  { header:'FF0369A1', tint:'FFE0F2FE' }, // sky — Expectation Setting
-  { header:'FF047857', tint:'FFD1FAE5' }, // emerald — Closing the Call
-];
-const DIH_EVAL_META_HEADER_COLOR = 'FF1E293B'; // slate — metadata columns
-const DIH_EVAL_AUTO_HEADER_COLOR = 'FF92400E'; // amber — computed/auto columns
-const DIH_EVAL_BRAND_COLOR = 'FFC2410C'; // Cellcard-orange banner/accent
-
 // Shared by the template generator (needs the column layout to place
 // formulas) and the import parser (needs the same layout to read answers
 // back out) -- one definition so they can never drift apart from each other.
@@ -11449,7 +11434,7 @@ function _dihEvalTemplateLayout(){
   const passScore = (formSettings && formSettings.passScore) ?? settings.passScore ?? 80;
   const sections = [];
   let col = DIH_EVAL_META_COLS.length;
-  (form||[]).forEach((sec,secIdx)=>{
+  (form||[]).forEach((sec)=>{
     const startCol = col;
     const items = (sec.items||[]).map(item=>{
       const c = col++;
@@ -11459,7 +11444,6 @@ function _dihEvalTemplateLayout(){
       id: sec.id, title: sec.title,
       totalPoints: (+sec.totalPoints)||0,
       mode: resolveScoringMode(sec, settings, formSettings),
-      color: DIH_EVAL_SECTION_COLORS[secIdx % DIH_EVAL_SECTION_COLORS.length],
       startCol, endCol: col-1, items,
     });
   });
@@ -11508,8 +11492,19 @@ function _dihRowFormulas(sections, rowNum){
 // formatting that colors answers/results live as they're typed. SheetJS
 // (used elsewhere in this file) can't do any of this on write in its free
 // build -- see the ExcelJS <script> tag comment near the top of the file.
-async function dihDownloadEvalXlsxTemplate(){
-  if(typeof ExcelJS === 'undefined'){ toast('Excel library not loaded — try refreshing the page.','error'); return; }
+// NOTE: this generates with SheetJS (XLSX), not ExcelJS -- ExcelJS's browser
+// bundle evals code as part of its own module initialization (confirmed live:
+// "Uncaught EvalError: Evaluating a string as JavaScript violates ...
+// script-src ... 'unsafe-eval' is not an allowed source"), which our CSP
+// deliberately does not grant (it's the site's main XSS defense-in-depth).
+// That happens on every page load regardless of whether this function is
+// ever called, so there's no version of ExcelJS's browser build usable here
+// without weakening the CSP for the whole site -- not a trade a template
+// download should force silently. SheetJS's free build can generate the
+// columns/formulas correctly (verified below) but not cell colors, native
+// dropdown validation, or conditional formatting -- see dihDownloadTemplate()
+// for what that means for the "premium" version of this template.
+function dihDownloadEvalXlsxTemplate(){
   const { formObj, sections, passScore, finalScoreCol, resultCol } = _dihEvalTemplateLayout();
   if(!formObj){
     toast('No published form found — publish a form before downloading a template.','error');
@@ -11523,239 +11518,99 @@ async function dihDownloadEvalXlsxTemplate(){
   const N_DATA_ROWS = 100;
   const metaCount = DIH_EVAL_META_COLS.length;
   const lastRow = N_DATA_ROWS + 1;
-  const thinBorder = { style:'thin', color:{argb:'FFCBD5E1'} };
-  const allBorders = { top:thinBorder, left:thinBorder, bottom:thinBorder, right:thinBorder };
-  const whiteBold = { bold:true, color:{argb:'FFFFFFFF'} };
-  const headerCellBase = { alignment:{ vertical:'middle', horizontal:'center', wrapText:true }, border:allBorders };
 
-  const wb = new ExcelJS.Workbook();
-  wb.creator = 'QMS20 QAMS';
-  wb.created = new Date();
-  wb.calcProperties = { fullCalcOnLoad: true };
+  const headers = [
+    ...DIH_EVAL_META_COLS.map(c=>c.label),
+    ...sections.flatMap(s=>s.items.map(it=>`${it.id} - ${it.title}${it.autoFail?' [AUTO-FAIL]':''}${it.naAllowed?' (NA allowed)':''}`)),
+    ...sections.map(s=>`${s.title} Score (auto)`),
+    ...sections.map(s=>`${s.title} Possible`),
+    'Final Score % (auto)', 'Result (auto)',
+  ];
+  const exampleRow = [
+    ...DIH_EVAL_META_COLS.map(c=>c.example),
+    ...sections.flatMap(s=>s.items.map(()=>'Y')),
+    ...sections.map(()=>''), ...sections.map(()=>''), '', '',
+  ];
 
-  // ── "Evaluations" sheet — the data-import sheet itself ──────────────────
-  // Added first so it lands at SheetNames[0]; dihProcessFile also now
-  // defensively skips a "Read Me"-style tab when picking which sheet to
-  // parse, but keeping the real data sheet first is the least surprising
-  // choice for anyone opening this straight in Excel too.
-  const ws = wb.addWorksheet('Evaluations', { properties:{ tabColor:{argb:DIH_EVAL_BRAND_COLOR} } });
-  ws.properties.outlineProperties = { summaryBelow:true, summaryRight:true };
-  ws.views = [{ state:'frozen', xSplit:metaCount, ySplit:1 }];
+  const aoa = [headers, exampleRow];
+  for(let r=3; r<=lastRow; r++) aoa.push([]);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-  const headerRow = ws.getRow(1);
-  headerRow.height = 60;
-
-  DIH_EVAL_META_COLS.forEach((c,i)=>{
-    ws.getColumn(i+1).width = c.key==='remarks' ? 32 : (c.key==='reasonForCalling' ? 24 : 18);
-    const cell = headerRow.getCell(i+1);
-    Object.assign(cell, headerCellBase);
-    cell.value = c.label;
-    cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:DIH_EVAL_META_HEADER_COLOR} };
-    cell.font = { ...whiteBold, size:11 };
-  });
-
-  sections.forEach(s=>{
-    s.items.forEach(it=>{
-      const colNum = it.col+1;
-      ws.getColumn(colNum).width = 15;
-      ws.getColumn(colNum).outlineLevel = 1; // groups ALL rubric-item columns into one collapsible Excel column group (they're contiguous, so this is one block, not one group per section) -- collapse it to see just the colored Score/Final/Result summary
-      const cell = headerRow.getCell(colNum);
-      Object.assign(cell, headerCellBase);
-      cell.value = `${it.id} - ${it.title}${it.autoFail?' [AUTO-FAIL]':''}${it.naAllowed?' (NA allowed)':''}`;
-      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:s.color.header} };
-      cell.font = { ...whiteBold, size:10 };
-    });
-
-    const earnedCell = headerRow.getCell(s.earnedCol+1);
-    Object.assign(earnedCell, headerCellBase);
-    earnedCell.value = `${s.title} Score (auto)`;
-    earnedCell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:DIH_EVAL_AUTO_HEADER_COLOR} };
-    earnedCell.font = { ...whiteBold, size:10 };
-    ws.getColumn(s.earnedCol+1).width = 16;
-
-    // "Possible" is a real cell the Final Score formula sums, not just a
-    // display value -- kept in the workbook but hidden so it doesn't
-    // clutter the sheet a QA officer actually looks at.
-    ws.getColumn(s.possibleCol+1).width = 10;
-    ws.getColumn(s.possibleCol+1).hidden = true;
-    const possibleCell = headerRow.getCell(s.possibleCol+1);
-    possibleCell.value = `${s.title} Possible`;
-    possibleCell.font = { italic:true, size:9, color:{argb:'FF94A3B8'} };
-  });
-
-  [ [finalScoreCol,'Final Score % (auto)',16], [resultCol,'Result (auto)',14] ].forEach(([colIdx,label,width])=>{
-    const cell = headerRow.getCell(colIdx+1);
-    Object.assign(cell, headerCellBase);
-    cell.value = label;
-    cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:DIH_EVAL_AUTO_HEADER_COLOR} };
-    cell.font = { ...whiteBold, size:10 };
-    ws.getColumn(colIdx+1).width = width;
-  });
-
-  // Data rows: base section tint on every item cell (visible even before
-  // it's answered -- the color grouping), an example on row 2 only, and
-  // live per-row formulas across every row so this template supports
-  // bulk-importing many evaluations at once, not just a single example.
-  for(let r=2; r<=lastRow; r++){
-    const row = ws.getRow(r);
-    for(let i=0;i<metaCount;i++){
-      const cell = row.getCell(i+1);
-      cell.border = allBorders;
-      if(r===2) cell.value = DIH_EVAL_META_COLS[i].example;
+  ws['!cols'] = headers.map((h,i)=>{
+    if(i<metaCount){
+      const key = DIH_EVAL_META_COLS[i].key;
+      return { wch: key==='remarks' ? 32 : (key==='reasonForCalling' ? 24 : 18) };
     }
-    sections.forEach(s=>{
-      s.items.forEach(it=>{
-        const cell = row.getCell(it.col+1);
-        cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:s.color.tint} };
-        cell.alignment = { horizontal:'center' };
-        cell.border = allBorders;
-        if(r===2) cell.value = 'Y';
-      });
-    });
+    return { wch:15 };
+  });
+  sections.forEach(s=>{ ws['!cols'][s.possibleCol] = { wch:10, hidden:true }; });
+  ws['!freeze'] = { xSplit: metaCount, ySplit: 1 };
 
-    const formulas = _dihRowFormulas(sections, r);
-    sections.forEach((s,i)=>{
-      const earnedCell = row.getCell(s.earnedCol+1);
-      earnedCell.value = { formula: formulas.perSection[i].earned };
-      earnedCell.alignment = { horizontal:'center' };
-      earnedCell.font = { bold:true };
-      earnedCell.border = allBorders;
-      row.getCell(s.possibleCol+1).value = { formula: formulas.perSection[i].possible };
-    });
-
-    const finalAddr = _xlsxColLetter(finalScoreCol)+r;
-    const finalCell = row.getCell(finalScoreCol+1);
-    finalCell.value = { formula: formulas.finalFormula };
-    finalCell.numFmt = '0.0"%"';
-    finalCell.font = { bold:true };
-    finalCell.alignment = { horizontal:'center' };
-    finalCell.border = allBorders;
-
-    const resultCell = row.getCell(resultCol+1);
-    resultCell.value = { formula: `IF(${formulas.autoFailCheck},"AUTO FAIL",IF(${finalAddr}>=${passScore},"PASS","FAIL"))` };
-    resultCell.font = { bold:true };
-    resultCell.alignment = { horizontal:'center' };
-    resultCell.border = allBorders;
+  // A formula cell with no cached value doesn't just show blank until Excel
+  // recalculates -- confirmed by direct repro that SheetJS's OWN write/read
+  // round-trip silently drops a {t,f}-only cell entirely (it comes back
+  // undefined, as if the cell never existed). Every formula cell below needs
+  // a real cached .v, so it's computed with the same computeScoreFromAnswers()
+  // engine the formulas themselves mirror -- row 2 (the filled example) gets
+  // its true score, every blank data row gets the same 0/0/0/"FAIL" a blank
+  // row's formulas actually evaluate to, so the cache can never drift from
+  // what the live formula would show once opened.
+  const _tplSettings = getSettings();
+  const _tplBlankScored = computeScoreFromAnswers(formObj.sections, {}, _tplSettings, formObj.settings);
+  const _tplExampleAnswers = {};
+  sections.forEach(s=>s.items.forEach(it=>{ _tplExampleAnswers[it.id]='Y'; }));
+  const _tplExampleScored = computeScoreFromAnswers(formObj.sections, _tplExampleAnswers, _tplSettings, formObj.settings);
+  function _tplCachedValues(scored){
+    const bySection = {};
+    sections.forEach(s=>{ bySection[s.id] = scored.sectionScores[s.id] || {earned:0,possible:0}; });
+    const result = scored.autoFailTriggered ? 'AUTO FAIL' : (scored.finalScore>=passScore?'PASS':'FAIL');
+    return { bySection, finalScore:scored.finalScore, result };
   }
+  const _tplBlankCached = _tplCachedValues(_tplBlankScored);
+  const _tplExampleCached = _tplCachedValues(_tplExampleScored);
 
-  // ── Data validation: real dropdown pickers, not just a color hint ───────
-  sections.forEach(s=>{
-    s.items.forEach(it=>{
-      const colLetter = _xlsxColLetter(it.col);
-      ws.dataValidations.add(`${colLetter}2:${colLetter}${lastRow}`, {
-        type:'list', allowBlank:true, formulae:[it.naAllowed?'"Y,N,NA"':'"Y,N"'],
-        showErrorMessage:true, errorStyle:'stop', errorTitle:'Invalid answer',
-        error:`Enter ${it.naAllowed?'Y, N, or NA':'Y or N'} only.`,
-      });
+  for(let r=2; r<=lastRow; r++){
+    const formulas = _dihRowFormulas(sections, r);
+    const cached = r===2 ? _tplExampleCached : _tplBlankCached;
+    sections.forEach((s,i)=>{
+      const ss = cached.bySection[s.id];
+      ws[_xlsxColLetter(s.earnedCol)+r]   = { t:'n',   f: formulas.perSection[i].earned,   v: ss.earned };
+      ws[_xlsxColLetter(s.possibleCol)+r] = { t:'n',   f: formulas.perSection[i].possible, v: ss.possible };
     });
-  });
-  const callTypeCol = _xlsxColLetter(DIH_EVAL_META_COLS.findIndex(c=>c.key==='callType'));
-  ws.dataValidations.add(`${callTypeCol}2:${callTypeCol}${lastRow}`, {
-    type:'list', allowBlank:true, formulae:['"Inbound,Outbound"'],
-  });
+    const finalAddr = _xlsxColLetter(finalScoreCol)+r;
+    ws[finalAddr] = { t:'n', f: formulas.finalFormula, v: cached.finalScore };
+    ws[_xlsxColLetter(resultCol)+r] = { t:'str', f: `IF(${formulas.autoFailCheck},"AUTO FAIL",IF(${finalAddr}>=${passScore},"PASS","FAIL"))`, v: cached.result };
+  }
+  // aoa_to_sheet() only sized !ref to the rows that actually had cells in the
+  // aoa array (just the header + one example row -- rows 3..lastRow were
+  // pushed as empty arrays so they'd exist to poke formulas into). Manually
+  // setting cells above does NOT grow !ref on its own, and every reader
+  // (sheet_to_csv/sheet_to_json, Excel itself, the real upload path here)
+  // treats !ref as authoritative -- without this fix, everything past row 2
+  // would silently vanish the moment this file is read back, even though
+  // the cells physically exist in the sheet object.
+  ws['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:lastRow-1, c:headers.length-1} });
 
-  // ── Conditional formatting: colors react live as the sheet is filled in ─
-  sections.forEach(s=>{
-    const range = `${_xlsxColLetter(s.startCol)}2:${_xlsxColLetter(s.endCol)}${lastRow}`;
-    ws.addConditionalFormatting({ ref:range, rules:[
-      { type:'cellIs', operator:'equal', formulae:['"Y"'],  priority:1, style:{ fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFBBF7D0'}}, font:{bold:true,color:{argb:'FF166534'}} } },
-      { type:'cellIs', operator:'equal', formulae:['"N"'],  priority:2, style:{ fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFECACA'}}, font:{bold:true,color:{argb:'FF991B1B'}} } },
-      { type:'cellIs', operator:'equal', formulae:['"NA"'], priority:3, style:{ fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFE5E7EB'}}, font:{color:{argb:'FF475569'}} } },
-    ]});
-    const earnedRange = `${_xlsxColLetter(s.earnedCol)}2:${_xlsxColLetter(s.earnedCol)}${lastRow}`;
-    ws.addConditionalFormatting({ ref:earnedRange, rules:[
-      { type:'colorScale', priority:4, cfvo:[{type:'num',val:0},{type:'num',val:s.totalPoints}], color:[{argb:'FFFECACA'},{argb:'FFBBF7D0'}] },
-    ]});
-  });
-
-  const finalRange = `${_xlsxColLetter(finalScoreCol)}2:${_xlsxColLetter(finalScoreCol)}${lastRow}`;
-  ws.addConditionalFormatting({ ref:finalRange, rules:[
-    { type:'colorScale', priority:5, cfvo:[{type:'num',val:0},{type:'num',val:passScore},{type:'num',val:100}], color:[{argb:'FFF87171'},{argb:'FFFDE68A'},{argb:'FF86EFAC'}] },
-  ]});
-
-  const resultRange = `${_xlsxColLetter(resultCol)}2:${_xlsxColLetter(resultCol)}${lastRow}`;
-  ws.addConditionalFormatting({ ref:resultRange, rules:[
-    { type:'cellIs', operator:'equal', formulae:['"PASS"'],      priority:6, style:{ fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFBBF7D0'}}, font:{bold:true,color:{argb:'FF166534'}} } },
-    { type:'cellIs', operator:'equal', formulae:['"FAIL"'],      priority:7, style:{ fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFED7AA'}}, font:{bold:true,color:{argb:'FF9A3412'}} } },
-    { type:'cellIs', operator:'equal', formulae:['"AUTO FAIL"'], priority:8, style:{ fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFCA5A5'}}, font:{bold:true,color:{argb:'FF7F1D1D'}} } },
-  ]});
-
-  // Zebra banding on the metadata + computed columns so a long row of
-  // otherwise-white cells stays readable -- skipped on the item columns,
-  // which already carry each section's own tint.
-  [
-    `${_xlsxColLetter(0)}2:${_xlsxColLetter(metaCount-1)}${lastRow}`,
-    `${_xlsxColLetter(sections[0].earnedCol)}2:${_xlsxColLetter(resultCol)}${lastRow}`,
-  ].forEach(range=>{
-    ws.addConditionalFormatting({ ref:range, rules:[
-      { type:'expression', priority:9, formulae:['MOD(ROW(),2)=0'], style:{ fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFF8FAFC'}} } },
-    ]});
-  });
-
-  // ── "Read Me First" sheet ────────────────────────────────────────────────
-  const info = wb.addWorksheet('Read Me First', { properties:{ tabColor:{argb:'FF94A3B8'} } });
-  info.getColumn(1).width = 4;
-  info.getColumn(2).width = 100;
-
-  let r = 1;
-  info.mergeCells(`A${r}:B${r}`);
-  info.getCell(`A${r}`).value = '📋 QMS20 Evaluation Import Template';
-  info.getCell(`A${r}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:DIH_EVAL_BRAND_COLOR} };
-  info.getCell(`A${r}`).font = { bold:true, size:16, color:{argb:'FFFFFFFF'} };
-  info.getCell(`A${r}`).alignment = { vertical:'middle', horizontal:'left', indent:1 };
-  info.getRow(r).height = 34;
-  r++;
-  info.mergeCells(`A${r}:B${r}`);
-  info.getCell(`A${r}`).value = `Form: ${formObj.name}  •  Generated ${today()}  •  Pass score: ${passScore}%`;
-  info.getCell(`A${r}`).font = { italic:true, color:{argb:'FF64748B'} };
-  r += 2;
-
-  [
-    'Fill in every metadata column (Agent Name, QA Officer, Evaluation Date, etc.) on the Evaluations sheet.',
-    'Answer every rubric item with Y (Yes), N (No), or NA (Not Applicable) — each cell has a dropdown, just click it.',
-    'Items marked [AUTO-FAIL]: answering N on any one of these forces the whole evaluation to 0% / AUTO FAIL, exactly like the live Evaluation Form.',
-    'The colored Score / Final Score % / Result columns calculate automatically — do not type into them.',
-    'These formulas are a preview only. When you upload the file, the system recalculates the real score itself from your Y/N/NA answers using the exact same rules, so a stale formula or an edited cell can never throw off the real result.',
-    "If the published form's items or points change later, download a fresh template — an old one may not match the current rubric.",
-  ].forEach(text=>{
-    info.getCell(`A${r}`).value = '●';
-    info.getCell(`A${r}`).font = { color:{argb:DIH_EVAL_BRAND_COLOR}, bold:true };
-    info.getCell(`B${r}`).value = text;
-    info.getCell(`B${r}`).alignment = { wrapText:true, vertical:'top' };
-    r++;
-  });
-  r++;
-
-  info.mergeCells(`A${r}:B${r}`);
-  info.getCell(`A${r}`).value = 'Color legend';
-  info.getCell(`A${r}`).font = { bold:true, size:12 };
-  r++;
-  [
-    ['Y — criteria met', 'FFBBF7D0', 'FF166534'],
-    ['N — criteria not met', 'FFFECACA', 'FF991B1B'],
-    ['NA — not applicable', 'FFE5E7EB', 'FF475569'],
-  ].forEach(([label,bg,fg])=>{
-    info.getCell(`A${r}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:bg} };
-    info.getCell(`B${r}`).value = label;
-    info.getCell(`B${r}`).font = { color:{argb:fg}, bold:true };
-    r++;
-  });
-  r++;
-  sections.forEach(s=>{
-    info.getCell(`A${r}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:s.color.header} };
-    info.getCell(`B${r}`).value = `${s.title} (${s.items.length} item${s.items.length!==1?'s':''}, ${s.totalPoints} pts)`;
-    info.getCell(`B${r}`).font = { bold:true };
-    r++;
-  });
-
-  // ── Download ──────────────────────────────────────────────────────────────
-  const buf = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `QMS20_Evaluation_Template_${today()}.xlsx`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  const wb = XLSX.utils.book_new();
+  const legendWs = XLSX.utils.aoa_to_sheet([
+    ['How to fill in this template'],
+    [''],
+    [`Form: ${formObj.name}  •  Generated ${today()}  •  Pass score: ${passScore}%`],
+    [''],
+    ['Fill in every metadata column (Agent Name, QA Officer, Evaluation Date, etc.) on the Evaluations sheet.'],
+    ['Answer every rubric item with Y (Yes), N (No), or NA (Not Applicable, only where the item allows it).'],
+    ['[AUTO-FAIL] items: answering N on any one of these forces the whole evaluation to 0% / AUTO FAIL, exactly like the live Evaluation Form.'],
+    ['The Score / Final Score % / Result columns calculate automatically from your Y/N/NA answers — do not type into them.'],
+    ['These formulas are a preview only. When you upload the file, the system recalculates the real score itself from your answers using the exact same rules, so a stale formula or an edited cell can never throw off the real result.'],
+    [''],
+    ...sections.map(s=>[`${s.title}: ${s.items.length} item${s.items.length!==1?'s':''}, ${s.totalPoints} pts`]),
+    [''],
+    ["If the published form's items or points change later, download a fresh template — an old one may not match the current rubric."],
+  ]);
+  legendWs['!cols'] = [{wch:110}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Evaluations');
+  XLSX.utils.book_append_sheet(wb, legendWs, 'Read Me First');
+  XLSX.writeFile(wb, `QMS20_Evaluation_Template_${today()}.xlsx`);
   toast('Template downloaded — fill it in and re-upload via Batch Upload.','info');
 }
 
@@ -11766,7 +11621,8 @@ async function dihDownloadEvalXlsxTemplate(){
 // has no scoring logic to get wrong.
 function dihDownloadTemplate(){
   if(_dihType==='records'){
-    dihDownloadEvalXlsxTemplate().catch(err=>{ console.error(err); toast('Failed to generate template: '+(err.message||err),'error'); });
+    try { dihDownloadEvalXlsxTemplate(); }
+    catch(err){ console.error(err); toast('Failed to generate template: '+(err.message||err),'error'); }
     return;
   }
   if(!_dihType||!DIH_TEMPLATES[_dihType]){ toast('Select a data type first.','error'); return; }
