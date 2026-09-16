@@ -5245,6 +5245,10 @@ CORS_ORIGIN=https://yourdomain.com</code>
         <label>Reason for Edit <span class="req">*</span></label>
         <textarea id="editReqReason" placeholder="Describe what needs to be changed and why..." style="min-height:60px;"></textarea>
       </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Evaluation Date</label>
+        <input type="date" id="editReqEvalDate">
+      </div>
       <!-- Per-item answer editor — populated by openEditRequest() -->
       <div id="editReqItemsWrap" style="display:none;margin-bottom:12px;">
         <label style="font-weight:700;font-size:13px;display:block;margin-bottom:8px;">Proposed Answer Changes</label>
@@ -27227,6 +27231,7 @@ function openEditRequest(){
   document.getElementById('editReqRecordId').value = _currentViewRecordId;
   document.getElementById('editReqReason').value='';
   document.getElementById('editReqRemarks').value = rec.remarks||'';
+  document.getElementById('editReqEvalDate').value = rec.evalDate||'';
 
   const _banner = document.getElementById('editReqModeBanner');
   if(_banner){
@@ -27297,6 +27302,9 @@ function submitEditRequest(){
 
   const origRec = getRecords().find(r=>r.id===recordId);
 
+  const newEvalDate = document.getElementById('editReqEvalDate').value;
+  const evalDateChanged = !!newEvalDate && !!origRec && newEvalDate !== origRec.evalDate;
+
   // Capture proposed answers from item editor
   var proposedAnswers = null;
   var proposedScore   = null;
@@ -27307,10 +27315,12 @@ function submitEditRequest(){
     selects.forEach(function(sel){
       proposedAnswers[sel.getAttribute('data-item')] = sel.value;
     });
-    // Block submission if nothing actually changed
-    if(origRec && origRec.answers){
+    // Block submission if nothing actually changed -- a date-only correction
+    // is a legitimate reason to submit even with every answer left as-is,
+    // so only block when the date is unchanged too.
+    if(origRec && origRec.answers && !evalDateChanged){
       const changed = Object.keys(proposedAnswers).some(k=>proposedAnswers[k]!==(origRec.answers[k]||''));
-      if(!changed){ toast('No answers have been changed — adjust at least one item before submitting.','error'); return; }
+      if(!changed){ toast('Nothing has been changed — adjust an answer or the evaluation date before submitting.','error'); return; }
     }
     // Score the full merged answer set (not just the changed items) against
     // the record's real form, via the same engine _applyAnswersAndRecalc()
@@ -27334,7 +27344,9 @@ function submitEditRequest(){
     const _deUser = getCurrentUser();
     const _oldScore = _deRecords[_deRi].finalScore;
     const _oldResult = _deRecords[_deRi].result;
+    const _oldEvalDate = _deRecords[_deRi].evalDate;
     if(proposedAnswers) _applyAnswersAndRecalc(_deRecords[_deRi], proposedAnswers);
+    if(evalDateChanged) _deRecords[_deRi].evalDate = newEvalDate;
     const _remarksEl = document.getElementById('editReqRemarks');
     if(_remarksEl && _remarksEl.value.trim()) _deRecords[_deRi].remarks = _remarksEl.value.trim();
     _deRecords[_deRi].directEdit = true;
@@ -27342,8 +27354,9 @@ function submitEditRequest(){
     _deRecords[_deRi].directEditBy = _deUser?.username||'';
     _deRecords[_deRi].directEditReason = reason;
     DB.set('records', _deRecords);
+    const _dateNote = evalDateChanged ? ` Evaluation date changed ${_oldEvalDate||'—'} → ${newEvalDate}.` : '';
     logChange('evaluation','Direct Edit',
-      `Score changed ${_oldScore}% → ${_deRecords[_deRi].finalScore}% (${_oldResult} → ${_deRecords[_deRi].result}) for record ${recordId} — edited directly by ${_deUser?.displayName||_deUser?.username||'user'} (within 7-day window). Reason: ${reason}`,
+      `Score changed ${_oldScore}% → ${_deRecords[_deRi].finalScore}% (${_oldResult} → ${_deRecords[_deRi].result}) for record ${recordId} — edited directly by ${_deUser?.displayName||_deUser?.username||'user'} (within 7-day window).${_dateNote} Reason: ${reason}`,
       'QMS');
     toast('Evaluation updated directly — no approval needed within the 7-day window.','success');
     closeModal('editRequestModal');
@@ -27359,6 +27372,7 @@ function submitEditRequest(){
     proposedAnswers: proposedAnswers,
     proposedScore:   proposedScore,
     proposedAutoFail: autoFail,
+    proposedEvalDate: evalDateChanged ? newEvalDate : null,
     proposedRemarks: document.getElementById('editReqRemarks').value.trim()||null,
     status:'pending', submittedAt:new Date().toISOString(), resolvedAt:null, adminNote:null
   });
@@ -27416,6 +27430,10 @@ function openEditReview(reqId){
     <div style="background:#fff3cd;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:12px;">
       <strong>Justification:</strong><br>${esc(req.reason)}
       ${req.proposedScore!=null?'<br><strong>Originally Proposed Score:</strong> '+(req.proposedAutoFail?'AUTO FAIL (0%)':esc(String(req.proposedScore))+'%'):''}
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Evaluation Date ${rec?'<small style="color:var(--gray);font-weight:400;">— current: '+fmtDate(rec.evalDate)+'</small>':''}</label>
+      <input type="date" id="editReviewEvalDate" value="${esc(req.proposedEvalDate||(rec?rec.evalDate:'')||'')}">
     </div>
     <div style="margin-bottom:12px;">
       <strong style="font-size:12px;">Attribute Details — current → requested (adjust if needed before deciding):</strong>
@@ -27608,11 +27626,19 @@ function resolveEditRequest(status){
   }
   const remarksEl = document.getElementById('editReviewRemarks');
   const finalRemarks = remarksEl ? remarksEl.value.trim() : (reqs[idx].proposedRemarks||null);
+  // Admin can adjust the QA/TL's proposed date on the review form before
+  // approving, same as they can correct a proposed answer — the review
+  // input is the source of truth here, the original proposedEvalDate is
+  // left untouched on the request so the audit trail still shows what was
+  // actually asked for.
+  const evalDateEl = document.getElementById('editReviewEvalDate');
+  const finalEvalDate = evalDateEl ? evalDateEl.value : (reqs[idx].proposedEvalDate||null);
 
   const records=getRecords();
   const ri=records.findIndex(r=>r.id===reqs[idx].recordId);
   const oldScore  = ri>=0 ? records[ri].finalScore : null;
   const oldResult = ri>=0 ? records[ri].result     : null;
+  const oldEvalDate = ri>=0 ? records[ri].evalDate : null;
 
   reqs[idx].status=status; reqs[idx].adminNote=adminNote; reqs[idx].resolvedAt=new Date().toISOString();
   reqs[idx].oldScore=oldScore;
@@ -27631,6 +27657,8 @@ function resolveEditRequest(status){
       // sectionScores cannot be reconstructed from score alone — mark as edited
       records[ri].sectionScores = records[ri].sectionScores || {};
     }
+    const evalDateChanged = !!finalEvalDate && finalEvalDate!==oldEvalDate;
+    if(evalDateChanged) records[ri].evalDate = finalEvalDate;
     if(finalRemarks) records[ri].remarks=finalRemarks;
     records[ri].editApproved=true;
     records[ri].editApprovedAt=new Date().toISOString();
@@ -27638,10 +27666,12 @@ function resolveEditRequest(status){
     DB.set('records',records);
     reqs[idx].finalAnswers=finalAnswers;
     reqs[idx].finalRemarks=finalRemarks;
+    reqs[idx].finalEvalDate=evalDateChanged?finalEvalDate:null;
     reqs[idx].finalScoreAfter=records[ri].finalScore;
-    // Audit trail — log the score change
+    // Audit trail — log the score and (if applicable) date change
+    const _dateNote = evalDateChanged ? ` Evaluation date changed ${oldEvalDate||'—'} → ${finalEvalDate}.` : '';
     logChange('evaluation','Edit Approved',
-      `Score changed ${oldScore}% → ${records[ri].finalScore}% (${oldResult} → ${records[ri].result}) for record ${reqs[idx].recordId} — approved by ${(getCurrentUser()||{}).username||'admin'}`,
+      `Score changed ${oldScore}% → ${records[ri].finalScore}% (${oldResult} → ${records[ri].result}) for record ${reqs[idx].recordId} — approved by ${(getCurrentUser()||{}).username||'admin'}.${_dateNote}`,
       'QMS');
   } else if(status==='rejected'){
     reqs[idx].finalScoreAfter=oldScore;
